@@ -1,16 +1,32 @@
-"""All sound is synthesised at startup: soft bells, breathy gathers, a slow generative score.
+"""Tidewake audio: synthesized sound effects plus the composed soundtrack (tidewake/music.py).
 
-The music is two calm pre-rendered loops (C major for Lighttide, A minor for Dusktide):
-slow overlapping pad chords and a sparse soft melody with an echo, crossfaded as the tide turns.
-If there is no audio device, the game simply runs silently.
+The six songs are procedurally synthesized with numpy. Each is rendered once, in a separate
+low-priority process, on first launch and cached on disk (keyed by music.cache_key()), then
+loaded from the cache. Playback goes through the SDL mixer (pygame-ce) with a pyglet fallback;
+tracks crossfade by volume ramps so nothing ever starts or stops on a loud sample.
 """
 import io
+import os
+import threading
+import time
 import random
 import struct
 
 import numpy as np
 
 RATE = 22050
+MUSIC_RATE = 44100
+MUSIC_CHANNELS = 4
+MUSIC_GAIN = 0.32          # the songs are mastered hot; this sits them under the SFX
+FADE_RATE = 0.22           # volume per second -> ~4 s crossfades
+DAY_SONGS = ('lighttide', 'brightreef', 'emberglow')
+DAY_SECONDS = 170.0        # rotate daytime songs after about this long
+
+
+def _wav_stereo(pcm, rate):
+    data = np.ascontiguousarray(pcm, dtype='<i2').tobytes()
+    hdr = b'RIFF' + struct.pack('<I', 36 + len(data)) + b'WAVEfmt ' + struct.pack('<IHHIIHH', 16, 1, 2, rate, rate * 4, 4, 16)
+    return hdr + b'data' + struct.pack('<I', len(data)) + data
 PENTA_LIGHT = [0, 2, 4, 7, 9, 12, 14, 16]       # major pentatonic (semitones)
 PENTA_DUSK = [0, 3, 5, 7, 10, 12, 15]            # minor pentatonic
 
@@ -136,56 +152,6 @@ def _pad(chords, seconds_each=8.0, base=130.81):
     return out
 
 
-def _addwrap(out, s, start):
-    n = len(out)
-    start %= n
-    a = min(len(s), n - start)
-    out[start:start + a] += s[:a]
-    if a < len(s):
-        out[:len(s) - a] += s[a:]
-
-
-def _track(dusk, seconds=64.0, seed=5):
-    """A calm, seamless ambient loop: slow pad chords plus a sparse soft melody, all in one key."""
-    rng = np.random.default_rng(seed + (7 if dusk else 0))
-    n = int(RATE * seconds)
-    out = np.zeros(n)
-    if dusk:      # A minor: Am9, Fmaj7, Dm9, Em7 (semitones from A2)
-        base, chords, scale = 110.0, [[0, 7, 12, 14, 15], [-4, 3, 7, 12, 15], [-7, 0, 3, 7, 10], [-5, 2, 7, 10, 14]], [12, 15, 17, 19, 22, 24]
-    else:         # C major: Cadd9, Am7, Fmaj7, G6 (semitones from C3)
-        base, chords, scale = 130.81, [[0, 7, 12, 14, 16], [-3, 4, 7, 12, 16], [-7, 0, 4, 9, 16], [-5, 2, 7, 11, 16]], [12, 14, 16, 19, 21, 24, 26]
-    seg = n // len(chords)
-    L = seg * 2                                   # each chord overlaps the next by half
-    t = np.arange(L) / RATE
-    win = np.sin(np.linspace(0, np.pi, L)) ** 2
-    for i, ch in enumerate(chords):
-        s = np.zeros(L)
-        for semi in ch:
-            f = base * 2 ** (semi / 12)
-            for det in (-0.4, 0.4):
-                s += np.sin(2 * np.pi * (f + det) * t + rng.uniform(0, 6)) * 0.4
-            s += np.sin(2 * np.pi * f * 2 * t) * 0.04
-        s *= 1 + 0.08 * np.sin(2 * np.pi * t / 5.3)
-        _addwrap(out, s * win, i * seg)
-    out = out / np.abs(out).max() * 0.16
-    # sparse melody, soft attacks, with a gentle echo
-    mel = np.zeros(n)
-    pos = rng.uniform(2, 4)
-    last = rng.integers(len(scale))
-    while pos < seconds - 1:
-        last = int(np.clip(last + rng.choice([-2, -1, -1, 0, 1, 1, 2]), 0, len(scale) - 1))
-        f = base * 2 ** (scale[last] / 12)
-        dur = 3.0
-        tt = np.arange(int(RATE * dur)) / RATE
-        note = (np.sin(2 * np.pi * f * tt) + 0.12 * np.sin(2 * np.pi * f * 2 * tt)) * np.minimum(1, tt / 0.12) * np.exp(-tt * 1.4)
-        _addwrap(mel, note * rng.uniform(0.7, 1.0), int(pos * RATE))
-        pos += rng.choice([1.5, 2.0, 2.0, 3.0, 4.0, 6.0]) * (1.3 if dusk else 1.0)
-    for k, g in ((1, 0.32), (2, 0.12)):
-        mel = mel + np.roll(mel, int(RATE * 0.42 * k)) * g
-    out += _smooth(mel, 3)[:n] * 0.06
-    return out / np.abs(out).max() * 0.3
-
-
 SOUNDS = ['shape', 'click', 'hover', 'mote', 'chord', 'bounce', 'whoosh', 'awaken', 'tide'] + \
     [f'{p}_{m}' for p in ('gather', 'step') for m in ('stone', 'soft', 'leaf', 'sand', 'wood', 'glass', 'water', 'puff')]
 
@@ -208,18 +174,22 @@ class _Pygame:
         import os
         os.environ.setdefault('PYGAME_HIDE_SUPPORT_PROMPT', '1')
         import pygame.mixer as mx
-        mx.pre_init(RATE, -16, 2, 2048)
-        mx.init(RATE, -16, 2, 2048)
+        mx.pre_init(MUSIC_RATE, -16, 2, 2048)
+        mx.init(MUSIC_RATE, -16, 2, 2048)
         if not mx.get_init():
             raise RuntimeError('no audio device')
         mx.set_num_channels(32)
-        mx.set_reserved(2)              # channels 0 and 1: the two music loops
+        mx.set_reserved(MUSIC_CHANNELS)  # channels 0..3: soundtrack crossfades
         self.mx = mx
 
     def load(self, samples):
         a = np.clip(samples, -1, 1)
+        a = np.interp(np.arange(len(a) * 2) / 2, np.arange(len(a)), a)   # SFX are 22.05 kHz; mixer runs at 44.1
         st = (np.repeat(a[:, None], 2, 1) * 30000).astype('<i2')
         return self.mx.Sound(buffer=st.tobytes())
+
+    def load_pcm(self, pcm):
+        return self.mx.Sound(buffer=np.ascontiguousarray(pcm, dtype='<i2').tobytes())
 
     def play(self, snd, volume):
         ch = snd.play()
@@ -237,10 +207,11 @@ class Audio:
         self.sounds = {}
         self.enabled = False
         self.backend = None
-        self.tracks = None
-        self.players = [None, None]
-        self.vols = [0.0, 0.0]
-        self.mix = 0.0
+        self.music = {}            # song name -> loaded sound, filled in by the prep thread
+        self.music_status = 'idle'
+        self.chan = {}             # song name -> [channel/player, current volume]
+        self.day_i, self.day_t, self.current = 0, 0.0, None
+        self._pool, self._quit = None, False
         try:
             try:
                 self.pg = _Pygame()
@@ -258,8 +229,6 @@ class Audio:
             rng = np.random.default_rng(11)
             for name in SOUNDS:
                 self.sounds[name] = [self._load(name, _declick(_synth(name, rng))) for _ in range(2 if name != 'awaken' else 1)]
-            import threading
-            threading.Thread(target=self._build_tracks, daemon=True).start()
             self.enabled = True
         except Exception as e:
             print('audio disabled:', e)
@@ -286,45 +255,168 @@ class Audio:
         except Exception:
             pass
 
-    def _build_tracks(self):
+    # ------------------------------------------------------------ soundtrack prep
+    def start_music(self, cache_dir):
+        """Load cached songs, rendering missing ones in a background low-priority process."""
+        if not self.enabled:
+            return
+        threading.Thread(target=self._prep_music, args=(cache_dir,), daemon=True).start()
+
+    def _prep_music(self, cache_dir):
+        from . import music
+        pool = None
         try:
-            # the loops are circular (tails wrap to the start), so looping them is seamless
-            self.tracks = [self._load('light', _track(False)), self._load('dusk', _track(True))]
+            self.music_status = 'preparing'
+            key = music.cache_key()
+            os.makedirs(cache_dir, exist_ok=True)
+            for f in os.listdir(cache_dir):                    # drop songs from older versions
+                if f.endswith('.npy') and not f.endswith(f'-{key}.npy'):
+                    try:
+                        os.remove(os.path.join(cache_dir, f))
+                    except OSError:
+                        pass
+            for name in music.SONGS:
+                if self._quit:
+                    break
+                path = os.path.join(cache_dir, f'{name}-{key}.npy')
+                try:
+                    if not os.path.exists(path):
+                        if pool is None:
+                            import multiprocessing as mp
+                            from concurrent.futures import ProcessPoolExecutor
+                            from . import workers
+                            pool = self._pool = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context('spawn'),
+                                                                    initializer=workers.init_worker)
+                        t0 = time.time()
+                        pool.submit(workers.music_job, name, path).result()
+                        print(f'music: rendered {name} in {time.time() - t0:.1f}s')
+                    pcm = np.load(path)
+                    if pcm.ndim != 2 or pcm.shape[1] != 2:
+                        raise ValueError('bad cache file')
+                    self.music[name] = self._load_pcm(name, pcm)
+                except Exception as e:
+                    if self._quit:
+                        break
+                    print('music: could not prepare', name, e)
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+            self.music_status = 'ready'
         except Exception as e:
+            self.music_status = 'failed'
             print('music disabled:', e)
+        finally:
+            if pool is not None:
+                pool.shutdown(wait=False)
+
+    def shutdown(self):
+        """Quitting: stop any in-progress song render right away (it resumes next launch)."""
+        self._quit = True
+        pool = self._pool
+        if pool is not None:
+            try:
+                for proc in list(getattr(pool, '_processes', {}).values()):
+                    proc.terminate()
+                pool.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+
+    def _load_pcm(self, name, pcm):
+        if self.backend == 'sdl':
+            return self.pg.load_pcm(pcm)
+        return self._media.load(f'{name}.wav', file=io.BytesIO(_wav_stereo(pcm, MUSIC_RATE)), streaming=False)
 
     def set_volumes(self, sounds, music):
         self.sfx_volume, self.music_volume = sounds, music
 
-    def update(self, dt, dusk=0.0, playing=True):
-        """Two looping ambient tracks (light / dusk), crossfaded slowly as the tide turns."""
-        if not self.enabled or self.tracks is None:
+    # ------------------------------------------------------------ soundtrack playback
+    def pick(self, dt, dusk=0.0, mode='game'):
+        """Which song should be playing now (None if nothing is ready yet)."""
+        ready = self.music
+        if mode != 'game':
+            return 'windward' if 'windward' in ready else None
+        if dusk > 0.6:
+            want = 'dusktide'
+        elif dusk > 0.3:
+            want = 'emberglow'                                   # evening
+        else:
+            self.day_t += dt
+            if self.day_t > DAY_SECONDS:
+                self.day_t, self.day_i = 0.0, self.day_i + 1
+            want = DAY_SONGS[self.day_i % len(DAY_SONGS)]
+        if want in ready:
+            return want
+        if self.current in ready and self.current != 'windward':
+            return self.current
+        for name in DAY_SONGS + ('dusktide',):
+            if name in ready:
+                return name
+        return None
+
+    def update(self, dt, dusk=0.0, mode='game', under=0.0):
+        """Crossfade between songs; the cave layer fades in underground."""
+        if not self.enabled:
             return
         try:
-            target = 1.0 if dusk > 0.5 else 0.0
-            self.mix += (target - self.mix) * min(1.0, dt / 6.0)
-            for k in (0, 1):
-                want = self.music_volume * 0.9 * (self.mix if k else 1.0 - self.mix)
-                # ramp gently towards the wanted volume (never jump)
-                v = self.vols[k] + max(-0.5 * dt, min(0.5 * dt, want - self.vols[k]))
-                self.vols[k] = v
-                if self.backend == 'sdl':
-                    ch = self.players[k]
-                    if ch is None:
-                        ch = self.players[k] = self.pg.music_channel(k)
-                        ch.set_volume(0.0)
-                        ch.play(self.tracks[k], loops=-1)
-                    ch.set_volume(v)
-                else:
-                    pl = self.players[k]
-                    if pl is None and v > 0.001:
-                        pl = self.players[k] = self._media.Player()
-                        pl.queue(self.tracks[k])
-                        pl.loop = True
-                        pl.volume = 0.0
-                        pl.play()
-                    if pl is not None and abs(getattr(pl, '_tw_vol', -1) - v) > 0.004:
-                        pl.volume = v
-                        pl._tw_vol = v
+            want = self.pick(dt, dusk, mode)
+            self.current = want
+            mv = self.music_volume * MUSIC_GAIN
+            under = under if mode == 'game' and 'cave' in self.music else 0.0
+            targets = {}
+            if want:
+                targets[want] = mv * (1.0 - 0.75 * under)
+            if under > 0:
+                targets['cave'] = max(targets.get('cave', 0.0), mv * under)
+            for name in list(set(self.chan) | set(targets)):
+                tgt = targets.get(name, 0.0)
+                ent = self.chan.get(name)
+                if ent is None:
+                    if tgt <= 0.001 or name not in self.music:
+                        continue
+                    h = self._start(name)
+                    if h is None:
+                        continue
+                    ent = self.chan[name] = [h, 0.0]
+                v = ent[1] + max(-FADE_RATE * dt, min(FADE_RATE * dt, tgt - ent[1]))
+                ent[1] = v
+                self._set_vol(ent[0], v)
+                if tgt <= 0.0 and v <= 0.0005:
+                    self._stop(ent[0])
+                    del self.chan[name]
+        except Exception as e:
+            print('music update error:', e)
+
+    def _start(self, name):
+        if self.backend == 'sdl':
+            used = {e[0] for e in self.chan.values()}          # sdl handles are channel indices
+            for i in range(MUSIC_CHANNELS):
+                ch = self.pg.music_channel(i)
+                if i not in used and not ch.get_busy():
+                    ch.set_volume(0.0)
+                    ch.play(self.music[name], loops=-1)
+                    return i
+            return None
+        pl = self._media.Player()
+        pl.queue(self.music[name])
+        pl.loop = True
+        pl.volume = 0.0
+        pl.play()
+        return pl
+
+    def _set_vol(self, h, v):
+        if self.backend == 'sdl':
+            self.pg.music_channel(h).set_volume(v)
+        elif abs(getattr(h, '_tw_vol', -1) - v) > 0.003:
+            h.volume = v
+            h._tw_vol = v
+
+    def _stop(self, h):
+        try:
+            if self.backend == 'sdl':
+                self.pg.music_channel(h).stop()
+            else:
+                h.pause()
+                h.delete()
         except Exception:
             pass

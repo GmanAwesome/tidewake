@@ -55,6 +55,8 @@ class App(pyglet.window.Window):
         self._set_icon()
         self.pool = ProcessPoolExecutor(max_workers=workers_count, mp_context=mp.get_context('spawn'),
                                         initializer=workers.init_worker)
+        self.audio.start_music(os.path.join(base_dir, 'music-cache'))
+        self._under, self._under_t = 0.0, 0.0
         self.keys = key.KeyStateHandler()
         self.push_handlers(self.keys)
         self.session = None
@@ -222,6 +224,7 @@ class App(pyglet.window.Window):
             self.session = None
         self.stop_backdrop()
         self.settings.save()
+        self.audio.shutdown()
         self.pool.shutdown(wait=False, cancel_futures=True)
         pyglet.app.exit()
         self.has_exit = True
@@ -436,7 +439,17 @@ class App(pyglet.window.Window):
                 ses.world.update(ses.player.x, ses.player.z, yaw=ses.player.yaw)
             dusk = TIDE.dusk_amount(ses.phase)
         self.jump_pressed = False
-        self.audio.update(dt, dusk)
+        if self.mode == 'game' and self.session:
+            self._under_t -= dt
+            if self._under_t <= 0:                    # enclosed above and below -> underground
+                self._under_t = 0.5
+                try:
+                    self._under = 1.0 if self.session.sky_at(*self.session.player.eye) < 0.3 else 0.0
+                except Exception:
+                    self._under = 0.0
+        else:
+            self._under = 0.0
+        self.audio.update(dt, dusk, 'game' if self.mode == 'game' else 'menu', self._under)
 
     # ------------------------------------------------------------------ draw
     def camera(self):
@@ -541,7 +554,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.3.2.1   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.3.3   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

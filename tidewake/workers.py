@@ -77,3 +77,9 @@ def lod_job(seed, sq, sr, paths, step=2):
             first += len(v)
     data = np.concatenate(parts).tobytes() if first else b''
     return sq, sr, data, ranges, time.perf_counter() - t, step
+
+
+def music_job(name, path):
+    """Render one soundtrack song to the music cache (runs in its own low-priority process)."""
+    from . import music
+    return music.render_to(name, path)

@@ -524,7 +524,8 @@ def vista(app, log, shot, look_at, settled, arg):
     yield lambda: ses.world.busy() == 0 and ses.world.busy_lod() == 0 and len(ses.world.lod) > 10 or time.perf_counter() - t0 > 60
     yield 1.0
     from . import fast as _f
-    log('numba', _f.ENABLED, 'audio', app.audio.backend, app.audio.enabled)
+    log('numba', _f.ENABLED, 'audio', app.audio.backend, app.audio.enabled, 'music', app.audio.music_status,
+        sorted(app.audio.music), {k: round(v[1], 3) for k, v in app.audio.chan.items()})
     log('lod groups', len(ses.world.lod), 'chunks', len(ses.world.chunks), 'wait', time.perf_counter() - t0,
         'lod ms', 1000 * sum(ses.world.timings['lod']) / max(1, len(ses.world.timings['lod'])),
         'gen ms', 1000 * sum(ses.world.timings['gen']) / max(1, len(ses.world.timings['gen'])))

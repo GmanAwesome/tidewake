@@ -14,12 +14,18 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.2.1-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.3-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.3.3 — a brand-new soundtrack
+
+- Six original songs, all synthesized by the game itself: **Windward** (title theme), **Lighttide**, **Brightreef** and **Emberglow** (daytime, rotating; Emberglow in the evening), **Dusktide** (night) and a **cave layer** that fades in underground.
+- Music-box, kalimba, marimba, steel drum, felt piano and flute over a gentle jungle groove, with smooth crossfades between songs.
+- First launch prepares the music in the background (about a minute); the game stays fully playable meanwhile and songs start as soon as each is ready. After that they load instantly from the cache.
 
 ## New in 1.3.2.1 — real-looking blocks and new icons
 
