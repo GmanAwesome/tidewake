@@ -5,7 +5,8 @@ strata, cracks, leaves, boards, bricks and sparkle. Built with numpy at startup 
 import numpy as np
 
 T = 64                  # tile size in texels
-COLS = 16               # atlas columns -> tile index = material * 2 + (side ? 1 : 0)
+COLS = 16               # atlas columns -> tile index = material * 2 + (side ? 1 : 0); fronts at 2 * N + material
+# channel R: brightness multiplier (/2).  channel G: glow mask (0.5 = normal emission, 0 = none, 1 = double)
 
 
 def _rng(k):
@@ -137,7 +138,7 @@ def tile(mat, side):
     if mat == 5:            # snow
         return n(4, 2, 0.04) * speck(rng, 0.01, 1.12, 1.25)
     if mat in (6, 12, 30):  # ice, crystal, glass
-        return facets(rng, 6 if mat != 30 else 3) * (bevel(0.05) if mat == 30 else 1.0)
+        return facets(rng, 6 if mat != 30 else 3) * (bevel(0.05) if (mat == 30 and side) else 1.0)
     if mat == 7:            # basalt: little hex columns
         if side:
             col = np.abs(((X * 4) % 1) - 0.5)
@@ -166,17 +167,20 @@ def tile(mat, side):
     if mat in (21, 22, 23):  # plinth & spires: carved bands
         band = np.where((np.abs(Y - 0.5) < 0.04) | (Y < 0.04), 0.78, 1.0)
         runes = np.where((np.abs(((X * 6) % 1) - 0.5) < 0.06) & (np.abs(Y - 0.5) > 0.12) & (np.abs(Y - 0.5) < 0.3), 0.85, 1.0)
-        return band * runes * n(5, 2, 0.05) if side else bevel(0.08) * n(5, 2, 0.04)
-    if mat in (26, 29):     # planks, chest
-        b = boards(rng, 4)
-        if mat == 29 and side:
-            frame = np.where((Y < 0.1) | (Y > 0.9) | (np.abs(X - 0.5) < 0.05), 0.72, 1.0)
-            latch = np.where((np.abs(X - 0.5) < 0.07) & (np.abs(Y - 0.62) < 0.08), 1.35, 1.0)
-            return b * frame * latch
-        return b
-    if mat == 27:           # tinker bench
-        return boards(rng, 3) * (np.where((np.abs(X - 0.5) < 0.02) | (np.abs(Y - 0.5) < 0.02), 0.75, 1.0) if not side else 1.0)
-    if mat in (28, 31):     # kiln, bricks
+        return band * runes * n(5, 2, 0.05) if side else cracks(rng, 5, 0.008, 0.88) * n(5, 2, 0.04)
+    if mat == 26:           # planks
+        return boards(rng, 4)
+    if mat == 29:           # chest: boards with iron bands and a lid seam
+        if not side:
+            return boards(rng, 4) * np.where(vnoise(rng, 2) > 0.5, 0.9, 1.0)
+        return chest_side(rng, False)
+    if mat == 27:           # tinker bench: plank top; sides show the apron, legs and a stretcher
+        if not side:
+            return boards(rng, 3) * speck(rng, 0.01, 0.75, 0.9)
+        return bench_side(rng, False)
+    if mat == 28:           # kiln: clay bricks, sooty top
+        return bricks(rng, 4, 2) if side else cracks(rng, 6, 0.01, 0.8) * n(4, 2, 0.1) * np.where(vnoise(rng, 3) > 0.2, 0.8, 1.0)
+    if mat == 31:
         return bricks(rng, 4, 2)
     if mat == 41:           # mossy bricks
         return bricks(rng, 4, 2) * np.where(vnoise(rng, 3, 2) > 0.15, 1.12, 1.0)
@@ -184,21 +188,115 @@ def tile(mat, side):
         flecks = np.where(vnoise(rng, 8, 2) > 0.32, 1.35, 0.72)
         return flecks * cracks(rng, 6) * n(6, 2, 0.06)
     if mat == 40:           # polished stone
-        return bevel(0.07) * n(3, 2, 0.03)
-    if mat == 42:           # lumen lamp: frame + glowing pane
-        frame = np.where((X < 0.12) | (X > 0.88) | (Y < 0.12) | (Y > 0.88), 0.7, 1.15)
-        return frame * n(4, 2, 0.05)
+        return (bevel(0.07) if side else cracks(rng, 4, 0.006, 0.9)) * n(3, 2, 0.03)
+    if mat == 42:           # lumen lamp: iron frame + glowing pane
+        fr = (X < 0.12) | (X > 0.88) | (Y < 0.12) | (Y > 0.88)
+        if not side:
+            return n(4, 2, 0.05), np.full((T, T), 0.6)
+        return np.where(fr, 0.55, 1.15) * n(4, 2, 0.05), np.where(fr, 0.0, 0.75)
+    if mat == 13:           # vine: leafy strands
+        strands = 1 + 0.18 * np.sin((X * 5 + vnoise(rng, 3) * 0.4) * np.pi * 2)
+        return strands * leaves(rng, 40) * 1.05
+    if mat in (14, 25):     # bloom, petals: soft petal veins
+        r = np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
+        ang = np.arctan2(Y - 0.5, X - 0.5)
+        return (1 + 0.1 * np.cos(ang * 5)) * (1 - 0.1 * r) * n(5, 2, 0.05)
+    if mat in (19, 35):     # sprout, berry bush: leaves with veins
+        veins = np.where(np.abs(((X + Y * 0.5) * 4) % 1 - 0.5) < 0.04, 0.85, 1.0)
+        return leaves(rng, 34) * veins
+    if mat == 20:           # glowcap: bright spots that glow
+        d1, _, _ = voronoi(rng, 7)
+        spot = d1 < 0.07
+        return np.where(spot, 1.3, 0.95) * n(5, 2, 0.05), np.where(spot, 1.0, 0.25)
+    if mat == 24:           # lumen shard: facets with glowing seams
+        _, edge, idx = voronoi(rng, 5)
+        return 0.9 + 0.25 * (idx * 0.618 % 1), np.where(edge < 0.02, 1.0, 0.45)
+    if mat == 18:           # lantern: iron bars over glowing glass
+        bars = (np.abs(((X * 3) % 1) - 0.5) > 0.42)
+        return np.where(bars, 0.45, 1.1), np.where(bars, 0.0, 0.8)
+    if mat == 33:           # bedroll: woven fabric with two straps
+        weave = 1 + 0.05 * np.sign(np.sin(X * np.pi * 32) * np.sin(Y * np.pi * 32))
+        straps = (np.abs(X - 0.3) < 0.05) | (np.abs(X - 0.7) < 0.05)
+        plaid = 1 + 0.06 * (np.sin(Y * np.pi * 8) > 0.6) + 0.06 * (np.sin(X * np.pi * 8) > 0.6)
+        return weave * (np.where(straps, 0.62, 1.0) if side else plaid)
+    if mat == 34:           # glowstick: wood grain, glowing tip
+        return 1 + 0.1 * np.sin((X * 6 + vnoise(rng, 3) * 0.3) * np.pi * 2), np.where(Y > 0.5, 0.9, 0.3)
     return n(6, 2, 0.06)
 
 
+def bench_side(rng, front):
+    """Workbench side: plank apron on top, two legs, dark recess between with a stretcher (and a drawer on the front)."""
+    wood = boards(rng, 2, vertical=True) * (1 + 0.04 * vnoise(rng, 8))
+    apron = Y > 0.74
+    legs = (X < 0.16) | (X > 0.84)
+    stretcher = (Y > 0.16) & (Y < 0.27)
+    out = np.where(apron | legs | stretcher, wood, 0.34 + 0.06 * vnoise(rng, 4))
+    out = np.where(apron & (np.abs(Y - 0.745) < 0.02), 0.6, out)                    # apron edge shadow
+    out = np.where(legs & ~apron & ((np.abs(X - 0.16) < 0.015) | (np.abs(X - 0.84) < 0.015)), 0.65, out)
+    if front:
+        drawer = (np.abs(X - 0.5) < 0.24) & (Y > 0.44) & (Y < 0.68)
+        out = np.where(drawer, wood * 1.05, out)
+        out = np.where(drawer & ((np.abs(np.abs(X - 0.5) - 0.24) < 0.02) | (np.abs(Y - 0.44) < 0.02) | (np.abs(Y - 0.68) < 0.02)), 0.6, out)
+        knob = (X - 0.5) ** 2 + (Y - 0.56) ** 2 < 0.03 ** 2
+        out = np.where(knob, 1.45, out)
+        # a saw hanging on the apron
+        saw = (np.abs(Y - 0.87) < 0.05 - (X - 0.2) * 0.12) & (X > 0.2) & (X < 0.62)
+        out = np.where(saw, 1.55, out)
+        out = np.where((X > 0.62) & (X < 0.72) & (np.abs(Y - 0.85) < 0.04), 0.7, out)
+    return out
+
+
+def chest_side(rng, front):
+    """Chest: vertical boards, iron corner bands and top band, lid seam; the front has a latch and keyhole."""
+    b = boards(rng, 5, vertical=True)
+    iron = (X < 0.09) | (X > 0.91) | (Y > 0.9) | (Y < 0.07) | (np.abs(Y - 0.62) < 0.035)
+    out = np.where(iron, 0.52 + 0.06 * vnoise(rng, 8), b)
+    rivets = iron & ((((X * 10) % 1) - 0.5) ** 2 + (((Y * 16) % 1) - 0.5) ** 2 < 0.06)
+    out = np.where(rivets, 0.85, out)
+    out = np.where(np.abs(Y - 0.6) < 0.008, 0.4, out)                              # lid seam
+    if front:
+        plate = (np.abs(X - 0.5) < 0.09) & (Y > 0.44) & (Y < 0.7)
+        out = np.where(plate, 1.6, out)
+        hole = ((X - 0.5) ** 2 + ((Y - 0.53) * 0.8) ** 2 < 0.022 ** 2) | ((np.abs(X - 0.5) < 0.008) & (Y > 0.47) & (Y < 0.53))
+        out = np.where(hole, 0.25, out)
+    return out
+
+
+def kiln_front(rng):
+    """Clay-brick kiln front with an arched firebox; the fire inside glows (G channel)."""
+    br = bricks(rng, 4, 2)
+    cx, top = 0.5, 0.52
+    arch = ((np.abs(X - cx) < 0.26) & (Y < top)) | (((X - cx) ** 2 + ((Y - top) * 1.0) ** 2) < 0.26 ** 2)
+    arch &= Y > 0.1
+    rim = ~arch & ((((np.abs(X - cx) < 0.32) & (Y < top) & (Y > 0.06)) | (((X - cx) ** 2 + (Y - top) ** 2) < 0.32 ** 2)))
+    out = np.where(rim, 0.78 + 0.08 * vnoise(rng, 8), br)
+    fire = 0.30 + 0.5 * np.clip(1.0 - (Y - 0.1) / 0.45, 0, 1) * (0.7 + 0.3 * vnoise(rng, 6))
+    out = np.where(arch, fire, out)
+    sill = (np.abs(X - cx) < 0.34) & (Y < 0.1)
+    out = np.where(sill, 0.7, out)
+    glow = np.where(arch, np.clip(1.15 - (Y - 0.1) * 1.1, 0.2, 1.0), 0.0)
+    return out, glow
+
+
+FRONTS = {27: lambda rng: bench_side(rng, True), 28: kiln_front, 29: lambda rng: chest_side(rng, True)}
+
+
 def atlas(n_mats):
-    rows = (n_mats * 2 + COLS - 1) // COLS
-    A = np.full((rows * T, COLS * T), 0.5)
+    tiles = n_mats * 3
+    rows = (tiles + COLS - 1) // COLS
+    A = np.full((rows * T, COLS * T, 2), 0.5)
+
+    def put(k, t):
+        mult, glow = t if isinstance(t, tuple) else (t, None)
+        r, c = divmod(k, COLS)
+        A[r * T:(r + 1) * T, c * T:(c + 1) * T, 0] = np.clip(mult, 0.3, 1.9) / 2.0
+        if glow is not None:
+            A[r * T:(r + 1) * T, c * T:(c + 1) * T, 1] = np.clip(glow, 0, 1)
+
     for m in range(n_mats):
         for side in (0, 1):
-            k = m * 2 + side
-            r, c = divmod(k, COLS)
-            t = np.clip(tile(m, side), 0.35, 1.8) if m else np.ones((T, T))
-            A[r * T:(r + 1) * T, c * T:(c + 1) * T] = t / 2.0
+            put(m * 2 + side, tile(m, side) if m else np.ones((T, T)))
+        f = FRONTS.get(m)
+        put(n_mats * 2 + m, f(_rng(500 + m)) if f else (tile(m, 1) if m else np.ones((T, T))))
     img = np.clip(A * 255, 0, 255).astype(np.uint8)
     return img, rows

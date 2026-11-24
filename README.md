@@ -14,12 +14,19 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.2-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.2.1-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.3.2.1 — real-looking blocks and new icons
+
+- Every item has a new menu icon: textured 3D blocks, hand-drawn tools, food and materials.
+- The workbench, kiln and chest now look like the real things: a bench with legs, a drawer, saw and vise; a brick kiln with an arched firebox and chimney; a chest with iron bands and a latch. They face you when placed.
+- Lanterns, bedrolls, glowsticks, vines, flowers and more got their own textures. The square grid on plinth tops is gone.
+- The dark outline around every block is gone; only the block you look at is highlighted.
 
 ## New in 1.3.2 — texture pack and steadier sound
 

@@ -646,7 +646,14 @@ class Session:
             for mob in self.mobs:
                 if cell_at(mob.x, mob.z) == (q, r) and math.floor(mob.y / LAYER) <= y <= math.floor((mob.y + mob.height) / LAYER):
                     return False
-        self.world.set(q, r, y, mat, INITIAL_META.get(mat, 0), now=True)
+        meta0 = INITIAL_META.get(mat, 0)
+        if mat in (M['tinker_bench'], M['kiln'], M['chest']):
+            # face the front (drawer, firebox, latch) towards you
+            from .hexgrid import DIR_NORMALS
+            cx_, cz_ = center(q, r)
+            vx, vz = p.x - cx_, p.z - cz_
+            meta0 = max(range(6), key=lambda d: DIR_NORMALS[d][0] * vx + DIR_NORMALS[d][1] * vz)
+        self.world.set(q, r, y, mat, meta0, now=True)
         if not self.dev:
             self.inv.take_from(self.hot)
         self.stats['placed'] += 1
@@ -830,6 +837,18 @@ class Session:
         self.drops = keep[-300:]
 
     def _update_kilns(self, dt):
+        for key, k in self.kilns.items():
+            lit = k['burn'] > 0
+            if lit != k.get('_lit', False):
+                k['_lit'] = lit
+                try:
+                    q, r, y = (int(v) for v in key.split(','))
+                    if self.world.get(q, r, y) == M['kiln']:
+                        mt = self.world.get_meta(q, r, y)
+                        self.world.set_meta(q, r, y, (mt | 8) if lit else (mt & ~8))
+                        self.world.dirty.add((q // C.CHUNK, r // C.CHUNK))
+                except Exception:
+                    pass
         for k in self.kilns.values():
             sl = k['slots'].slots            # 0 input, 1 fuel, 2 output
             inp, fuel, out = sl

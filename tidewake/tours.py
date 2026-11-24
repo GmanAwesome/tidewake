@@ -267,7 +267,11 @@ def v11(app, log, shot, look_at, settled, arg):
         a, b = q0 + dq * 2, r0 + dr * 2
         t = ses.world.column_top(a, b)
         if t is not None and t >= 0 and ses.world.get(a, b, t + 1) in (0, M['petals']):
-            ses.world.set(a, b, t + 1, mat, now=True)
+            from .hexgrid import DIR_NORMALS
+            ax, az = center(a, b)
+            vx, vz = np.subtract(center(q0 - 5, r0 + 3), (ax, az))
+            face = max(range(6), key=lambda d: DIR_NORMALS[d][0] * vx + DIR_NORMALS[d][1] * vz)
+            ses.world.set(a, b, t + 1, mat, face if mat in (M['tinker_bench'], M['kiln'], M['chest']) else 0, now=True)
             placed.append((a, b, t + 1, mat))
             if mat == M['chest']:
                 from .inventory import Inventory
@@ -276,7 +280,7 @@ def v11(app, log, shot, look_at, settled, arg):
                 ses.chests[f'{a},{b},{t + 1}'].add(M['planks'], 20)
             if mat == M['kiln']:
                 from .inventory import Inventory
-                ses.kilns[f'{a},{b},{t + 1}'] = {'slots': Inventory(3), 'burn': 0.0, 'burn_max': 1.0, 'prog': 0.0}
+                ses.kilns[f'{a},{b},{t + 1}'] = {'slots': Inventory(3), 'burn': 5.0, 'burn_max': 5.0, 'prog': 0.0}
                 ses.kilns[f'{a},{b},{t + 1}']['slots'].slots = [[M['verdigris_ore'], 5, 0], [I.EMBERITE.id, 4, 0], None]
     log('placed', placed)
     p.pitch = -25
@@ -284,9 +288,9 @@ def v11(app, log, shot, look_at, settled, arg):
     yield settled()
     yield 0.5
     # back up and look at the camp
-    p.x, p.z = center(q0 - 6, r0 + 3)
+    p.x, p.z = center(q0 - 5, r0 + 3)
     p.drifting = True
-    p.y = (y + 5) * LAYER
+    p.y = (y + 3) * LAYER
     look_at(p, *center(q0, r0)[:1], (y + 0.3) * LAYER, center(q0, r0)[1])
     x0, z0 = center(q0, r0)
     look_at(p, x0, (y + 0.2) * LAYER, z0)
@@ -557,3 +561,44 @@ def vista(app, log, shot, look_at, settled, arg):
     g = sorted(gaps)
     log('gil stall ms max %.0f p99 %.0f, >250ms: %d' % (1000 * g[-1], 1000 * g[int(len(g) * 0.99)], sum(1 for x in g if x > 0.25)))
     yield shot('vista_high')
+
+
+def blocks(app, log, shot, look_at, settled, arg):
+    """Close-up of the functional blocks, each facing the camera."""
+    from .hexgrid import DIR_NORMALS
+    yield 0.5
+    app.create_sky('Blocks', seed_from_text(arg or 'clover-lantern-3'), arg or 'clover-lantern-3', 'dreamer')
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    q0, r0 = cell_at(p.x, p.z)
+    t0 = math.floor(p.y / LAYER + 0.01) - 1
+    log('stage', q0, r0, t0, ses.world.column_top(q0, r0))
+    # flatten a little stage
+    for a, b in spiral(q0, r0, 7):
+        for yy in range(t0 + 1, t0 + 8):
+            ses.world.set(a, b, yy, 0, now=False)
+        for yy in range(t0 - 3, t0 + 1):
+            ses.world.set(a, b, yy, M['turf'] if yy == t0 else M['loam'], now=False)
+    ses.phase = 0.12
+    row = [(M['tinker_bench'], 0), (M['kiln'], 8), (M['chest'], 0), (M['lantern'], 0), (M['bedroll'], 0), (M['glowstick'], 0),
+           (M['lumen_lamp'], 0), (M['bricks'], 0), (M['planks'], 0), (M['polished_stone'], 0)]
+    cam = center(q0, r0 + 3)
+    for i, (mat, extra) in enumerate(row):
+        a, b = q0 - 5 + i, r0
+        ax, az = center(a, b)
+        vx, vz = 0.0, 1.0
+        face = max(range(6), key=lambda d: DIR_NORMALS[d][0] * vx + DIR_NORMALS[d][1] * vz)
+        ses.world.set(a, b, t0 + 1, mat, (face | extra) if mat in (M['tinker_bench'], M['kiln'], M['chest']) else 0, now=False)
+    app.hide_hud = True
+    yield settled()
+    for k, (cq_, name) in enumerate(((q0 - 4, 'blocks_a'), (q0 - 0.5, 'blocks_b'), (q0 + 3, 'blocks_c'))):
+        tx, tz = center(cq_, r0)
+        p.drifting = True
+        p.x, p.z = tx, tz + 3.6
+        p.y = (t0 + 2.2) * LAYER
+        look_at(p, tx, (t0 + 1.3) * LAYER, tz)
+        log('cam', p.x, p.y, p.z, 'target', tx, tz)
+        yield 1.5
+        yield shot(name)

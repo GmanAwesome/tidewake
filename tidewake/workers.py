@@ -45,9 +45,9 @@ def generate_job(seed, cq, cr, saved_path):
     return cq, cr, cells, meta, realm, False, time.perf_counter() - t
 
 
-def mesh_job(cq, cr, token, padded, realm):
+def mesh_job(cq, cr, token, padded, realm, pmeta=None):
     t = time.perf_counter()
-    o, w, L = mesh_chunk(padded, realm, cq, cr)
+    o, w, L = mesh_chunk(padded, realm, cq, cr, Pm=pmeta)
     return cq, cr, token, o, w, L, time.perf_counter() - t
 
 

@@ -143,6 +143,10 @@ class World:
         ch = self.chunks
         return pad_chunk(lambda a, b: ch[a, b].cells if (a, b) in ch else None, cq, cr)
 
+    def _padded_meta(self, cq, cr):
+        ch = self.chunks
+        return pad_chunk(lambda a, b: ch[a, b].meta if (a, b) in ch else None, cq, cr)
+
     def _remesh_now(self, key):
         c = self.chunks.get(key)
         if c is None:
@@ -155,7 +159,7 @@ class World:
         if not self._have_neighbours(*key):
             return
         c.token += 1
-        self._install(c, *mesh_chunk(self._padded(*key), c.realm, *key))
+        self._install(c, *mesh_chunk(self._padded(*key), c.realm, *key, Pm=self._padded_meta(*key)))
 
     def _install(self, c, o, w, L):
         from .renderer import ChunkMesh
@@ -301,7 +305,7 @@ class World:
             c = self.chunks.get(key)
             if c is not None and c.state in ('none', 'dirty') and key not in self.mesh_jobs and self._have_neighbours(*key):
                 c.state = 'pending'
-                self.mesh_jobs[key] = self.pool.submit(workers.mesh_job, key[0], key[1], c.token, self._padded(*key), c.realm)
+                self.mesh_jobs[key] = self.pool.submit(workers.mesh_job, key[0], key[1], c.token, self._padded(*key), c.realm, self._padded_meta(*key))
                 budget -= 1
         for a, b in self.data_offsets:
             if budget <= 0:

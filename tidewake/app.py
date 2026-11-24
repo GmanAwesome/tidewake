@@ -93,7 +93,9 @@ class App(pyglet.window.Window):
             else:
                 models[iid] = (v, 30.0, -32.0, 1.55)
         try:
-            self.renderer.build_icons(models)
+            from . import icons2d
+            art = {iid: icons2d.render(it) for iid, it in IT.ITEMS.items()}
+            self.renderer.build_icons(models, art={k: v for k, v in art.items() if v is not None})
         except Exception as e:
             print('icons failed:', e)
         self.ctx.viewport = (0, 0, *self.get_framebuffer_size())
@@ -539,7 +541,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.3.2   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.3.2.1   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

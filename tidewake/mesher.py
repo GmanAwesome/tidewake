@@ -93,6 +93,7 @@ def _faces_side(cx, cz, y0, y1, rad, d, col_top, col_bot, emit, shade_bot=0.80):
     out['c'][..., 3] = np.clip(np.round(emit * 255), 0, 255)[:, None]
     nx, nz = DIR_NORMALS[d]
     out['n'][..., 0], out['n'][..., 1], out['n'][..., 2], out['n'][..., 3] = nx * 127.5 + 127.5, 128, nz * 127.5 + 127.5, 255
+    out['m'][..., 3] = np.array([0, 255, 255, 0, 0, 255], np.uint8)[None, :]     # across-the-face u
     return out.reshape(-1)
 
 
@@ -115,7 +116,7 @@ def _tag(parts, mats):
 
 
 def _prisms(cx, cz, y0, y1, rad, ctop, cside_t, cside_b, emit, mask_top=None, mask_bot=None, mask_side=None,
-            ao=None, shade_bot=0.80, mat=None):
+            ao=None, shade_bot=0.80, mat=None, front=None):
     """emit: (n,) packed values, or (n, 8) per face: top, bottom, then the six sides."""
     parts = []
     n = len(cx)
@@ -133,14 +134,17 @@ def _prisms(cx, cz, y0, y1, rad, ctop, cside_t, cside_b, emit, mask_top=None, ma
                None if M_ is None else M_[mb]))
     for d in range(6):
         ms = np.ones(n, bool) if mask_side is None else mask_side[:, d]
-        tg.append((_faces_side(cx[ms], cz[ms], y0[ms], y1[ms], rad[ms], d, cside_t[ms], cside_b[ms], E[ms, 2 + d], shade_bot),
-                   None if M_ is None else M_[ms]))
+        sv = _faces_side(cx[ms], cz[ms], y0[ms], y1[ms], rad[ms], d, cside_t[ms], cside_b[ms], E[ms, 2 + d], shade_bot)
+        if front is not None and len(sv):
+            fr = np.repeat(front[ms] == d, 6)
+            sv['m'][fr, 2] = 255
+        tg.append((sv, None if M_ is None else M_[ms]))
     if M_ is None:
         return [v for v, _ in tg]
     return _tag(tg, M_)
 
 
-def mesh_chunk(P, realm, cq, cr):
+def mesh_chunk(P, realm, cq, cr, Pm=None):
     """P: padded cells (CHUNK+2, LAYERS, CHUNK+2). -> (opaque bytes, water bytes, lights (M,4) float32)"""
     core = P[1:-1, :, 1:-1]
     occ = OPAQUE[P]
@@ -218,8 +222,20 @@ def mesh_chunk(P, realm, cq, cr):
         E[:, 1] = pack(ef, 0.55)
         for d, (dq, dr) in enumerate(DIRS):
             E[:, 2 + d] = pack(ef, SKY[q_ + dq, y_, r_ + dr])
+        mf = mat[f]
+        meta_f = Pm[q_, y_, r_] if Pm is not None else np.zeros(len(mf), np.uint8)
+        meta_f = meta_f.astype(np.int64)
+        facing = np.where(np.isin(mf, FACING), meta_f % 8 % 6, -1)
+        kl = mf == _ID['kiln']
+        if kl.any():
+            lit = (meta_f[kl] & 8) > 0
+            for d in range(6):
+                E[kl, 2 + d] = np.where(facing[kl] == d, pack(np.where(lit, 0.95, 0.12), SKY[q_[kl], y_[kl], r_[kl]]),
+                                        pack(0.0, SKY[q_[kl] + DIRS[d][0], y_[kl], r_[kl] + DIRS[d][1]]))
+            E[kl, 0] = pack(0.0, SKY[q_[kl], u_[kl], r_[kl]])
         out_o += _prisms(cx[f], cz[f], y0, y1, np.ones(f.sum()), top[f], side_top[f], side[f], E,
-                         show_top, show_bot, sides, ao, mat=mat[f])
+                         show_top, show_bot, sides, ao, mat=mf, front=facing)
+        out_o += _extras(mf, facing, cx[f], cz[f], y1, show_top, SKY[q_, u_, r_])
 
     # ---- water
     w = MT.IS_WATER[mat]
@@ -298,6 +314,34 @@ def mesh_chunk(P, realm, cq, cr):
     ob = np.concatenate(out_o).tobytes() if out_o else b''
     wb = np.concatenate(out_w).tobytes() if out_w else b''
     return ob, wb, L
+
+
+FACING = np.array([_ID['tinker_bench'], _ID['kiln'], _ID['chest']])
+
+
+def _extras(mf, facing, cx, cz, ytop, open_top, sky):
+    """Little 3D touches on top of functional blocks: a vise and mallet on the bench, a chimney on the kiln."""
+    out = []
+    iron = np.array([0.42, 0.44, 0.50])
+    wood = np.array([0.66, 0.48, 0.32])
+    for mid, items in ((_ID['tinker_bench'], (('vise', 0.20, 0.55, 0.0, 0.18, 0.14, iron), ('vjaw', 0.20, 0.55, 0.18, 0.26, 0.07, iron * 1.2),
+                                                ('handle', -0.30, -0.25, 0.0, 0.05, 0.05, wood), ('head', -0.30, -0.25, 0.05, 0.16, 0.12, iron * 0.9),
+                                                ('plank', -0.05, 0.45, 0.0, 0.04, 0.26, wood * 1.15))),
+                       (_ID['kiln'], (('chimney', 0.0, -0.42, 0.0, 0.42, 0.26, np.array([0.70, 0.42, 0.36])),
+                                      ('cap', 0.0, -0.42, 0.42, 0.48, 0.30, np.array([0.50, 0.32, 0.30])))),):
+        s = (mf == mid) & open_top
+        if not s.any():
+            continue
+        ang = np.where(facing[s] >= 0, facing[s], 0) * (np.pi / 3)
+        ca, sa = np.cos(ang), np.sin(ang)
+        for name, ox, oz, a, b, rad, col in items:
+            px = cx[s] + ox * ca - oz * sa
+            pz = cz[s] + ox * sa + oz * ca
+            n = s.sum()
+            mat = _ID['bricks'] if mid == _ID['kiln'] else 0
+            out += _prisms(px, pz, ytop[s] + a * LAYER, ytop[s] + b * LAYER, np.full(n, rad), np.tile(col, (n, 1)),
+                           np.tile(col, (n, 1)), np.tile(col * 0.85, (n, 1)), pack(0.0, sky[s]), mat=mat)
+    return out
 
 
 def lod_mesh(cells, realm, dx=0.0, dz=0.0, step=2):

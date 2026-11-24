@@ -12,14 +12,16 @@ from . import materials as MT
 from . import items as I
 
 
-def prisms(cx, cz, y0, y1, rad, ctop, cside, emit=0.0, sky=1.0):
+def prisms(cx, cz, y0, y1, rad, ctop, cside, emit=0.0, sky=1.0, mat=None, front=None):
     """Arrays (or scalars) of prism params -> VERT array."""
     cx = np.atleast_1d(np.asarray(cx, dtype=np.float64))
     n = len(cx)
     f = lambda v: np.broadcast_to(np.asarray(v, dtype=np.float64), (n,)).copy()
     c = lambda v: np.broadcast_to(np.asarray(v, dtype=np.float64), (n, 3)).copy()
     ct, cs = c(ctop), c(cside)
-    parts = _prisms(cx, f(cz), f(y0), f(y1), f(rad), ct, cs, cs * 0.85, f(pack(emit, sky)))
+    fr = None if front is None else np.full(n, front)
+    parts = _prisms(cx, f(cz), f(y0), f(y1), f(rad), ct, cs, cs * 0.85, f(pack(emit, sky)),
+                    mat=None if mat is None else np.full(n, mat, np.uint8), front=fr)
     parts = [p for p in parts if len(p)]
     return np.concatenate(parts) if parts else np.zeros(0, VERT)
 
@@ -120,6 +122,17 @@ def sprite(rows, colors, px=0.11, depth=0.11):
     return transform(v, pitch_deg=90)
 
 
+def _icon_front():
+    """Which hex side faces the icon camera (yaw 30, pitch -30)."""
+    from .hexgrid import DIR_NORMALS
+    a = math.radians(30.0)
+    fx, fz = math.sin(a), -math.cos(a)
+    return max(range(6), key=lambda d: -(DIR_NORMALS[d][0] * fx + DIR_NORMALS[d][1] * fz))
+
+
+ICON_FRONT = _icon_front()
+
+
 def item_model(it):
     """VERT model of an item, about one unit across, centred on the origin."""
     if it is None:
@@ -130,7 +143,16 @@ def item_model(it):
     if it.model == 'block':
         m = it.block
         emit = float(MT.EMIT[m])
-        return prisms(0, 0, -0.35, 0.35, 0.5, MT.TOP[m], MT.SIDE[m], emit)
+        front = ICON_FRONT if m in (MT.ID['tinker_bench'], MT.ID['kiln'], MT.ID['chest']) else None
+        if m == MT.ID['kiln']:
+            emit = 0.6           # show the fire in the icon
+        v = prisms(0, 0, -0.35, 0.35, 0.5, MT.TOP[m], MT.SIDE[m], emit, mat=m, front=front)
+        if m == MT.ID['kiln']:
+            v = cat(v, prisms(0.0, 0.0, 0.35, 0.62, 0.2, (0.70, 0.42, 0.36), (0.70, 0.42, 0.36), mat=MT.ID['bricks']))
+        if m == MT.ID['tinker_bench']:
+            v = cat(v, prisms(0.18, 0.10, 0.35, 0.47, 0.11, (0.42, 0.44, 0.50), (0.42, 0.44, 0.50)),
+                    prisms(-0.2, -0.05, 0.35, 0.39, 0.09, (0.70, 0.52, 0.34), (0.70, 0.52, 0.34)))
+        return v
     if it.model == 'deco':
         m = it.block
         parts = MT.PARTS.get(m, [(0.4, 0.0, 0.8, True)])
@@ -142,7 +164,7 @@ def item_model(it):
                 col = np.array([0.62, 0.36, 0.86])
             else:
                 col = MT.TOP[m] if use_top else MT.SIDE[m]
-            out.append(prisms(0, 0, a - 0.5, b - 0.5, rad * 0.9, col, col * 0.9, float(MT.EMIT[m]) * (1 if use_top else 0.2)))
+            out.append(prisms(0, 0, a - 0.5, b - 0.5, rad * 0.9, col, col * 0.9, float(MT.EMIT[m]) * (1 if use_top else 0.2), mat=m))
         return cat(*out)
     if it.model in SPRITES:
         dark = c1 * 0.75

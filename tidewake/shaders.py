@@ -61,6 +61,8 @@ uniform float u_cam_y;
 out vec3 v_pos;
 out vec3 v_wp;
 flat out int v_mat;
+flat out int v_front;
+out float v_u;
 out vec3 v_col;
 out vec3 v_n;
 out float v_emit;
@@ -75,6 +77,8 @@ void main() {
     v_n = in_nrm.xyz * 2.0 - 1.0;
     v_rim = in_nrm.w;
     v_mat = int(in_mat.x * 255.0 + 0.5);
+    v_front = in_mat.z > 0.5 ? 1 : 0;
+    v_u = in_mat.w;
     v_wp = v_pos + vec3(u_cam_mod.x, u_cam_y, u_cam_mod.y);
     float sway = in_mat.y;
     if (sway > 0.0 && u_hand < 0.5) {
@@ -98,7 +102,10 @@ in float v_rim;
 in float v_sky;
 in vec3 v_wp;
 flat in int v_mat;
+flat in int v_front;
+in float v_u;
 uniform float u_alpha;
+uniform float u_nmat;
 uniform vec2 u_cam_mod;
 uniform sampler2D u_atlas;
 uniform sampler2D u_noise2;
@@ -108,8 +115,8 @@ out vec4 color;
 """ + LIGHTING + """
 void main() {
     vec3 n = normalize(v_n);
-    float rim = mix(0.80, 1.0, smoothstep(0.02, 0.17, v_rim));
-    vec3 albedo = v_col * rim;
+    vec3 albedo = v_col;
+    float emit = v_emit;
     if (v_mat > 0 && u_detail > 0.0) {
         float dist = length(v_pos);
         float fade = 1.0 - smoothstep(40.0, 120.0, dist);
@@ -121,22 +128,22 @@ void main() {
             float side = step(abs(n.y), 0.5);
             vec2 uv;
             if (side > 0.5) {
-                vec2 t = normalize(vec2(-n.z, n.x));
-                uv = vec2(dot(v_wp.xz, t), v_wp.y / 0.7);
+                uv = vec2(v_u, v_wp.y / 0.7 + 0.002);          // one tile per face, per layer
             } else {
                 uv = v_wp.xz / 1.5;
             }
             if (v_mat == 11) uv += vec2(u_time * 0.05, u_time * 0.031);
-            float k = float(v_mat * 2) + side;
+            float k = (v_front == 1) ? (2.0 * u_nmat + float(v_mat)) : float(v_mat * 2) + side;
             vec2 tile = vec2(mod(k, 16.0), floor(k / 16.0));
             vec2 sz = vec2(16.0, u_atlas_rows);
             vec2 auv = (tile + (fract(uv) * 62.0 + 1.0) / 64.0) / sz;
             vec2 g = (62.0 / 64.0) / sz;
-            vec3 tx = textureGrad(u_atlas, auv, dFdx(uv) * g, dFdy(uv) * g).rgb * 2.0;
-            albedo *= mix(vec3(1.0), tx, fade * u_detail);
+            vec2 tg = textureGrad(u_atlas, auv, dFdx(uv) * g, dFdy(uv) * g).rg;
+            albedo *= mix(1.0, tg.r * 2.0, fade * u_detail);
+            emit *= mix(1.0, tg.g * 2.0, fade * u_detail);
         }
     }
-    vec3 c = shade(albedo, n, v_pos, v_emit, v_sky);
+    vec3 c = shade(albedo, n, v_pos, emit, v_sky);
     float a = u_alpha;
     if (u_alpha < 0.99) {
         vec2 wp = v_pos.xz + u_cam_mod;

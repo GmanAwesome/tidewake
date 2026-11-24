@@ -111,17 +111,17 @@ class Renderer:
         from . import texpack
         from . import materials as _MT
         img, rows = texpack.atlas(len(_MT.NAMES))
-        self.atlas_tex = ctx.texture((img.shape[1], img.shape[0]), 1, img.tobytes())
+        self.atlas_tex = ctx.texture((img.shape[1], img.shape[0]), 2, img.tobytes())
         self.atlas_tex.build_mipmaps(0, 5)
         self.atlas_tex.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
         try:
             self.atlas_tex.anisotropy = 4.0
         except Exception:
             pass
-        self.atlas_tex.swizzle = 'RRR1'
         self.chunk_prog['u_atlas'] = 2
         self.chunk_prog['u_noise2'] = 1
         self.chunk_prog['u_atlas_rows'] = float(rows)
+        self.chunk_prog['u_nmat'] = float(len(_MT.NAMES))
         import os as _os
         self.detail = float(_os.environ.get('TIDEWAKE_DETAIL', '1'))
         self.cloud_step = 4.0
@@ -166,7 +166,7 @@ class Renderer:
         _set(self.chunk_prog, 'u_hand', 0.0)
         ctx.disable(moderngl.DEPTH_TEST | moderngl.CULL_FACE)
 
-    def build_icons(self, models, cell=64, cols=16):
+    def build_icons(self, models, cell=64, cols=16, art=None):
         """Render item models into an atlas texture. models: {id: (verts, yaw, pitch, scale)}"""
         from .mathutil import view_matrix
         ids = sorted(models)
@@ -197,6 +197,11 @@ class Renderer:
         ctx.disable(moderngl.BLEND)
         s = 0.62
         proj = np.array([[1 / s, 0, 0, 0], [0, 1 / s, 0, 0], [0, 0, -0.1, 0], [0, 0, 0, 1]], dtype=np.float64)
+        _set(p, 'u_detail', 1.0)
+        _set(p, 'u_cam_y', 0.35)          # block icons span y -0.35..0.35 -> one texture layer
+        _set(p, 'u_cam_mod', (0.3, 0.2))
+        self.atlas_tex.use(2)
+        self.noise_tex.use(1)
         for k, iid in enumerate(ids):
             verts, yaw, pitch, scale = models[iid]
             col, row = k % cols, k // cols
@@ -212,6 +217,13 @@ class Renderer:
             v['p'] = v['p'] * scale
             self._draw_verts(v)
             self.icon_uv[iid] = (col * cell / W, 1 - (row + 1) * cell / H, (col + 1) * cell / W, 1 - row * cell / H)
+            if art and iid in art:
+                img = np.ascontiguousarray(art[iid][::-1])
+                if img.shape[0] != cell:
+                    k = max(1, cell // img.shape[0])
+                    img = np.repeat(np.repeat(img, k, 0), k, 1)[:cell, :cell]
+                tex.write(img.tobytes(), viewport=(col * cell, H - (row + 1) * cell, cell, cell))
+        _set(p, 'u_detail', float(self.detail))
         ctx.screen.use()
         tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
         tex.build_mipmaps()
