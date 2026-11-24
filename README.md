@@ -1,203 +1,218 @@
-# Tidewake
+<div align="center">
 
-*A cozy, wandering game of floating hex-islands, living elements and sleeping spires.*
+<img src="docs/images/hero_title.jpg" alt="Tidewake title screen: a lighthouse cottage on a floating meadow headland at golden hour" width="100%">
 
-![Title](docs/00_title.jpg)
+# 🌊 Tidewake
 
-Tidewake is a calm exploration game set on an endless archipelago of floating islands that drift above a sea of clouds.
-The world is built from **hexagonal prism cells**, not cubes. You never mine, craft or fight. Instead you **gather** a cell
-to draw out its elements, **tune** a chord of one or two elements, and **shape** that form back into the world, where many
-forms come alive: water flows and pours off cliffs, vines creep, crystals grow in the dusk and blooms spread in the light.
+**A cozy sky of floating hex-islands, gentle tides and sleeping spires.**
 
-Ancient **spires** sleep on every sky. Each one longs for certain tuned cells around its base. Wake one and it lights up,
-fills you with light and teaches you a gift.
+[![Release](https://img.shields.io/badge/release-v1.3.4-ff8a6b?style=for-the-badge)](../../releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows-4a90d9?style=for-the-badge&logo=windows&logoColor=white)](../../releases/latest)
+[![Python](https://img.shields.io/badge/python-3.12-3776ab?style=for-the-badge&logo=python&logoColor=white)](#-run-from-source)
+[![OpenGL](https://img.shields.io/badge/ModernGL-OpenGL%203.3-7b5ea7?style=for-the-badge)](https://github.com/moderngl/moderngl)
 
-## Download (Windows)
+*Mine, craft and build on an endless archipelago made of hexagon prisms, not cubes.*
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.4-Windows.zip**.
-2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
-3. Double-click **Tidewake.exe**.
+**[⬇️ Download](#%EF%B8%8F-download-windows)** · **[✨ Features](#-features)** · **[🖼️ Gallery](#%EF%B8%8F-gallery)** · **[🎮 Controls](#-controls)** · **[🛠️ Run from source](#-run-from-source)**
 
-Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
-Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+</div>
 
-## New in 1.3.4 — a player-made showcase on the title screen
+---
 
-- The main menu now floats over a hand-built **Lighthouse Cottage** on a meadow headland: timber cottage, striped lighthouse, workshop patio with a glowing kiln, garden and a sky dock.
-- A slow golden-hour orbit camera, with Windward playing.
-- Builds live in `assets/showcase/` and one is picked at random, so more can be added later. The showcase is never saved into your skies.
+## ⬇️ Download (Windows)
 
-## New in 1.3.3 — a brand-new soundtrack
+> [!IMPORTANT]
+> Get the game from **Releases**, not the green **Code → Download ZIP** button. That button gives you the source code, which won't run without Python installed.
 
-- Six original songs, all synthesized by the game itself: **Windward** (title theme), **Lighttide**, **Brightreef** and **Emberglow** (daytime, rotating; Emberglow in the evening), **Dusktide** (night) and a **cave layer** that fades in underground.
-- Music-box, kalimba, marimba, steel drum, felt piano and flute over a gentle jungle groove, with smooth crossfades between songs.
-- First launch prepares the music in the background (about a minute); the game stays fully playable meanwhile and songs start as soon as each is ready. After that they load instantly from the cache.
+1. Open the **[latest release](../../releases/latest)**.
+2. Under **Assets**, download **`Tidewake-1.3.4-Windows.zip`**.
+3. Right-click the zip, choose **Extract All…**, and open the `Tidewake` folder.
+4. Double-click **`Tidewake.exe`**.
 
-## New in 1.3.2.1 — real-looking blocks and new icons
+- 🎵 **First launch:** the game composes its soundtrack in the background (about a minute). You can play right away, and each song starts as soon as it's ready. After that the music loads instantly.
+- 🛡️ **"Windows protected your PC"?** The game isn't code-signed. Click **More info**, then **Run anyway**.
+- 💾 Your skies, settings and snapshots are saved next to the exe (`skies/`, `settings.json`, `snapshots/`).
 
-- Every item has a new menu icon: textured 3D blocks, hand-drawn tools, food and materials.
-- The workbench, kiln and chest now look like the real things: a bench with legs, a drawer, saw and vise; a brick kiln with an arched firebox and chimney; a chest with iron bands and a latch. They face you when placed.
-- Lanterns, bedrolls, glowsticks, vines, flowers and more got their own textures. The square grid on plinth tops is gone.
-- The dark outline around every block is gone; only the block you look at is highlighted.
+---
 
-## New in 1.3.2 — texture pack and steadier sound
+## ✨ Features
 
-- **Texture pack**: every block now has its own hand-tuned procedural detail: grass speckle and a ragged turf edge, cracked stone and strata, bark and leaf clusters, boards, bricks, ore flecks, crystal facets, carved plinths and more. Big soft colour drift across meadows and woods, leaves and plants sway in the breeze, water flows. Detail fades out with distance, costing about 2% frame rate.
-- **Sound now plays through SDL's mixer** (pygame-ce): mixing and looping run in a native audio thread, so busy frames can't cause dropouts, and every sound has a short fade at both ends so there are no pops.
+### ⬡ A world of hexagons
+Everything is built from **hexagonal prism cells** stacked in 128 layers, with six-sided terrain, six-sided houses and six-sided everything. Cliffs, terraces, arches and overhangs come out softer and stranger than cubes.
 
-## New in 1.3.1
+### 🏝️ Floating islands and eight realms
+Every sky is generated from a seed (any number or words) and goes on forever above a sea of clouds. There are eight realms: **Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass** and the glowing **Lumen Grove**. Waterfalls pour off the edges into the cloud sea.
 
-- **Smoother music**: the game keeps about 2.5 seconds of sound queued (was under 1 second), world building runs at lower priority and leaves two CPU cores free, so loading land no longer makes the music cut in and out.
-- **Two view sliders** in Settings: **Detail distance** (full-detail land, 3–20 chunks, default 8) and **Far distance** (simple far-away islands, up to 35 chunks, default 16). Far islands past 18 chunks use an even lighter mesh.
+### ⛏️ Mining and tools
+Hold left click to break blocks. Harder blocks take longer, and tools speed you up: **Wooden → Stone → Verdigris → Silverine → Aetherite** picks, axes and spades.
 
-## New in 1.3 — see further, faster world
+### 🔨 Crafting, kilns and chests
+A 2×2 grid in your backpack (**E**), a 3×3 grid at the **Tinker Bench**, and a clickable recipe book. Smelt ores in the **kiln** (its firebox glows while it works), store things in **chests**, and light your home with lanterns, glowsticks and lumen lamps.
 
-- **Compiled terrain noise** (Numba): building a chunk of world takes about 2–3 ms instead of 13 ms (about 3.5 ms vs 22 ms in the Windows exe). If compiling isn't possible it quietly falls back to the old code.
-- **Twice the view distance**: the default is now 12 chunks (slider up to 24). Nearby land (7 chunks) is full detail; beyond that, distant islands use a light-weight far mesh, built 16 chunks at a time, with the fog pushed back.
-- **The world loads what you're looking at first.**
-- **More dramatic terrain**: sharp cliffs, terraced hillsides in the meadows, amber woods and frost, natural arches and overhangs, and a bit more roll in the hills.
+### ❤️ Survival
+In **Wanderer** mode you have hearts and food. Eat berries, roast hopmeat, bake pies and stews. A **bedroll** sets your spawn and lets you sleep through the night. Fall off an island and the cloud sea carries you back to solid ground.
 
-![Far view](docs/v13_vista.png)
+### 🐑 Creatures
+Woolhops, pebblebeaks and mossbacks wander the meadows (fluff, hopmeat, eggs, plumes). At Dusktide, gloomlings and brutes creep out. You can switch those off in Settings.
 
-## New in 1.2 — smoother and calmer
+### 🕯️ Caves and ores
+Caves and caverns run under the islands, with **Emberite, Verdigris, Silverine** and **Aetherite** ore to find.
 
-- About twice the frame rate with lots of creatures around: creature models are cached instead of rebuilt every frame, off-screen creatures aren't drawn, and far-away ones think less often.
-- The world loads the chunks you're looking at first.
-- New calm soundtrack: soft pad chords with a sparse melody in one key (C major by day, A minor at dusk), crossfading slowly as the tide turns. The random loud chimes are gone and pickup/menu sounds are softer. Music and Sounds have separate sliders in Settings.
+### 🌅 Tides and spires
+Instead of day and night, the sky turns between warm **Lighttide** and violet **Dusktide** (about 12 minutes a cycle). Ancient **spires** sleep on every sky. Wake one to learn a gift: **Glide**, **Updraft** and **Tidecall**.
 
-## New in 1.1 — more like Minecraft
+### 🎨 Procedural textures
+Every block has its own hand-tuned, code-generated texture: grass speckle, cracked stone, bark, boards, bricks, ore flecks and crystal facets. The workbench, kiln and chest look like the real things and face you when you place them. Leaves sway and water flows.
 
-- **Mining**: hold left click to break blocks; harder blocks take longer, and tools (Wooden → Stone → Verdigris → Silverine → Aetherite picks, axes, spades) speed it up.
-- **Crafting**: 2x2 grid in your backpack (E), 3x3 at a Tinker Bench, with a clickable recipe book. Kiln for smelting ores, chests for storage.
-- **Survival (Wanderer)**: hearts and food; eat berries, roast hopmeat, pies and stews. Bedrolls set your spawn and sleep through Dusktide.
-- **Creatures**: woolhops, pebblebeaks and mossbacks (drops: fluff, hopmeat, eggs, plumes); gloomlings and brutes sneak out at Dusktide (toggle in Settings).
-- **World**: caves and caverns with Emberite, Verdigris, Silverine and Aetherite ore, taller mountains, 17 new blocks.
+### 🎶 A six-song soundtrack, made by code
+Six original songs are synthesized by the game itself with music box, kalimba, marimba, steel drum, felt piano and flute over a gentle jungle groove:
 
-![Crafting](docs/v11_14_bench_craft.png)
-
-## Dev mode
-
-Press **F4** (or pick Dreamer mode) to turn on dev mode:
-
-| Key | What it does |
+| Song | When it plays |
 |---|---|
-| F4 | Dev mode on/off |
-| F5 | Admin panel (every item, quick buttons, command list) |
-| F | Fly on/off |
-| N | Noclip (fly through blocks) |
-| [ / ] | Fly slower / faster |
-| Enter or / | Type a command |
+| **Windward** | Title screen |
+| **Lighttide** · **Brightreef** | Daytime (they take turns) |
+| **Emberglow** | Evening |
+| **Dusktide** | Night |
+| **Cave layer** | Fades in underground |
 
-Commands: `/tp x z`, `/tp x y z`, `/tp spire`, `/tp spawn`, `/time` or `/tide <light|dusk|0-1>`, `/give <item> [n]`, `/spawn <creature> [n]`, `/killmobs`, `/weather <clear|rain>`, `/pos1` `/pos2` then `/fill <block>`, `/clear`, `/replace <a> <b>`, `/undo`, `/speed <n>`, `/heal`, `/feed`, `/fly`, `/noclip`, `/mobs on|off`, `/locate spire`, `/seed`, `/spawnpoint`, `/clearinv`, `/help`.
+Songs crossfade smoothly, and every sound effect is generated in code too.
 
-In dev mode you break blocks instantly, take no damage, and creatures ignore you.
+### 🏡 A title-screen showcase
+The main menu floats over a hand-built **Lighthouse Cottage** on a meadow headland: a timber cottage, a striped lighthouse, a workshop patio with a glowing kiln, a garden and a sky dock, filmed by a slow golden-hour camera. Builds are stored as block lists in `assets/showcase/` and picked at random, so more can be added.
 
-![Admin panel](docs/v11_61_admin_panel.png)
+### ⚡ Performance
+- **Numba**-compiled terrain noise builds a chunk in about 2–3 ms.
+- Near land is full detail; far islands use a light **LOD** mesh, up to 35 chunks away.
+- Two view sliders in Settings: **Detail distance** (3–20 chunks) and **Far distance** (up to 35).
+- The world loads what you're looking at first, using background worker processes.
 
-## How it plays
+---
 
-![Gathering](docs/21_gathered.jpg)
+## 🖼️ Gallery
 
-**The four elements.** Every cell holds some mix of **Stone**, **Water**, **Light** and **Growth**. Left-click a cell to gather it.
-It dissolves into motes of essence that float into you.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/showcase_headland.jpg" alt="Lighthouse Cottage on a headland"><br><sub>🏡 The Lighthouse Cottage on its headland</sub></td>
+    <td width="50%"><img src="docs/images/showcase_lighthouse.jpg" alt="The lighthouse up close"><br><sub>🗼 Lighthouse, garden and stepping-stone path</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/workshop_blocks.jpg" alt="Workbench, kiln and chest"><br><sub>🔨 Workbench, kiln and chest</sub></td>
+    <td><img src="docs/images/far_view.jpg" alt="Far view across floating islands"><br><sub>🏝️ Islands to the horizon</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/amberwood_textures.jpg" alt="Amberwood textures"><br><sub>🍂 Amberwood and its procedural textures</sub></td>
+    <td><img src="docs/images/creatures.jpg" alt="Creatures in the meadow"><br><sub>🐑 Woolhops and friends</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/crafting.jpg" alt="Crafting at the Tinker Bench"><br><sub>📖 Crafting at the Tinker Bench</sub></td>
+    <td><img src="docs/images/dev_fly.jpg" alt="Flying in dev mode"><br><sub>🕊️ Flying around in dev mode</sub></td>
+  </tr>
+</table>
 
-**Tuning.** Press keys 1-4 (or roll the mouse wheel) to choose one or two elements. Each chord makes a different form:
+---
 
-| Chord | Form | What it does |
-|---|---|---|
-| Stone | Stone | a plain building cell |
-| Water | Water | flows, falls and pools |
-| Light | Lantern | a warm light |
-| Growth | Sprout | grows into a tree on turf |
-| Stone + Water | Clay | soft terracotta for building |
-| Stone + Light | Crystal | grows taller in the dusk tide |
-| Stone + Growth | Mossrock | slowly greens the stone around it |
-| Water + Light | Cloudstuff | springy: bounce on it |
-| Water + Growth | Vine | creeps down cliffs; climb it |
-| Light + Growth | Bloom | glowing flowers that spread in the light |
+## 🎮 Controls
 
-Right-click to shape your tuned form into the world.
-
-**Tides, not days.** Instead of day and night, the sky turns between a warm **Lighttide** and a violet **Dusktide** (about 12
-minutes a cycle). Growth happens in the light. Crystals, blooms and lanterns shine in the dusk, and golden dusk motes
-drift around you. Walk through them to gather Light.
-
-![A garden at dusk](docs/41_garden_after_dusk.jpg)
-
-**Spires and gifts.** The wayfinder at the top of the screen points to the nearest sleeping spire, and looking at one
-tells you what it longs for. Shape those forms on the six hexes around its base to wake it. Your gifts arrive in order:
-**Glide** (hold Space while falling), **Updraft** (a second jump in mid-air) and **Tidecall** (T calls the next tide).
-
-![An awakened spire at dusk](docs/32_awake_dusk.jpg)
-
-**Nothing can hurt you.** If you step off an island, the cloud sea catches you and carries you back to the last solid ground.
-Cloudstuff gives you a big bounce.
-
-**Endless, seeded skies.** Every sky is generated from a seed (a number or any words you like) and goes on forever. Each seed
-also rolls its own temperament: big continents or scattered skerries, high or low islands, many spires or few. There are
-eight realms: Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass and the glowing Lumen Grove.
-Positions are rendered relative to the camera, so the world stays smooth even a billion cells from home.
-
-![Six different seeds](docs/seeds.jpg)
-
-**Two ways to play.** *Wanderer* is the normal game. *Dreamer* gives you endless essence and every gift, and F lets you drift freely.
-
-## Controls
-
-| Key | Does |
+| Key | Action |
 |---|---|
-| W A S D + mouse | wander and look |
-| Space | jump · hold to glide · climb vines |
-| Shift | hurry |
-| Left click | gather a cell into essence |
-| Right click | shape your tuned form |
-| 1 2 3 4 | toggle Stone, Water, Light, Growth |
-| Mouse wheel | cycle through forms |
-| J or Tab | journal (tuning, spires, gifts, controls) |
-| T | tidecall (once learned) |
-| F | drift freely (Dreamer skies) |
-| Enter or / | whisper a command: `/tp x z`, `/tide dusk`, `/tide light`, `/seed`, `/spire` |
-| F1 · F2 · F3 | hide HUD · take a snapshot · details |
-| F11 | fullscreen |
-| Esc | rest (pause, settings, save and leave) |
+| **W A S D** + mouse | Walk and look |
+| **Space** | Jump · hold to glide · climb vines |
+| **Shift** | Hurry |
+| **Ctrl** or **C** | Fly down (while flying) |
+| **Left click** (hold) | Mine · hit creatures |
+| **Right click** | Place · use · eat |
+| **1 – 9** / mouse wheel | Pick a hotbar slot |
+| **E** | Backpack and crafting |
+| **Q** | Drop the held item |
+| **J** or **Tab** | Journal (recipes, spires, controls) |
+| **T** | Tidecall (once learned) |
+| **Enter** or **/** | Type a command (`/help`) |
+| **F1 · F2 · F3** | Hide HUD · snapshot · details |
+| **F11** | Fullscreen |
+| **Esc** | Rest (pause, settings, save and leave) |
 
-## More pictures
+<details>
+<summary><b>🧪 Dev mode (fly, noclip, admin panel, commands)</b></summary>
 
-| | |
+<br>
+
+Press **F4**, or start a sky in **Dreamer** mode, to turn on dev mode. You break blocks instantly, take no damage, and creatures ignore you.
+
+| Key | Action |
 |---|---|
-| ![Lumen Grove](docs/realm_lumen_grove.jpg) | ![Frostglass](docs/realm_frostglass.jpg) |
-| ![Waterfalls into the cloud sea](docs/realm_waterfall.jpg) | ![Gliding](docs/50_gliding.jpg) |
-| ![Journal](docs/61_journal_0.jpg) | ![A billion cells from home](docs/70_far_billion.jpg) |
+| **F4** | Dev mode on / off |
+| **F5** | Admin panel (every item, quick buttons, command list) |
+| **F** | Fly on / off |
+| **N** | Noclip (fly through blocks) |
+| **[** / **]** | Fly slower / faster |
+| **Enter** or **/** | Type a command |
 
-## Run from source
+**Commands:** `/tp x z` · `/tp x y z` · `/tp spire` · `/tp spawn` · `/time` or `/tide <light|dusk|0-1>` · `/give <item> [n]` · `/spawn <creature> [n]` · `/killmobs` · `/weather <clear|rain>` · `/pos1` `/pos2` then `/fill <block>` · `/clear` · `/replace <a> <b>` · `/undo` · `/speed <n>` · `/heal` · `/feed` · `/fly` · `/noclip` · `/mobs on|off` · `/locate spire` · `/seed` · `/spawnpoint` · `/clearinv` · `/help`
 
-Python 3.12 is recommended.
+</details>
 
-```
+---
+
+## 🛠️ Run from source
+
+For developers. Requires **Python 3.12** (3.10+ should work) and a GPU with OpenGL 3.3.
+
+```bash
+git clone https://github.com/GmanAwesome/tidewake.git
+cd tidewake
 python -m venv venv
-venv\Scripts\activate        (on macOS/Linux: source venv/bin/activate)
+venv\Scripts\activate            # macOS/Linux: source venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
 
-On Windows you can also double-click `run.bat` after installing the requirements.
+On Windows you can also double-click `run.bat` once the requirements are installed.
 
-Options: `--size 1600x900`, `--workers N` (background world builders), `--data PATH` (where skies and settings are kept).
+**Options:** `--size 1600x900` · `--workers N` (background world builders) · `--data PATH` (where skies, settings and the music cache are kept)
 
-### Building the Windows exe
+<details>
+<summary><b>📦 Building the Windows exe</b></summary>
 
-```
+```bash
 pip install pyinstaller
 pyinstaller Tidewake.spec
 ```
 
-The game ends up in `dist/Tidewake/`.
+The game ends up in `dist/Tidewake/`. The spec bundles the fonts, the showcase builds and the Numba-compiled noise module.
 
-## Under the hood
+</details>
 
-* Python, [pyglet](https://pyglet.org) for the window, input and sound, [moderngl](https://github.com/moderngl/moderngl) for OpenGL 3.3, and numpy for everything heavy.
-* Pointy-top hex cells in axial coordinates, 16×16-column chunks that are 128 layers tall. Generation and meshing run in worker processes and stream closest-first.
-* All sounds and music are generated in code: a soft pad and pentatonic bells that follow the tide.
-* Fonts: Comfortaa and Nunito (SIL Open Font License, see `assets/fonts/OFL.txt`), bundled as renamed static instances.
+**Under the hood:** [pyglet](https://pyglet.org) (window and input), [ModernGL](https://github.com/moderngl/moderngl) (OpenGL 3.3), [NumPy](https://numpy.org), [Numba](https://numba.pydata.org) (optional, compiled terrain noise) and [pygame-ce](https://pyga.me) (SDL mixer audio). The world is pointy-top hex cells in axial coordinates, in 16×16-column chunks 128 layers tall, generated and meshed in worker processes.
 
-Made with love, and no cubes.
+---
+
+## 📜 Version history
+
+| Version | Highlights |
+|---|---|
+| **1.3.4** | Title-screen showcase: the Lighthouse Cottage, golden-hour orbit camera, builds picked at random |
+| **1.3.3** | Brand-new six-song soundtrack, prepared once in the background and cached |
+| **1.3.2.1** | New item icons; the workbench, kiln and chest look like the real things; no more dark block outlines |
+| **1.3.2** | Procedural texture pack; sound moved to the SDL mixer (no dropouts or pops) |
+| **1.3.1** | Smoother music; separate Detail and Far view-distance sliders |
+| **1.3** | Numba-compiled terrain, far-island LOD, twice the view distance, more dramatic terrain |
+| **1.2** | About twice the frame rate with many creatures; calmer music |
+| **1.1** | Mining, tools, crafting, kiln, chests, survival, creatures, caves and ores, dev mode |
+| **1.0** | The first sky: hex islands, elements, tides and sleeping spires |
+
+All builds are on the **[Releases](../../releases)** page.
+
+---
+
+## 💛 Credits
+
+- Made by **[Gentry Irvin](https://github.com/GmanAwesome)**.
+- Every shape, texture, sound and song is generated in code. There are no image or audio files.
+- Fonts: **Comfortaa** and **Nunito** (SIL Open Font License, see `assets/fonts/OFL.txt`).
+- Built with pyglet, ModernGL, NumPy, Numba and pygame-ce.
+
+<div align="center">
+
+<sub>Made with love, and no cubes. ⬡</sub>
+
+</div>
