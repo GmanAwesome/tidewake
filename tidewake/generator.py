@@ -39,6 +39,7 @@ class Generator:
         self.n_heat, self.n_wet, self.n_lumen, self.n_detail, self.n_pool = (Noise(k(i)) for i in range(5, 10))
         self.n_depth, self.n_islet, self.n_tunnel, self.n_islet_alt = (Noise(k(i)) for i in range(10, 14))
         self.n_mount, self.n_cave, self.n_ore = Noise(k(14)), Noise(k(15)), Noise(k(16))
+        self.n_cliff, self.n_terrace, self.n_arch = Noise(k(17)), Noise(k(18)), Noise(k(19))
         self.h = k(20)
         # the seed's temperament
         self.island_scale = rng.uniform(120, 300)
@@ -57,6 +58,8 @@ class Generator:
         self.wet_bias = rng.uniform(-0.15, 0.15)
         self.spire_rate = rng.uniform(0.55, 0.9)
         self._spires = {}
+        self.cliff_amp = rng.uniform(5, 11)       # 1.3: cliffs, terraces, arches
+        self.arches = rng.uniform(0.40, 0.52)
 
     # ------------------------------------------------------------------ columns
     def columns(self, Q, R):
@@ -90,6 +93,11 @@ class Generator:
         inner = smoothstep(0.0, 0.18, e)
         h = alt + self.hill_amp * (hills * 0.8 + 0.6) * inner - 5.0 * (1 - smoothstep(0.0, 0.06, e))
         h = h + np.where(realm == FROST, ridge * 9 * inner, 0)
+        h = h + self.hill_amp * 0.25 * hills * inner                 # a little more roll
+        cl = smoothstep(-0.035, 0.035, self.n_cliff.fbm2(wx / 110.0, wz / 110.0, 2))
+        h = h + self.cliff_amp * cl * smoothstep(0.08, 0.25, e) * np.where((realm == FEN) | (realm == DUNE), 0.2, 1.0)
+        terr_on = (self.n_terrace.fbm2(X / 220.0, Z / 220.0, 2) > 0.18) & np.isin(realm, (MEADOW, AMBER, FROST))
+        h = np.where(terr_on, np.floor(h / 3.0) * 3.0 + 0.5, h)
         mount = smoothstep(0.04, 0.5, self.n_mount.fbm2(X / 240.0, Z / 240.0, 3)) * smoothstep(0.05, 0.3, e)
         h = h + self.mount_amp * mount * (0.55 + 0.45 * ridge) * np.where(realm == FEN, 0.3, 1.0)
         h = h + np.where(realm == DUNE, np.sin(wx / 9.0 + hills * 4) * 2.2 * inner, 0)
@@ -216,6 +224,11 @@ class Generator:
             worm = (np.abs(n1) < self.caves) & (np.abs(n2) < self.caves * 1.7)
             big = self.n_tunnel.noise3(xx / 34.0, yy / 14.0, zz / 34.0) > 0.42
             hole = deep & (worm | big)
+            # arches and overhangs: carve near the surface, under a 2-layer roof
+            band = (dd >= 2) & (dd <= 9) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 4)
+            if band.any():
+                na = self.n_arch.noise3(xx / 11.0, yy / 4.5, zz / 11.0)
+                hole |= band & (na > self.arches)
             cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
             # glowcaps and crystals on cave floors
             fl = hole & (rand01(qq.astype(np.int64), rr.astype(np.int64) * 7 + idx[1], self.h + 31) < 0.04)

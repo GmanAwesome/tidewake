@@ -78,7 +78,7 @@ class TitleScreen(Screen):
         if gui.button(x, y - 156 * s, bw, bh, 'Leave'):
             app.quit()
         gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
-        gui.text('Tidewake 1.2', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
+        gui.text('Tidewake 1.3', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
         gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
 
     def escape(self, app):
@@ -313,7 +313,7 @@ class SettingsScreen(Screen):
         x1, x2 = px + 26 * s, px + 52 * s + cw
         y = py + ph - 106 * s
         old = dict(st)
-        st['view_distance'] = gui.slider(x1, y, cw, rh, 'View distance', st['view_distance'], 2, 12, lambda v: f'{v} chunks')
+        st['view_distance'] = gui.slider(x1, y, cw, rh, 'View distance', st['view_distance'], 4, 24, lambda v: f'{v} chunks' + (' (far detail)' if v > 7 else ''))
         st['fov'] = gui.slider(x2, y, cw, rh, 'Field of view', st['fov'], 50, 110, lambda v: f'{v}°')
         y -= rh + gap
         st['sensitivity'] = gui.slider(x1, y, cw, rh, 'Look speed', st['sensitivity'], 20, 300, lambda v: f'{v}%', 5)

@@ -14,6 +14,9 @@ from .hexgrid import cell_at, center, chunk_of
 from . import materials as MT
 from .mesher import mesh_chunk, pad_chunk
 from . import workers
+from .workers import LOD_GROUP
+
+FULL_MAX = 7               # chunks of full detail; beyond that (up to view distance) far LOD meshes
 
 CHUNK_SPAN = 24.0          # world units used to turn "view distance in chunks" into a radius
 
@@ -50,6 +53,8 @@ class World:
 
     def set_view_distance(self, vd):
         self.view_distance = vd
+        self.lod_radius = vd * CHUNK_SPAN
+        vd = min(vd, FULL_MAX)
         R = vd * CHUNK_SPAN
         n = vd + 3
         mesh = []
@@ -68,6 +73,20 @@ class World:
         self.keep_radius = R + CHUNK_SPAN * (1 + UNLOAD_MARGIN)
         self.radius = R
         self._sector = None
+        # far LOD groups (LOD_GROUP x LOD_GROUP chunks each)
+        G = LOD_GROUP
+        m = int(self.lod_radius / (CHUNK_SPAN * G)) + 3
+        lod = []
+        for a in range(-m * 2, m * 2 + 1):
+            for b in range(-m * 2, m * 2 + 1):
+                x, z = center(a * G * CHUNK + G * CHUNK / 2, b * G * CHUNK + G * CHUNK / 2)
+                d = math.hypot(x, z)
+                if R - G * CHUNK_SPAN < d <= self.lod_radius + G * CHUNK_SPAN * 0.7:
+                    lod.append((d, a, b))
+        lod.sort()
+        self.lod_offsets = [(a, b) for _, a, b in lod] if self.lod_radius > R else []
+        if not hasattr(self, 'lod'):
+            self.lod, self.lod_jobs = {}, {}
 
     # ------------------------------------------------------------------ cell access
     def get(self, q, r, y):
@@ -157,6 +176,9 @@ class World:
                 self._view_sort(math.radians(sector * 30 + 15))
         self._collect()
         self._schedule()
+        self._collect_lod()
+        near_busy = len(self.gen_jobs) + len(self.mesh_jobs)
+        self._schedule_lod(min(3, MAX_JOBS_IN_FLIGHT - near_busy) - len(self.lod_jobs))
         self._upload(budget)
         n = 0
         while self.dirty and n < 2:
@@ -176,6 +198,7 @@ class World:
             return d * (1.0 + 0.7 * (1.0 - (x * fx + z * fz) / d))
         self.mesh_offsets = sorted(self.mesh_offsets, key=score)
         self.data_offsets = sorted(self.data_offsets, key=score)
+        self.lod_offsets = sorted(self.lod_offsets, key=lambda o: score((o[0] * LOD_GROUP, o[1] * LOD_GROUP)))
 
     def _dist(self, key):
         x, z = center((key[0] - self.center[0]) * CHUNK, (key[1] - self.center[1]) * CHUNK)
@@ -211,6 +234,54 @@ class World:
                     self.uploads.append((key, token, o, w, L))
                 elif c is not None and c.state == 'pending':
                     c.state = 'dirty'
+
+    def _lod_center(self):
+        cq0, cr0 = self.center
+        return (cq0 // LOD_GROUP, cr0 // LOD_GROUP)
+
+    def _lod_dist(self, key):
+        sq0, sr0 = self._lod_center()
+        x, z = center((key[0] - sq0) * LOD_GROUP * CHUNK, (key[1] - sr0) * LOD_GROUP * CHUNK)
+        return math.hypot(x, z)
+
+    def _collect_lod(self, budget=2):
+        from .renderer import LodMesh
+        for key, fut in list(self.lod_jobs.items()):
+            if budget <= 0:
+                break
+            if fut.done():
+                del self.lod_jobs[key]
+                try:
+                    sq, sr, data, ranges, dt = fut.result()
+                except Exception:
+                    continue
+                self.timings.setdefault('lod', deque(maxlen=200)).append(dt)
+                if self._lod_dist(key) <= self.lod_radius + 3 * LOD_GROUP * CHUNK_SPAN:
+                    old = self.lod.pop(key, None)
+                    if old:
+                        old.release()
+                    self.lod[key] = LodMesh(self.renderer, sq, sr, data, ranges)
+                    budget -= 1
+        # unload far ones
+        for key in [k for k in self.lod if self._lod_dist(k) > self.lod_radius + 3 * LOD_GROUP * CHUNK_SPAN]:
+            self.lod.pop(key).release()
+
+    def _schedule_lod(self, budget):
+        if budget <= 0 or not self.lod_offsets:
+            return
+        sq0, sr0 = self._lod_center()
+        for a, b in self.lod_offsets:
+            if budget <= 0:
+                break
+            key = (sq0 + a, sr0 + b)
+            if key in self.lod or key in self.lod_jobs:
+                continue
+            paths = None
+            if self.storage:
+                paths = {(key[0] * LOD_GROUP + i, key[1] * LOD_GROUP + k): self.storage.chunk_file(key[0] * LOD_GROUP + i, key[1] * LOD_GROUP + k)
+                         for i in range(LOD_GROUP) for k in range(LOD_GROUP)}
+            self.lod_jobs[key] = self.pool.submit(workers.lod_job, self.seed, key[0], key[1], paths)
+            budget -= 1
 
     def _schedule(self):
         cq0, cr0 = self.center
@@ -276,7 +347,25 @@ class World:
         return n
 
     def meshes(self):
-        return [c.mesh for c in self.chunks.values() if c.mesh is not None]
+        out = [c.mesh for c in self.chunks.values() if c.mesh is not None]
+        ch = self.chunks
+        G = LOD_GROUP
+        for (sq, sr), m in self.lod.items():
+            runs, cur = [], None
+            for j, (first, cnt) in enumerate(m.ranges):
+                i, k = divmod(j, G)
+                c = ch.get((sq * G + i, sr * G + k))
+                need = cnt > 0 and (c is None or c.mesh is None)
+                if need:
+                    if cur and cur[0] + cur[1] == first:
+                        cur[1] += cnt
+                    else:
+                        cur = [first, cnt]
+                        runs.append(cur)
+            if runs:
+                m.runs = runs
+                out.append(m)
+        return out
 
     def ready_at(self, x, z):
         q, r = cell_at(x, z)
@@ -302,6 +391,9 @@ class World:
         c = self.chunks.get((q // CHUNK, r // CHUNK))
         return None if c is None else int(c.realm[q % CHUNK, r % CHUNK])
 
+    def busy_lod(self):
+        return len(self.lod_jobs)
+
     def busy(self):
         return len(self.gen_jobs) + len(self.mesh_jobs) + len(self.uploads)
 
@@ -316,3 +408,9 @@ class World:
             if c.mesh:
                 c.mesh.release()
         self.chunks.clear()
+        for fut in self.lod_jobs.values():
+            fut.cancel()
+        self.lod_jobs.clear()
+        for m in self.lod.values():
+            m.release()
+        self.lod.clear()

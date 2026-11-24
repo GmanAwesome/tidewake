@@ -14,12 +14,21 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.2-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.3 — see further, faster world
+
+- **Compiled terrain noise** (Numba): building a chunk of world takes about 2–3 ms instead of 13 ms (about 3.5 ms vs 22 ms in the Windows exe). If compiling isn't possible it quietly falls back to the old code.
+- **Twice the view distance**: the default is now 12 chunks (slider up to 24). Nearby land (7 chunks) is full detail; beyond that, distant islands use a light-weight far mesh, built 16 chunks at a time, with the fog pushed back.
+- **The world loads what you're looking at first.**
+- **More dramatic terrain**: sharp cliffs, terraced hillsides in the meadows, amber woods and frost, natural arches and overhangs, and a bit more roll in the hills.
+
+![Far view](docs/v13_vista.png)
 
 ## New in 1.2 — smoother and calmer
 

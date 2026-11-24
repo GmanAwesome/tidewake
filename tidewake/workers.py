@@ -44,3 +44,27 @@ def mesh_job(cq, cr, token, padded, realm):
 
 def ping():
     return os.getpid()
+
+
+LOD_GROUP = 4      # far meshes are built per 4x4 chunks to keep draw calls low
+
+
+def lod_job(seed, sq, sr, paths):
+    """Generate (or load) a 4x4 block of chunks and build one far-away mesh.
+    -> sq, sr, bytes, [(first_vertex, count)] per sub-chunk, dt"""
+    from .mesher import lod_mesh, VERT
+    from .hexgrid import chunk_origin
+    t = time.perf_counter()
+    ox, oz = chunk_origin(sq * LOD_GROUP, sr * LOD_GROUP)
+    parts, ranges, first = [], [], 0
+    for i in range(LOD_GROUP):
+        for k in range(LOD_GROUP):
+            cq, cr = sq * LOD_GROUP + i, sr * LOD_GROUP + k
+            _, _, cells, meta, realm, _, _ = generate_job(seed, cq, cr, paths.get((cq, cr)) if paths else None)
+            x, z = chunk_origin(cq, cr)
+            v = lod_mesh(cells, realm, x - ox, z - oz)
+            parts.append(v)
+            ranges.append((first, len(v)))
+            first += len(v)
+    data = np.concatenate(parts).tobytes() if first else b''
+    return sq, sr, data, ranges, time.perf_counter() - t

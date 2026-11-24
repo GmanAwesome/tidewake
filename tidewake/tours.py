@@ -495,3 +495,35 @@ def v11(app, log, shot, look_at, settled, arg):
     log('reloaded inv', [(I.get(s[0]).name, s[1]) for s in app.session.inv.slots if s][:12], 'chests', len(app.session.chests))
     yield 1.0
     yield shot('80_reloaded')
+
+
+def vista(app, log, shot, look_at, settled, arg):
+    """Far-view check: wait for LOD terrain, then a high shot and an eye-level shot."""
+    import time
+    yield 0.5
+    app.create_sky('Vista', seed_from_text(arg or 'vista'), arg or 'vista', 'dreamer')
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    t0 = time.perf_counter()
+    yield lambda: ses.world.busy() == 0 and ses.world.busy_lod() == 0 and len(ses.world.lod) > 10
+    yield 1.0
+    from . import fast as _f
+    log('numba', _f.ENABLED)
+    log('lod groups', len(ses.world.lod), 'chunks', len(ses.world.chunks), 'wait', time.perf_counter() - t0,
+        'lod ms', 1000 * sum(ses.world.timings['lod']) / max(1, len(ses.world.timings['lod'])),
+        'gen ms', 1000 * sum(ses.world.timings['gen']) / max(1, len(ses.world.timings['gen'])))
+    p.pitch = -4
+    yield 3.0
+    ft = app.frame_times[-60:]
+    log('fps eye', len(ft) / sum(ft))
+    app.hide_hud = True
+    yield shot('vista_eye')
+    p.drifting = True
+    p.y += 30
+    p.pitch = -14
+    yield 3.0
+    ft = app.frame_times[-60:]
+    log('fps high', len(ft) / sum(ft))
+    yield shot('vista_high')

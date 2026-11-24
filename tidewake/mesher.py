@@ -274,3 +274,72 @@ def mesh_chunk(P, realm, cq, cr):
     ob = np.concatenate(out_o).tobytes() if out_o else b''
     wb = np.concatenate(out_w).tobytes() if out_w else b''
     return ob, wb, L
+
+
+def lod_mesh(cells, realm, dx=0.0, dz=0.0):
+    """Cheap far-away mesh for one chunk: per column one cap + one body prism (+ a canopy slab).
+    No caves, plants or lights. -> VERT array, positions offset by (dx, dz)."""
+    c = cells
+    can = c == _ID['canopy']
+    wood = c == _ID['heartwood']
+    terr = (OPAQUE[c] | MT.IS_WATER[c]) & ~can & ~wood
+    has = terr.any(1)
+    if not has.any() and not can.any():
+        return np.zeros(0, VERT)
+    Lm = LAYERS - 1
+    # half resolution: every other column, drawn as hexes twice the size (an exact scaled tiling)
+    c, can, terr, has = c[::2, :, ::2], can[::2, :, ::2], terr[::2, :, ::2], has[::2, ::2]
+    realm = realm[::2, ::2]
+    N = CHUNK // 2
+    top = np.where(has, Lm - np.argmax(terr[:, ::-1, :], axis=1), -1)
+    bot = np.where(has, np.argmax(terr, axis=1), 0)
+    Q, R = np.nonzero(has)
+    t_, b_ = top[Q, R], bot[Q, R]
+    tm = c[Q, t_, R]
+    um = c[Q, np.maximum(b_, t_ - 2), R]
+    rl = realm[Q, R]
+    tc = MT.TOP[tm].astype(np.float64)
+    turf = tm == _ID['turf']
+    tc[turf] = MT.REALM_TURF[rl[turf]]
+    sc_cap = MT.SIDE[tm].astype(np.float64)
+    sc_cap[turf] = tc[turf] * 0.92
+    sc_body = MT.SIDE[um].astype(np.float64)
+    cx = HEX * SQ3 * (2 * Q + R) + dx
+    cz = HEX * 3.0 * R.astype(np.float64) + dz
+    n = len(Q)
+
+    def nb(arr, fill):
+        out = []
+        for dq, dr in DIRS:
+            a = np.full(arr.shape, fill, arr.dtype)
+            qs = slice(max(0, -dq), N - max(0, dq))
+            qd = slice(max(0, dq), N - max(0, -dq))
+            rs = slice(max(0, -dr), N - max(0, dr))
+            rd = slice(max(0, dr), N - max(0, -dr))
+            a[qs, rs] = arr[qd, rd]
+            out.append(a[Q, R])
+        return np.stack(out, 1)
+    nt = nb(top, -1)
+    nbt = nb(np.where(has, bot, 999), 999)
+    cap_side = nt < t_[:, None]
+    body_side = ~((nbt <= b_[:, None]) & (nt >= t_[:, None] - 1))
+    E = np.full(n, pack(0.0, 1.0))
+    out = []
+    y_cap0 = t_ * LAYER
+    out += _prisms(cx, cz, y_cap0, y_cap0 + LAYER, np.full(n, 2.0), tc, sc_cap, sc_cap, E, None, np.zeros(n, bool), cap_side)
+    body = t_ > b_
+    if body.any():
+        f = body
+        out += _prisms(cx[f], cz[f], b_[f] * LAYER, y_cap0[f], np.full(f.sum(), 2.0), sc_body[f], sc_body[f], sc_body[f] * 0.8,
+                       E[f], np.zeros(f.sum(), bool), np.ones(f.sum(), bool), body_side[f])
+    hc = can.any(1)
+    if hc.any():
+        Q2, R2 = np.nonzero(hc)
+        ct = Lm - np.argmax(can[:, ::-1, :], axis=1)[Q2, R2]
+        cb = np.argmax(can, axis=1)[Q2, R2]
+        col = MT.REALM_CANOPY[realm[Q2, R2]].astype(np.float64)
+        m = len(Q2)
+        out += _prisms(HEX * SQ3 * (2 * Q2 + R2) + dx, HEX * 3.0 * R2.astype(np.float64) + dz, cb * LAYER, (ct + 1) * LAYER,
+                       np.full(m, 2.0), col, col * 0.9, col * 0.8, np.full(m, pack(0.0, 0.9)))
+    out = [o for o in out if len(o)]
+    return np.concatenate(out) if out else np.zeros(0, VERT)

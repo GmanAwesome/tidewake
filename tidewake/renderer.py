@@ -63,6 +63,16 @@ class ChunkMesh:
                 o.release()
 
 
+class LodMesh(ChunkMesh):
+    """A far-away 4x4-chunk mesh; `runs` (set by the world each frame) are the vertex ranges to draw."""
+    def __init__(self, renderer, sq, sr, data, ranges):
+        from .workers import LOD_GROUP
+        super().__init__(renderer, sq * LOD_GROUP, sr * LOD_GROUP, data, b'', np.zeros((0, 4), np.float32))
+        self.ranges = ranges
+        self.runs = []
+        self.span = LOD_GROUP
+
+
 def _noise_texture(seed=7, n=256):
     """Tileable smooth noise (sum of integer-frequency waves), two channels."""
     rng = np.random.default_rng(seed)
@@ -253,14 +263,15 @@ class Renderer:
         if meshes:
             ox = np.array([m.ox for m in meshes]) - cx
             oz = np.array([m.oz for m in meshes]) - cz
+            sp = np.array([getattr(m, 'span', 1) for m in meshes], dtype=np.float64)
             mins = np.stack([ox - 2.0, np.array([m.y0 for m in meshes]) - cy, oz - 2.0], 1)
-            maxs = np.stack([ox + 42.0, np.array([m.y1 for m in meshes]) - cy, oz + 26.0], 1)
+            maxs = np.stack([ox + 42.0 * sp, np.array([m.y1 for m in meshes]) - cy, oz + 24.0 * sp + 2], 1)
             # rhombus chunk: x spans [-1, 16*sqrt3 + 8*sqrt3], z spans [-1, 24]
-            maxs[:, 0] = ox + HEX * 1.7320508 * 24 + 1
+            maxs[:, 0] = ox + HEX * 1.7320508 * 24 * sp + 1
             mins[:, 0] = ox - 1.0
             vis = boxes_visible(frustum_planes(vp), mins, maxs)
-            dist = np.hypot(ox + 20, oz + 11)
-            vis &= dist < fog_end + 40
+            dist = np.maximum(0.0, np.hypot(ox + 20 * sp, oz + 11 * sp) - 20 * (sp - 1))
+            vis &= dist < fog_end + 60
             order = np.argsort(dist)
             meshes_v = [(meshes[i], ox[i], oz[i]) for i in order if vis[i]]
         else:
@@ -289,8 +300,14 @@ class Renderer:
         for m, ox_, oz_ in meshes_v:
             if m.vao:
                 _set(p, 'u_offset', (float(ox_), float(-cy), float(oz_)))
-                m.vao.render(moderngl.TRIANGLES)
-                verts += m.n_o
+                runs = getattr(m, 'runs', None)
+                if runs is None:
+                    m.vao.render(moderngl.TRIANGLES)
+                    verts += m.n_o
+                else:
+                    for first, cnt in runs:
+                        m.vao.render(moderngl.TRIANGLES, vertices=cnt, first=first)
+                        verts += cnt
         self._draw_verts(dynamic)
         # cloud sea
         if clouds:

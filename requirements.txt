@@ -1,3 +1,4 @@
 pyglet==2.1.19
 moderngl==5.13.0
 numpy>=1.26
+numba>=0.60  # optional: compiled terrain noise

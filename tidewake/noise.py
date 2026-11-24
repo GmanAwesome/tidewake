@@ -8,6 +8,8 @@ way out to where float64 itself runs out of precision (around 10^13 blocks).
 """
 import numpy as np
 
+from . import fast as _fast
+
 MASK64 = (1 << 64) - 1
 _K1, _K2, _K3 = np.uint64(0x9E3779B97F4A7C15), np.uint64(0xC2B2AE3D27D4EB4F), np.uint64(0x165667B19E3779F9)
 _C1, _C2 = np.uint64(0xBF58476D1CE4E5B9), np.uint64(0x94D049BB133111EB)
@@ -77,6 +79,11 @@ class Noise:
 
     def noise2(self, x, y, seed=None):
         s = self.seed if seed is None else seed
+        if _fast.ENABLED:
+            x, y = np.broadcast_arrays(np.asarray(x, np.float64), np.asarray(y, np.float64))
+            r = _fast.fbm2(np.ascontiguousarray(x).ravel(), np.ascontiguousarray(y).ravel(),
+                           np.array([s & MASK64], np.uint64), 2.0, 0.5, _G2)
+            return r.reshape(x.shape)
         x0, y0 = np.floor(x), np.floor(y)
         fx, fy = x - x0, y - y0
         ix, iy = x0.astype(np.int64), y0.astype(np.int64)
@@ -91,6 +98,11 @@ class Noise:
 
     def noise3(self, x, y, z, seed=None):
         s = self.seed if seed is None else seed
+        if _fast.ENABLED:
+            x, y, z = np.broadcast_arrays(np.asarray(x, np.float64), np.asarray(y, np.float64), np.asarray(z, np.float64))
+            r = _fast.fbm3(np.ascontiguousarray(x).ravel(), np.ascontiguousarray(y).ravel(), np.ascontiguousarray(z).ravel(),
+                           np.array([s & MASK64], np.uint64), 2.0, 0.5, _G3)
+            return r.reshape(x.shape)
         x0, y0, z0 = np.floor(x), np.floor(y), np.floor(z)
         fx, fy, fz = x - x0, y - y0, z - z0
         ix, iy, iz = x0.astype(np.int64), y0.astype(np.int64), z0.astype(np.int64)
@@ -105,8 +117,21 @@ class Noise:
         y2 = lerp(v, lerp(u, g(0, 0, 1), g(1, 0, 1)), lerp(u, g(0, 1, 1), g(1, 1, 1)))
         return lerp(w, y1, y2)
 
+    def _seeds(self, octaves):
+        k = ('_sd', octaves)
+        v = self.__dict__.get(k)
+        if v is None:
+            v = self.__dict__[k] = np.array([splitmix64(self.seed + i) for i in range(octaves)], dtype=np.uint64)
+        return v
+
     def fbm2(self, x, y, octaves=4, lacunarity=2.0, gain=0.5):
         """Fractal sum with an independent lattice per octave (no artefacts at the origin)."""
+        if _fast.ENABLED:
+            x = np.asarray(x, dtype=np.float64)
+            y = np.broadcast_to(np.asarray(y, dtype=np.float64), x.shape)
+            x, y = np.broadcast_arrays(x, y)
+            r = _fast.fbm2(np.ascontiguousarray(x).ravel(), np.ascontiguousarray(y).ravel(), self._seeds(octaves), float(lacunarity), float(gain), _G2)
+            return r.reshape(x.shape)
         total, amp, freq, norm = 0.0, 1.0, 1.0, 0.0
         for i in range(octaves):
             total = total + self.noise2(x * freq, y * freq, splitmix64(self.seed + i)) * amp
@@ -116,6 +141,11 @@ class Noise:
         return total / norm
 
     def fbm3(self, x, y, z, octaves=2, lacunarity=2.0, gain=0.5):
+        if _fast.ENABLED:
+            x, y, z = np.broadcast_arrays(np.asarray(x, np.float64), np.asarray(y, np.float64), np.asarray(z, np.float64))
+            r = _fast.fbm3(np.ascontiguousarray(x).ravel(), np.ascontiguousarray(y).ravel(), np.ascontiguousarray(z).ravel(),
+                           self._seeds(octaves), float(lacunarity), float(gain), _G3)
+            return r.reshape(x.shape)
         total, amp, freq, norm = 0.0, 1.0, 1.0, 0.0
         for i in range(octaves):
             total = total + self.noise3(x * freq, y * freq, z * freq, splitmix64(self.seed + i)) * amp
@@ -147,3 +177,6 @@ def random_seed():
     import secrets
     v = secrets.randbits(64)
     return v - (1 << 64) if v >= (1 << 63) else v
+
+
+_fast._warmup()

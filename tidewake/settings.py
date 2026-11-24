@@ -2,7 +2,8 @@
 import json
 
 DEFAULTS = {
-    'view_distance': 6,       # chunks
+    'view_distance': 12,      # chunks (full detail up to 7, far LOD beyond)
+    'settings_version': 2,
     'fov': 70,
     'sensitivity': 100,       # percent
     'invert_y': False,
@@ -31,6 +32,9 @@ class Settings(dict):
             for k, v in data.items():
                 if k in DEFAULTS and type(v) == type(DEFAULTS[k]):
                     self[k] = v
+            if data.get('settings_version', 1) < 2:      # 1.3: far terrain is cheap now, so see further
+                self['view_distance'] = max(12, self['view_distance'])
+                self['settings_version'] = 2
         except (OSError, ValueError):
             pass
 

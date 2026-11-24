@@ -463,7 +463,7 @@ class App(pyglet.window.Window):
         if cam is not None and self.mode != 'loading':
             (cx, cy, cz), yaw, pitch, phase, world = cam
             atmo = TIDE.atmosphere(phase)
-            fog_end = world.radius * 0.98
+            fog_end = max(world.radius, getattr(world, 'lod_radius', 0)) * 0.98
             proj = perspective(self.settings['fov'], fw / max(1, fh), 0.08, fog_end * 2.5 + 200)
             vr = view_matrix((0, 0, 0), yaw, pitch)
             extra = self.session.extra_lights((cx, cy, cz)) if self.mode == 'game' and self.session else []
@@ -539,7 +539,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.2   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.3   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',
