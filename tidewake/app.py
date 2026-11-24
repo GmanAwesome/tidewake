@@ -17,7 +17,8 @@ from .config import LAYER
 from .generator import Generator
 from .hexgrid import center, cell_at, chunk_of
 from .mathutil import perspective, view_matrix
-from .noise import random_seed
+from .noise import random_seed, seed_from_text
+from . import showcase
 from .renderer import Renderer
 from .screenshot import capture, png_bytes
 from .session import Session, find_spawn
@@ -173,6 +174,23 @@ class App(pyglet.window.Window):
             self.buttons.clear()
 
     def start_backdrop(self):
+        try:
+            sc = showcase.pick()
+        except Exception as e:
+            print('showcase unavailable:', e)
+            sc = None
+        if sc is not None:
+            # a player-made build in a fixed sky, applied in memory only (World has no storage)
+            world = World(seed_from_text(sc.seed_text), None, self.renderer, self.pool, min(self.settings['view_distance'], 6),
+                          far_distance=10)
+            world.on_chunk_loaded = sc.apply_chunk
+            cam = sc.camera
+            x, z = sc.focus()
+            self.backdrop = dict(world=world, x=x, z=z, y=(sc.top + cam.get('height', 13)) * LAYER,
+                                 ty=(sc.top + cam.get('target_dy', 5)) * LAYER, rad=cam.get('radius', 30.0),
+                                 speed=cam.get('speed', 0.035), ang=random.uniform(0, 6.28),
+                                 phase=cam.get('phase', 0.2), showcase=sc, yaw_off=cam.get('yaw_offset', 0.0))
+            return
         seed = random_seed()
         gen = Generator(seed)
         q, r, top, sp = find_spawn(gen)
@@ -399,7 +417,7 @@ class App(pyglet.window.Window):
         dusk = 0.3
         if self.mode == 'title' and self.backdrop:
             b = self.backdrop
-            b['ang'] += dt * 0.05
+            b['ang'] += dt * b.get('speed', 0.05)
             b['world'].update(b['x'], b['z'], 4)
             dusk = TIDE.dusk_amount(b['phase'])
         elif self.mode == 'loading' and self.session:
@@ -461,10 +479,12 @@ class App(pyglet.window.Window):
             return (x, y, z), p.yaw, p.pitch, self.session.phase, self.session.world
         b = self.backdrop
         if b:
-            rad = 46.0
+            rad = b.get('rad', 46.0)
             x = b['x'] + math.cos(b['ang']) * rad
             z = b['z'] + math.sin(b['ang']) * rad
             yaw = math.degrees(math.atan2(b['x'] - x, -(b['z'] - z)))
+            if self.menu is not None:
+                yaw += b.get('yaw_off', 0.0)          # frame the build beside the menu, not behind it
             pitch = math.degrees(math.atan2(b['ty'] - b['y'], rad)) + 4
             return (x, b['y'], z), yaw, pitch, b['phase'], b['world']
         return None
@@ -554,7 +574,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.3.3   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.3.4   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

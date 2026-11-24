@@ -14,12 +14,18 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.3-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.4-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.3.4 — a player-made showcase on the title screen
+
+- The main menu now floats over a hand-built **Lighthouse Cottage** on a meadow headland: timber cottage, striped lighthouse, workshop patio with a glowing kiln, garden and a sky dock.
+- A slow golden-hour orbit camera, with Windward playing.
+- Builds live in `assets/showcase/` and one is picked at random, so more can be added later. The showcase is never saved into your skies.
 
 ## New in 1.3.3 — a brand-new soundtrack
 

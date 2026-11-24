@@ -55,6 +55,11 @@ class TitleScreen(Screen):
     def build(self, gui, app, w, h):
         s = gui.s
         t = time.time()
+        if app.backdrop and app.backdrop.get('showcase') is not None:
+            pw, ph = 330 * s, h * 0.62                # soft card behind logo + buttons keeps the menu readable
+            gui.rect(w / 2 - pw / 2, h * 0.36 - 180 * s, pw, ph, (0.12, 0.08, 0.20, 0.22), radius=26 * s)
+            gui.rect(0, 0, w, 44 * s, (0.08, 0.06, 0.12, 0.22))
+            gui.flush()
         # logo: a gentle bobbing word with a hexagon cluster
         ly = h * 0.70 + math.sin(t * 0.8) * 4 * s
         for i, (dx, dy, c) in enumerate([(-1, 0, ELEMENT_COLORS[0]), (1, 0, ELEMENT_COLORS[1]), (-0.5, 0.866, ELEMENT_COLORS[2]),
@@ -78,8 +83,11 @@ class TitleScreen(Screen):
         if gui.button(x, y - 156 * s, bw, bh, 'Leave'):
             app.quit()
         gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
-        gui.text('Tidewake 1.3.3', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
+        gui.text('Tidewake 1.3.4', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
         gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
+        sc = app.backdrop.get('showcase') if app.backdrop else None
+        if sc is not None:
+            gui.text(f'Built in Tidewake  ·  {sc.name}', w - 14 * s, 28 * s, 10, (1, 1, 1, 0.85), 'right')
 
     def escape(self, app):
         pass

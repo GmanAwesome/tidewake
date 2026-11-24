@@ -24,6 +24,29 @@ def title(app, log, shot, look_at, settled, arg):
     yield 0.5
 
 
+def showcase(app, log, shot, look_at, settled, arg):
+    """Title-screen showcase: menu shot plus a few orbit angles without UI."""
+    import time as _t
+    t0 = _t.perf_counter()
+    yield 1.0
+    yield lambda: app.backdrop['world'].busy() == 0 and app.backdrop['world'].busy_lod() == 0
+    log('showcase ready in', round(_t.perf_counter() - t0, 2), 's', 'chunks', len(app.backdrop['world'].chunks),
+        'applied', len(app.backdrop['showcase'].applied))
+    b = app.backdrop
+    b['speed'] = 0.0
+    b['ang'] = float(arg) if arg else 0.6
+    yield 1.2
+    yield shot('menu')
+    keep = app.menu
+    app.menu = None
+    for k, ang in enumerate((3.0, 4.3, 5.4)):
+        b['ang'] = ang
+        yield 1.2
+        yield shot(f'angle_{k + 1}')
+    app.menu = keep
+    yield 0.3
+
+
 def play(app, log, shot, look_at, settled, arg):
     seed = seed_from_text(arg or 'honey-moth-7')
     yield 1.0
