@@ -276,7 +276,7 @@ def mesh_chunk(P, realm, cq, cr):
     return ob, wb, L
 
 
-def lod_mesh(cells, realm, dx=0.0, dz=0.0):
+def lod_mesh(cells, realm, dx=0.0, dz=0.0, step=2):
     """Cheap far-away mesh for one chunk: per column one cap + one body prism (+ a canopy slab).
     No caves, plants or lights. -> VERT array, positions offset by (dx, dz)."""
     c = cells
@@ -288,9 +288,10 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0):
         return np.zeros(0, VERT)
     Lm = LAYERS - 1
     # half resolution: every other column, drawn as hexes twice the size (an exact scaled tiling)
-    c, can, terr, has = c[::2, :, ::2], can[::2, :, ::2], terr[::2, :, ::2], has[::2, ::2]
-    realm = realm[::2, ::2]
-    N = CHUNK // 2
+    s_ = step
+    c, can, terr, has = c[::s_, :, ::s_], can[::s_, :, ::s_], terr[::s_, :, ::s_], has[::s_, ::s_]
+    realm = realm[::s_, ::s_]
+    N = CHUNK // s_
     top = np.where(has, Lm - np.argmax(terr[:, ::-1, :], axis=1), -1)
     bot = np.where(has, np.argmax(terr, axis=1), 0)
     Q, R = np.nonzero(has)
@@ -304,8 +305,8 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0):
     sc_cap = MT.SIDE[tm].astype(np.float64)
     sc_cap[turf] = tc[turf] * 0.92
     sc_body = MT.SIDE[um].astype(np.float64)
-    cx = HEX * SQ3 * (2 * Q + R) + dx
-    cz = HEX * 3.0 * R.astype(np.float64) + dz
+    cx = HEX * SQ3 * s_ * (Q + R * 0.5) + dx
+    cz = HEX * 1.5 * s_ * R.astype(np.float64) + dz
     n = len(Q)
 
     def nb(arr, fill):
@@ -326,11 +327,11 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0):
     E = np.full(n, pack(0.0, 1.0))
     out = []
     y_cap0 = t_ * LAYER
-    out += _prisms(cx, cz, y_cap0, y_cap0 + LAYER, np.full(n, 2.0), tc, sc_cap, sc_cap, E, None, np.zeros(n, bool), cap_side)
+    out += _prisms(cx, cz, y_cap0, y_cap0 + LAYER, np.full(n, float(s_)), tc, sc_cap, sc_cap, E, None, np.zeros(n, bool), cap_side)
     body = t_ > b_
     if body.any():
         f = body
-        out += _prisms(cx[f], cz[f], b_[f] * LAYER, y_cap0[f], np.full(f.sum(), 2.0), sc_body[f], sc_body[f], sc_body[f] * 0.8,
+        out += _prisms(cx[f], cz[f], b_[f] * LAYER, y_cap0[f], np.full(f.sum(), float(s_)), sc_body[f], sc_body[f], sc_body[f] * 0.8,
                        E[f], np.zeros(f.sum(), bool), np.ones(f.sum(), bool), body_side[f])
     hc = can.any(1)
     if hc.any():
@@ -339,7 +340,7 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0):
         cb = np.argmax(can, axis=1)[Q2, R2]
         col = MT.REALM_CANOPY[realm[Q2, R2]].astype(np.float64)
         m = len(Q2)
-        out += _prisms(HEX * SQ3 * (2 * Q2 + R2) + dx, HEX * 3.0 * R2.astype(np.float64) + dz, cb * LAYER, (ct + 1) * LAYER,
-                       np.full(m, 2.0), col, col * 0.9, col * 0.8, np.full(m, pack(0.0, 0.9)))
+        out += _prisms(HEX * SQ3 * s_ * (Q2 + R2 * 0.5) + dx, HEX * 1.5 * s_ * R2.astype(np.float64) + dz, cb * LAYER, (ct + 1) * LAYER,
+                       np.full(m, float(s_)), col, col * 0.9, col * 0.8, np.full(m, pack(0.0, 0.9)))
     out = [o for o in out if len(o)]
     return np.concatenate(out) if out else np.zeros(0, VERT)

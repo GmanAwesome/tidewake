@@ -136,9 +136,9 @@ class App(pyglet.window.Window):
             self.set_vsync(st['vsync'])
         if bool(self.fullscreen) != st['fullscreen']:
             self.set_fullscreen(st['fullscreen'])
-        if old.get('view_distance') != st['view_distance']:
+        if old.get('view_distance') != st['view_distance'] or old.get('far_distance') != st['far_distance']:
             if self.session:
-                self.session.world.set_view_distance(st['view_distance'])
+                self.session.world.set_view_distance(st['view_distance'], st['far_distance'])
             if self.backdrop:
                 self.backdrop['world'].set_view_distance(min(st['view_distance'], 6))
         self.audio.set_volumes(st['sounds'] / 100, st['music'] / 100)
@@ -188,11 +188,11 @@ class App(pyglet.window.Window):
         folder = SkyStorage.unique_folder(self.skies_dir, name)
         st = SkyStorage(self.skies_dir, folder)
         ses = Session(self, st, create=dict(name=name, seed=seed, seed_text=seed_text, mode=mode),
-                      view_distance=self.settings['view_distance'])
+                      view_distance=self.settings['view_distance'], far_distance=self.settings['far_distance'])
         self.begin(ses, 'Dreaming ' + name)
 
     def open_sky(self, folder):
-        ses = Session(self, SkyStorage(self.skies_dir, folder), view_distance=self.settings['view_distance'])
+        ses = Session(self, SkyStorage(self.skies_dir, folder), view_distance=self.settings['view_distance'], far_distance=self.settings['far_distance'])
         self.begin(ses, 'Returning to ' + ses.name)
 
     def begin(self, ses, title):
@@ -539,7 +539,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.3   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.3.1   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

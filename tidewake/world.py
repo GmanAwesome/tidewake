@@ -16,7 +16,7 @@ from .mesher import mesh_chunk, pad_chunk
 from . import workers
 from .workers import LOD_GROUP
 
-FULL_MAX = 7               # chunks of full detail; beyond that (up to view distance) far LOD meshes
+COARSE_FROM = 18           # far groups beyond this many chunks use the coarser (4x) far mesh
 
 CHUNK_SPAN = 24.0          # world units used to turn "view distance in chunks" into a radius
 
@@ -35,7 +35,7 @@ class Chunk:
 
 
 class World:
-    def __init__(self, seed, storage, renderer, pool, view_distance=6):
+    def __init__(self, seed, storage, renderer, pool, view_distance=8, far_distance=16):
         self.seed = seed
         self.storage = storage
         self.renderer = renderer
@@ -49,12 +49,13 @@ class World:
         self.center = (0, 0)
         self.closed = False
         self.on_chunk_loaded = None
-        self.set_view_distance(view_distance)
+        self.set_view_distance(view_distance, far_distance)
 
-    def set_view_distance(self, vd):
-        self.view_distance = vd
-        self.lod_radius = vd * CHUNK_SPAN
-        vd = min(vd, FULL_MAX)
+    def set_view_distance(self, vd, far=None):
+        """vd: full-detail chunks. far: how far the simple far-away terrain reaches (chunks)."""
+        far = max(vd, far if far is not None else vd)
+        self.view_distance, self.far_distance = vd, far
+        self.lod_radius = far * CHUNK_SPAN
         R = vd * CHUNK_SPAN
         n = vd + 3
         mesh = []
@@ -252,7 +253,7 @@ class World:
             if fut.done():
                 del self.lod_jobs[key]
                 try:
-                    sq, sr, data, ranges, dt = fut.result()
+                    sq, sr, data, ranges, dt, step = fut.result()
                 except Exception:
                     continue
                 self.timings.setdefault('lod', deque(maxlen=200)).append(dt)
@@ -261,6 +262,7 @@ class World:
                     if old:
                         old.release()
                     self.lod[key] = LodMesh(self.renderer, sq, sr, data, ranges)
+                    self.lod[key].step = step
                     budget -= 1
         # unload far ones
         for key in [k for k in self.lod if self._lod_dist(k) > self.lod_radius + 3 * LOD_GROUP * CHUNK_SPAN]:
@@ -274,13 +276,16 @@ class World:
             if budget <= 0:
                 break
             key = (sq0 + a, sr0 + b)
-            if key in self.lod or key in self.lod_jobs:
+            if key in self.lod_jobs:
                 continue
+            if key in self.lod and self.lod[key].step <= (4 if self._lod_dist(key) > COARSE_FROM * CHUNK_SPAN else 2):
+                continue
+            want = 4 if self._lod_dist(key) > COARSE_FROM * CHUNK_SPAN else 2
             paths = None
             if self.storage:
                 paths = {(key[0] * LOD_GROUP + i, key[1] * LOD_GROUP + k): self.storage.chunk_file(key[0] * LOD_GROUP + i, key[1] * LOD_GROUP + k)
                          for i in range(LOD_GROUP) for k in range(LOD_GROUP)}
-            self.lod_jobs[key] = self.pool.submit(workers.lod_job, self.seed, key[0], key[1], paths)
+            self.lod_jobs[key] = self.pool.submit(workers.lod_job, self.seed, key[0], key[1], paths, want)
             budget -= 1
 
     def _schedule(self):

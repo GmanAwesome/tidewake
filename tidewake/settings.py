@@ -2,8 +2,9 @@
 import json
 
 DEFAULTS = {
-    'view_distance': 12,      # chunks (full detail up to 7, far LOD beyond)
-    'settings_version': 2,
+    'view_distance': 8,       # full-detail chunks (3-20)
+    'far_distance': 16,       # simple far terrain reaches this far (chunks, up to 35)
+    'settings_version': 3,
     'fov': 70,
     'sensitivity': 100,       # percent
     'invert_y': False,
@@ -32,9 +33,14 @@ class Settings(dict):
             for k, v in data.items():
                 if k in DEFAULTS and type(v) == type(DEFAULTS[k]):
                     self[k] = v
-            if data.get('settings_version', 1) < 2:      # 1.3: far terrain is cheap now, so see further
-                self['view_distance'] = max(12, self['view_distance'])
-                self['settings_version'] = 2
+            ver = data.get('settings_version', 1)
+            if ver < 3:       # 1.3.1: one view slider became detail + far
+                old = int(data.get('view_distance', 8))
+                self['far_distance'] = min(35, max(16, old))
+                self['view_distance'] = min(20, max(8, old)) if ver < 2 else 8
+                self['settings_version'] = 3
+            self['view_distance'] = min(20, max(3, self['view_distance']))
+            self['far_distance'] = min(35, max(self['view_distance'], self['far_distance']))
         except (OSError, ValueError):
             pass
 

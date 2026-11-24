@@ -499,7 +499,17 @@ def v11(app, log, shot, look_at, settled, arg):
 
 def vista(app, log, shot, look_at, settled, arg):
     """Far-view check: wait for LOD terrain, then a high shot and an eye-level shot."""
-    import time
+    import time, threading
+    gaps = []
+
+    def probe():          # how long can another thread (like the audio feeder) be starved of the GIL?
+        last = time.perf_counter()
+        while len(gaps) < 100000:
+            time.sleep(0.01)
+            now = time.perf_counter()
+            gaps.append(now - last - 0.01)
+            last = now
+    threading.Thread(target=probe, daemon=True).start()
     yield 0.5
     app.create_sky('Vista', seed_from_text(arg or 'vista'), arg or 'vista', 'dreamer')
     yield lambda: app.mode == 'game'
@@ -507,7 +517,7 @@ def vista(app, log, shot, look_at, settled, arg):
     p = ses.player
     yield settled()
     t0 = time.perf_counter()
-    yield lambda: ses.world.busy() == 0 and ses.world.busy_lod() == 0 and len(ses.world.lod) > 10
+    yield lambda: ses.world.busy() == 0 and ses.world.busy_lod() == 0 and len(ses.world.lod) > 10 or time.perf_counter() - t0 > 60
     yield 1.0
     from . import fast as _f
     log('numba', _f.ENABLED)
@@ -526,4 +536,6 @@ def vista(app, log, shot, look_at, settled, arg):
     yield 3.0
     ft = app.frame_times[-60:]
     log('fps high', len(ft) / sum(ft))
+    g = sorted(gaps)
+    log('gil stall ms max %.0f p99 %.0f, >250ms: %d' % (1000 * g[-1], 1000 * g[int(len(g) * 0.99)], sum(1 for x in g if x > 0.25)))
     yield shot('vista_high')

@@ -203,6 +203,12 @@ class Audio:
             import pyglet
             import pyglet.media
             self._media = pyglet.media
+            try:
+                # keep ~2.5 s of sound queued so a busy frame (loading, compiling) can't starve the music
+                from pyglet.media.drivers.base import AbstractAudioPlayer
+                AbstractAudioPlayer.audio_buffer_length = 2.5
+            except Exception:
+                pass
             rng = np.random.default_rng(11)
             for name in SOUNDS:
                 self.sounds[name] = [self._load(name, _synth(name, rng)) for _ in range(2 if name != 'awaken' else 1)]
@@ -256,7 +262,8 @@ class Audio:
                     pl.loop = True
                     pl.volume = 0.0
                     pl.play()
-                if pl is not None:
+                if pl is not None and abs(getattr(pl, '_tw_vol', -1) - v) > 0.004:
                     pl.volume = v
+                    pl._tw_vol = v
         except Exception:
             pass

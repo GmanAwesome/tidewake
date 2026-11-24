@@ -26,7 +26,7 @@ def main():
     import pyglet
     from tidewake.app import App
     w, h = (int(v) for v in args.size.lower().split('x'))
-    n = args.workers or max(1, min(6, (os.cpu_count() or 2) - 1))
+    n = args.workers or max(1, min(6, (os.cpu_count() or 2) - 2))      # leave cores for the game + audio
     app = App(args.data or base_dir(), size=(w, h), workers_count=n)
     if args.tour:
         from tidewake.tour import install

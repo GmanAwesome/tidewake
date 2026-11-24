@@ -71,7 +71,7 @@ def find_spawn(gen):
 
 
 class Session:
-    def __init__(self, app, storage, create=None, view_distance=6):
+    def __init__(self, app, storage, create=None, view_distance=8, far_distance=16):
         self.app = app
         self.storage = storage
         self.inv = Inventory(36)
@@ -138,7 +138,7 @@ class Session:
             self.kilns = {k: {'slots': Inventory(3).load(v.get('slots', [])), 'burn': float(v.get('burn', 0)),
                               'burn_max': float(v.get('burn_max', 1)), 'prog': float(v.get('prog', 0))}
                           for k, v in d.get('kilns', {}).items()}
-        self.world = World(self.seed, storage, app.renderer, app.pool, view_distance)
+        self.world = World(self.seed, storage, app.renderer, app.pool, view_distance, far_distance)
         self.sim = Simulation(self.world, self.seed & 0xFFFF)
         self.sim.on_tree = self._grow_tree
         self.world.on_chunk_loaded = self._chunk_loaded

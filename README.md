@@ -14,12 +14,17 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.1-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.3.1
+
+- **Smoother music**: the game keeps about 2.5 seconds of sound queued (was under 1 second), world building runs at lower priority and leaves two CPU cores free, so loading land no longer makes the music cut in and out.
+- **Two view sliders** in Settings: **Detail distance** (full-detail land, 3–20 chunks, default 8) and **Far distance** (simple far-away islands, up to 35 chunks, default 16). Far islands past 18 chunks use an even lighter mesh.
 
 ## New in 1.3 — see further, faster world
 
