@@ -744,8 +744,17 @@ class Session:
                 self._try_spawn(False)
             if dusk > 0.55 and not peaceful and len(hostile) < 6:
                 self._try_spawn(True)
-        for mob in self.mobs:
-            mob.update(dt, self.world, p, dusk, peaceful)
+        self._mob_tick = getattr(self, '_mob_tick', 0) + 1
+        for i, mob in enumerate(self.mobs):
+            # far creatures think less often (spread over frames)
+            if abs(mob.x - p.x) + abs(mob.z - p.z) > 36:
+                mob._acc = getattr(mob, '_acc', 0.0) + dt
+                if (i + self._mob_tick) % 4:
+                    continue
+                mdt, mob._acc = min(mob._acc, 0.25), 0.0
+            else:
+                mdt = dt
+            mob.update(mdt, self.world, p, dusk, peaceful)
             if mob.hostile and not mob.dead and mob.fade > 0.5 and not self.dev:
                 d = math.hypot(mob.x - p.x, mob.z - p.z)
                 if d < 0.75 + mob.radius * mob.scale and abs(mob.y - p.y) < 1.4 and mob.attack_cd <= 0:
@@ -852,9 +861,16 @@ class Session:
     def dynamic_models(self, cam):
         """Creatures and dropped items as one VERT array (camera-relative)."""
         parts = []
+        p = self.player
+        fx, fz = math.sin(math.radians(p.yaw)), -math.cos(math.radians(p.yaw))
         for mob in self.mobs:
-            if math.hypot(mob.x - cam[0], mob.z - cam[2]) < 60:
-                parts.append(MD.set_sky(mob.model(cam), self.sky_at(mob.x, mob.y + 0.5, mob.z)))
+            dx, dz = mob.x - cam[0], mob.z - cam[2]
+            d = math.hypot(dx, dz)
+            if d < 60 and (d < 4 or (dx * fx + dz * fz) > -0.3 * d):     # roughly in view
+                mob._skyt = getattr(mob, '_skyt', 0) - 1
+                if mob._skyt <= 0:
+                    mob._skyt, mob._sky = 15, self.sky_at(mob.x, mob.y + 0.5, mob.z)
+                parts.append(MD.set_sky(mob.model(cam), mob._sky))
         for dr in self.drops:
             if math.hypot(dr.x - cam[0], dr.z - cam[2]) < 40:
                 parts.append(dr.model(cam))

@@ -78,7 +78,7 @@ class TitleScreen(Screen):
         if gui.button(x, y - 156 * s, bw, bh, 'Leave'):
             app.quit()
         gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
-        gui.text('Tidewake 1.1', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
+        gui.text('Tidewake 1.2', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
         gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
 
     def escape(self, app):

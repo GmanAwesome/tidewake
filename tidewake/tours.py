@@ -128,8 +128,9 @@ def perf(app, log, shot, look_at, settled, arg):
     ft = app.frame_times[-60:]
     log('fps', len(ft) / sum(ft))
     s = io.StringIO()
-    pstats.Stats(pr, stream=s).sort_stats('cumulative').print_stats(25)
+    pstats.Stats(pr, stream=s).sort_stats('tottime').print_stats(22)
     log(s.getvalue())
+    yield shot('perf_view')
 
 
 def seeds(app, log, shot, look_at, settled, arg):

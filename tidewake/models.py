@@ -180,7 +180,24 @@ def cached_item(iid):
 
 
 # ------------------------------------------------------------------ creatures
+_ccache = {}
+
+
 def creature(kind, t, walking, color_seed=0.0, hurt=0.0):
+    """Cached creature model: animation is quantised to 12 frames per cycle."""
+    w = bool(walking)
+    period = (2 * math.pi / 9.0) if kind != 'gloomling' and kind != 'brute' else (2 * math.pi / 7.0 if w else 2 * math.pi / 2.0)
+    fr = int((t % period) / period * 12) % 12
+    key = (kind, w, fr, hurt > 0, round(color_seed * 3))
+    v = _ccache.get(key)
+    if v is None:
+        if len(_ccache) > 4000:
+            _ccache.clear()
+        v = _ccache[key] = _creature(kind, fr / 12 * period, w, key[4] / 3, hurt)
+    return v
+
+
+def _creature(kind, t, walking, color_seed=0.0, hurt=0.0):
     """Model of a creature at animation time t, in local space (feet at y=0, facing -z)."""
     swing = math.sin(t * 9.0) * 0.09 if walking else 0.0
     tint = np.array([1.0, 0.55, 0.55]) if hurt > 0 else np.array([1.0, 1.0, 1.0])

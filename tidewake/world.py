@@ -67,6 +67,7 @@ class World:
         self.mesh_set = mset
         self.keep_radius = R + CHUNK_SPAN * (1 + UNLOAD_MARGIN)
         self.radius = R
+        self._sector = None
 
     # ------------------------------------------------------------------ cell access
     def get(self, q, r, y):
@@ -144,11 +145,16 @@ class World:
         c.state = 'ready'
 
     # ------------------------------------------------------------------ streaming
-    def update(self, x, z, budget=UPLOADS_PER_FRAME):
+    def update(self, x, z, budget=UPLOADS_PER_FRAME, yaw=None):
         if self.closed:
             return
         q, r = cell_at(x, z)
         self.center = chunk_of(q, r)
+        if yaw is not None:
+            sector = int((yaw % 360) // 30)
+            if sector != getattr(self, '_sector', None):
+                self._sector = sector
+                self._view_sort(math.radians(sector * 30 + 15))
         self._collect()
         self._schedule()
         self._upload(budget)
@@ -157,6 +163,19 @@ class World:
             self._remesh_now(self.dirty.pop())
             n += 1
         self._unload()
+
+    def _view_sort(self, a):
+        """Load/mesh what you're looking at first: weight distance by angle to view direction."""
+        fx, fz = math.sin(a), -math.cos(a)
+
+        def score(o):
+            x, z = center(o[0] * CHUNK + CHUNK / 2, o[1] * CHUNK + CHUNK / 2)
+            d = math.hypot(x, z)
+            if d < 30:
+                return d * 0.5
+            return d * (1.0 + 0.7 * (1.0 - (x * fx + z * fz) / d))
+        self.mesh_offsets = sorted(self.mesh_offsets, key=score)
+        self.data_offsets = sorted(self.data_offsets, key=score)
 
     def _dist(self, key):
         x, z = center((key[0] - self.center[0]) * CHUNK, (key[1] - self.center[1]) * CHUNK)

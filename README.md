@@ -14,12 +14,18 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.1-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.2-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.2 — smoother and calmer
+
+- About twice the frame rate with lots of creatures around: creature models are cached instead of rebuilt every frame, off-screen creatures aren't drawn, and far-away ones think less often.
+- The world loads the chunks you're looking at first.
+- New calm soundtrack: soft pad chords with a sparse melody in one key (C major by day, A minor at dusk), crossfading slowly as the tide turns. The random loud chimes are gone and pickup/menu sounds are softer. Music and Sounds have separate sliders in Settings.
 
 ## New in 1.1 — more like Minecraft
 
