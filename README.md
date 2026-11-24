@@ -14,12 +14,17 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.1-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.3.2-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.3.2 — texture pack and steadier sound
+
+- **Texture pack**: every block now has its own hand-tuned procedural detail: grass speckle and a ragged turf edge, cracked stone and strata, bark and leaf clusters, boards, bricks, ore flecks, crystal facets, carved plinths and more. Big soft colour drift across meadows and woods, leaves and plants sway in the breeze, water flows. Detail fades out with distance, costing about 2% frame rate.
+- **Sound now plays through SDL's mixer** (pygame-ce): mixing and looping run in a native audio thread, so busy frames can't cause dropouts, and every sound has a short fade at both ends so there are no pops.
 
 ## New in 1.3.1
 

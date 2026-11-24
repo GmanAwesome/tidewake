@@ -15,7 +15,7 @@ from .mathutil import frustum_planes, boxes_visible
 from .mesher import VERT
 from . import materials as MT
 
-FMT = [('3f 4f1 4f1', 'in_pos', 'in_col', 'in_nrm')]
+FMT = [('3f 4f1 4f1 4f1', 'in_pos', 'in_col', 'in_nrm', 'in_mat')]
 LIGHT_COL = {k: np.array(v[0]) for k, v in MT.LIGHTS.items()}
 LIGHT_RAD = {k: v[1] for k, v in MT.LIGHTS.items()}
 
@@ -45,12 +45,12 @@ class ChunkMesh:
         ys = []
         if self.n_o:
             self.vbo = ctx.buffer(opaque)
-            self.vao = ctx.vertex_array(prog, [(self.vbo, '3f 4f1 4f1', 'in_pos', 'in_col', 'in_nrm')])
+            self.vao = ctx.vertex_array(prog, [(self.vbo, '3f 4f1 4f1 4f1', 'in_pos', 'in_col', 'in_nrm', 'in_mat')])
             p = np.frombuffer(opaque, VERT)['p']
             ys += [p[:, 1].min(), p[:, 1].max()]
         if self.n_w:
             self.wvbo = ctx.buffer(water)
-            self.wvao = ctx.vertex_array(prog, [(self.wvbo, '3f 4f1 4f1', 'in_pos', 'in_col', 'in_nrm')])
+            self.wvao = ctx.vertex_array(prog, [(self.wvbo, '3f 4f1 4f1 4f1', 'in_pos', 'in_col', 'in_nrm', 'in_mat')])
             p = np.frombuffer(water, VERT)['p']
             ys += [p[:, 1].min(), p[:, 1].max()]
         self.y0, self.y1 = (float(min(ys)), float(max(ys))) if ys else (0.0, 0.0)
@@ -107,6 +107,23 @@ class Renderer:
         self.noise_tex.repeat_x = self.noise_tex.repeat_y = True
         self.noise_tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
         self.cloud_prog['u_noise'] = 1
+        # the texture pack: one atlas of detail tiles (see texpack.py), mipmapped
+        from . import texpack
+        from . import materials as _MT
+        img, rows = texpack.atlas(len(_MT.NAMES))
+        self.atlas_tex = ctx.texture((img.shape[1], img.shape[0]), 1, img.tobytes())
+        self.atlas_tex.build_mipmaps(0, 5)
+        self.atlas_tex.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
+        try:
+            self.atlas_tex.anisotropy = 4.0
+        except Exception:
+            pass
+        self.atlas_tex.swizzle = 'RRR1'
+        self.chunk_prog['u_atlas'] = 2
+        self.chunk_prog['u_noise2'] = 1
+        self.chunk_prog['u_atlas_rows'] = float(rows)
+        import os as _os
+        self.detail = float(_os.environ.get('TIDEWAKE_DETAIL', '1'))
         self.cloud_step = 4.0
         self.set_cloud_grid(140)
         # hex prism outline (unit cell)
@@ -123,7 +140,7 @@ class Renderer:
         self.point_vao = ctx.vertex_array(self.point_prog, [(self.point_vbo, '3f 4f 1f', 'in_pos', 'in_col', 'in_size')])
         self.stats = {'drawn': 0, 'verts': 0}
         self.dyn_vbo = ctx.buffer(reserve=VERT.itemsize * 60000, dynamic=True)
-        self.dyn_vao = ctx.vertex_array(self.chunk_prog, [(self.dyn_vbo, '3f 4f1 4f1', 'in_pos', 'in_col', 'in_nrm')])
+        self.dyn_vao = ctx.vertex_array(self.chunk_prog, [(self.dyn_vbo, '3f 4f1 4f1 4f1', 'in_pos', 'in_col', 'in_nrm', 'in_mat')])
         self.icon_tex = None
         self.icon_uv = {}
 
@@ -257,6 +274,10 @@ class Renderer:
         _set(p, 'u_glow', float(atmo['glow']))
         _set(p, 'u_time', float(time_))
         _set(p, 'u_cam_mod', (float(cx % 1000.0), float(cz % 1000.0)))
+        _set(p, 'u_cam_y', float(cy))
+        _set(p, 'u_detail', float(self.detail))
+        self.atlas_tex.use(2)
+        self.noise_tex.use(1)
 
         # visible chunks
         meshes = [m for m in meshes if m.n_o or m.n_w]

@@ -11,7 +11,7 @@ from .hexgrid import DIRS, CORNERS, DIR_NORMALS
 from . import materials as MT
 from .noise import hash2
 
-VERT = np.dtype([('p', '<f4', 3), ('c', 'u1', 4), ('n', 'u1', 4)])
+VERT = np.dtype([('p', '<f4', 3), ('c', 'u1', 4), ('n', 'u1', 4), ('m', 'u1', 4)])   # m: material, sway, 0, 0
 OPAQUE = MT.OPAQUE
 _ID = MT.ID
 
@@ -96,8 +96,26 @@ def _faces_side(cx, cz, y0, y1, rad, d, col_top, col_bot, emit, shade_bot=0.80):
     return out.reshape(-1)
 
 
+SWAY = np.zeros(256, np.uint8)
+for _k, _v in (('canopy', 60), ('vine', 200), ('sprout', 200), ('bloom', 160), ('berry_bush', 90), ('petals', 120)):
+    SWAY[_ID[_k]] = _v
+
+
+def _tag(parts, mats):
+    """Write material ids (and how much they sway in the wind) into each face array."""
+    if mats is None:
+        return parts
+    for v, mm in parts:
+        if len(v):
+            per = len(v) // max(1, len(mm))
+            ids = np.repeat(mm.astype(np.uint8), per)
+            v['m'][:, 0] = ids
+            v['m'][:, 1] = SWAY[ids]
+    return [v for v, _ in parts]
+
+
 def _prisms(cx, cz, y0, y1, rad, ctop, cside_t, cside_b, emit, mask_top=None, mask_bot=None, mask_side=None,
-            ao=None, shade_bot=0.80):
+            ao=None, shade_bot=0.80, mat=None):
     """emit: (n,) packed values, or (n, 8) per face: top, bottom, then the six sides."""
     parts = []
     n = len(cx)
@@ -107,13 +125,19 @@ def _prisms(cx, cz, y0, y1, rad, ctop, cside_t, cside_b, emit, mask_top=None, ma
         ao = np.ones((n, 6))
     E = emit if emit.ndim == 2 else np.repeat(emit[:, None], 8, 1)
     mt = np.ones(n, bool) if mask_top is None else mask_top
-    parts.append(_faces_top(cx[mt], cz[mt], y1[mt], rad[mt], ctop[mt], E[mt, 0], ao[mt], True))
+    M_ = None if mat is None else np.broadcast_to(np.asarray(mat), (n,))
+    tg = []
+    tg.append((_faces_top(cx[mt], cz[mt], y1[mt], rad[mt], ctop[mt], E[mt, 0], ao[mt], True), None if M_ is None else M_[mt]))
     mb = np.ones(n, bool) if mask_bot is None else mask_bot
-    parts.append(_faces_top(cx[mb], cz[mb], y0[mb], rad[mb], cside_b[mb] * 0.8, E[mb, 1], np.ones((mb.sum(), 6)), False))
+    tg.append((_faces_top(cx[mb], cz[mb], y0[mb], rad[mb], cside_b[mb] * 0.8, E[mb, 1], np.ones((mb.sum(), 6)), False),
+               None if M_ is None else M_[mb]))
     for d in range(6):
         ms = np.ones(n, bool) if mask_side is None else mask_side[:, d]
-        parts.append(_faces_side(cx[ms], cz[ms], y0[ms], y1[ms], rad[ms], d, cside_t[ms], cside_b[ms], E[ms, 2 + d], shade_bot))
-    return parts
+        tg.append((_faces_side(cx[ms], cz[ms], y0[ms], y1[ms], rad[ms], d, cside_t[ms], cside_b[ms], E[ms, 2 + d], shade_bot),
+                   None if M_ is None else M_[ms]))
+    if M_ is None:
+        return [v for v, _ in tg]
+    return _tag(tg, M_)
 
 
 def mesh_chunk(P, realm, cq, cr):
@@ -195,7 +219,7 @@ def mesh_chunk(P, realm, cq, cr):
         for d, (dq, dr) in enumerate(DIRS):
             E[:, 2 + d] = pack(ef, SKY[q_ + dq, y_, r_ + dr])
         out_o += _prisms(cx[f], cz[f], y0, y1, np.ones(f.sum()), top[f], side_top[f], side[f], E,
-                         show_top, show_bot, sides, ao)
+                         show_top, show_bot, sides, ao, mat=mat[f])
 
     # ---- water
     w = MT.IS_WATER[mat]
@@ -209,7 +233,7 @@ def mesh_chunk(P, realm, cq, cr):
         y0 = y_ * LAYER
         y1 = y0 + np.where(above_w, LAYER, LAYER * 0.82)
         out_w += _prisms(cx[w], cz[w], y0, y1, np.ones(w.sum()), top[w], side[w], side[w],
-                         pack(emit[w], SKY[q_, y_, r_]), show_top, show_bot, sides, None, shade_bot=0.95)
+                         pack(emit[w], SKY[q_, y_, r_]), show_top, show_bot, sides, None, shade_bot=0.95, mat=mat[w])
 
     # ---- glass (drawn with the water, see-through)
     g = MT.IS_GLASS[mat]
@@ -221,7 +245,7 @@ def mesh_chunk(P, realm, cq, cr):
         sides = np.stack([~gls[q_ + dq, y_, r_ + dr] & ~occ[q_ + dq, y_, r_ + dr] for dq, dr in DIRS], 1)
         y0 = y_ * LAYER
         out_w += _prisms(cx[g], cz[g], y0, y0 + LAYER, np.ones(g.sum()), top[g], side[g], side[g],
-                         pack(emit[g], SKY[q_, y_, r_]), show_top, show_bot, sides, None, shade_bot=1.0)
+                         pack(emit[g], SKY[q_, y_, r_]), show_top, show_bot, sides, None, shade_bot=1.0, mat=mat[g])
 
     # ---- small cells built from parts
     lights = []
@@ -257,9 +281,9 @@ def mesh_chunk(P, realm, cq, cr):
                 for k in range(6):
                     ang = k * np.pi / 3 + 0.4
                     out_o += _prisms(cx[s] + np.cos(ang) * 0.42, cz[s] + np.sin(ang) * 0.42, y0 + (k % 2) * 0.08 * LAYER,
-                                     y0 + (0.14 + (k % 2) * 0.08) * LAYER, np.full(n, 0.09), ct, ct, ct * 0.85, pack(em, sk))
+                                     y0 + (0.14 + (k % 2) * 0.08) * LAYER, np.full(n, 0.09), ct, ct, ct * 0.85, pack(em, sk), mat=m_id)
                 continue
-            out_o += _prisms(cx[s], cz[s], y0, y1, np.full(n, rad), ct, ct, ct * 0.85, pack(em, sk))
+            out_o += _prisms(cx[s], cz[s], y0, y1, np.full(n, rad), ct, ct, ct * 0.85, pack(em, sk), mat=m_id)
         if m_id in MT.LIGHTS:
             lights.append(np.stack([cx[s], (ly[s] + 0.6) * LAYER, cz[s], np.full(n, m_id)], 1))
     sp = mat == _ID['awake_spire']
@@ -327,7 +351,7 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0, step=2):
     E = np.full(n, pack(0.0, 1.0))
     out = []
     y_cap0 = t_ * LAYER
-    out += _prisms(cx, cz, y_cap0, y_cap0 + LAYER, np.full(n, float(s_)), tc, sc_cap, sc_cap, E, None, np.zeros(n, bool), cap_side)
+    out += _prisms(cx, cz, y_cap0, y_cap0 + LAYER, np.full(n, float(s_)), tc, sc_cap, sc_cap, E, None, np.zeros(n, bool), cap_side, mat=tm)
     body = t_ > b_
     if body.any():
         f = body

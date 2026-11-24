@@ -190,38 +190,83 @@ SOUNDS = ['shape', 'click', 'hover', 'mote', 'chord', 'bounce', 'whoosh', 'awake
     [f'{p}_{m}' for p in ('gather', 'step') for m in ('stone', 'soft', 'leaf', 'sand', 'wood', 'glass', 'water', 'puff')]
 
 
+def _declick(samples, ms=6):
+    """Short fade at both ends so no sound starts or stops on a non-zero sample (no pops)."""
+    s = np.asarray(samples, dtype=np.float64).copy()
+    k = min(len(s) // 4, int(RATE * ms / 1000))
+    if k > 1:
+        r = np.linspace(0.0, 1.0, k)
+        s[:k] *= r
+        s[-k:] *= r[::-1]
+    return s
+
+
+class _Pygame:
+    """SDL mixer: mixing and looping happen in SDL's own native audio thread, so Python being busy
+    (loading land, compiling, garbage collection) can't starve the sound."""
+    def __init__(self):
+        import os
+        os.environ.setdefault('PYGAME_HIDE_SUPPORT_PROMPT', '1')
+        import pygame.mixer as mx
+        mx.pre_init(RATE, -16, 2, 2048)
+        mx.init(RATE, -16, 2, 2048)
+        if not mx.get_init():
+            raise RuntimeError('no audio device')
+        mx.set_num_channels(32)
+        mx.set_reserved(2)              # channels 0 and 1: the two music loops
+        self.mx = mx
+
+    def load(self, samples):
+        a = np.clip(samples, -1, 1)
+        st = (np.repeat(a[:, None], 2, 1) * 30000).astype('<i2')
+        return self.mx.Sound(buffer=st.tobytes())
+
+    def play(self, snd, volume):
+        ch = snd.play()
+        if ch is not None:
+            ch.set_volume(volume)
+
+    def music_channel(self, k):
+        return self.mx.Channel(k)
+
+
 class Audio:
     def __init__(self, sounds=0.8, music=0.7):
         self.sfx_volume = sounds
         self.music_volume = music
         self.sounds = {}
         self.enabled = False
-        self.pad_player = None
-        self.next_note = 3.0
-        self.bells = {}
+        self.backend = None
+        self.tracks = None
+        self.players = [None, None]
+        self.vols = [0.0, 0.0]
+        self.mix = 0.0
         try:
-            import pyglet
-            import pyglet.media
-            self._media = pyglet.media
             try:
-                # keep ~2.5 s of sound queued so a busy frame (loading, compiling) can't starve the music
-                from pyglet.media.drivers.base import AbstractAudioPlayer
-                AbstractAudioPlayer.audio_buffer_length = 2.5
-            except Exception:
-                pass
+                self.pg = _Pygame()
+                self.backend = 'sdl'
+            except Exception as e:
+                print('sdl audio unavailable, using pyglet:', e)
+                import pyglet.media
+                self._media = pyglet.media
+                try:
+                    from pyglet.media.drivers.base import AbstractAudioPlayer
+                    AbstractAudioPlayer.audio_buffer_length = 2.5
+                except Exception:
+                    pass
+                self.backend = 'pyglet'
             rng = np.random.default_rng(11)
             for name in SOUNDS:
-                self.sounds[name] = [self._load(name, _synth(name, rng)) for _ in range(2 if name != 'awaken' else 1)]
-            self.tracks = None
-            self.players = [None, None]
+                self.sounds[name] = [self._load(name, _declick(_synth(name, rng))) for _ in range(2 if name != 'awaken' else 1)]
             import threading
             threading.Thread(target=self._build_tracks, daemon=True).start()
-            self.mix = 0.0
             self.enabled = True
         except Exception as e:
             print('audio disabled:', e)
 
     def _load(self, name, samples):
+        if self.backend == 'sdl':
+            return self.pg.load(samples)
         return self._media.load(f'{name}.wav', file=io.BytesIO(_wav(samples)), streaming=False)
 
     def play(self, name, volume=1.0, pitch=None):
@@ -231,14 +276,19 @@ class Audio:
         if not v:
             return
         try:
-            p = random.choice(v).play()
-            p.volume = self.sfx_volume * volume
-            p.pitch = pitch if pitch else random.uniform(0.94, 1.06)
+            snd = random.choice(v)
+            if self.backend == 'sdl':
+                self.pg.play(snd, min(1.0, self.sfx_volume * volume))
+            else:
+                p = snd.play()
+                p.volume = self.sfx_volume * volume
+                p.pitch = pitch if pitch else random.uniform(0.94, 1.06)
         except Exception:
             pass
 
     def _build_tracks(self):
         try:
+            # the loops are circular (tails wrap to the start), so looping them is seamless
             self.tracks = [self._load('light', _track(False)), self._load('dusk', _track(True))]
         except Exception as e:
             print('music disabled:', e)
@@ -254,16 +304,27 @@ class Audio:
             target = 1.0 if dusk > 0.5 else 0.0
             self.mix += (target - self.mix) * min(1.0, dt / 6.0)
             for k in (0, 1):
-                v = self.music_volume * 0.9 * (self.mix if k else 1.0 - self.mix)
-                pl = self.players[k]
-                if pl is None and v > 0.001:
-                    pl = self.players[k] = self._media.Player()
-                    pl.queue(self.tracks[k])
-                    pl.loop = True
-                    pl.volume = 0.0
-                    pl.play()
-                if pl is not None and abs(getattr(pl, '_tw_vol', -1) - v) > 0.004:
-                    pl.volume = v
-                    pl._tw_vol = v
+                want = self.music_volume * 0.9 * (self.mix if k else 1.0 - self.mix)
+                # ramp gently towards the wanted volume (never jump)
+                v = self.vols[k] + max(-0.5 * dt, min(0.5 * dt, want - self.vols[k]))
+                self.vols[k] = v
+                if self.backend == 'sdl':
+                    ch = self.players[k]
+                    if ch is None:
+                        ch = self.players[k] = self.pg.music_channel(k)
+                        ch.set_volume(0.0)
+                        ch.play(self.tracks[k], loops=-1)
+                    ch.set_volume(v)
+                else:
+                    pl = self.players[k]
+                    if pl is None and v > 0.001:
+                        pl = self.players[k] = self._media.Player()
+                        pl.queue(self.tracks[k])
+                        pl.loop = True
+                        pl.volume = 0.0
+                        pl.play()
+                    if pl is not None and abs(getattr(pl, '_tw_vol', -1) - v) > 0.004:
+                        pl.volume = v
+                        pl._tw_vol = v
         except Exception:
             pass

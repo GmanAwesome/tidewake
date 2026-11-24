@@ -520,10 +520,28 @@ def vista(app, log, shot, look_at, settled, arg):
     yield lambda: ses.world.busy() == 0 and ses.world.busy_lod() == 0 and len(ses.world.lod) > 10 or time.perf_counter() - t0 > 60
     yield 1.0
     from . import fast as _f
-    log('numba', _f.ENABLED)
+    log('numba', _f.ENABLED, 'audio', app.audio.backend, app.audio.enabled)
     log('lod groups', len(ses.world.lod), 'chunks', len(ses.world.chunks), 'wait', time.perf_counter() - t0,
         'lod ms', 1000 * sum(ses.world.timings['lod']) / max(1, len(ses.world.timings['lod'])),
         'gen ms', 1000 * sum(ses.world.timings['gen']) / max(1, len(ses.world.timings['gen'])))
+    app.hide_hud = True
+    # close-up texture shots: stone/ore cliff and a meadow with trees
+    for name, mats in (('tex_stone', (M['stone'], M['mossrock'], M['basalt'], M['rosestone'])), ('tex_meadow', (M['turf'],))):
+        cell = None
+        q0, r0 = cell_at(p.x, p.z)
+        for a, b in spiral(q0, r0, 70):
+            tt = ses.world.column_top(a, b)
+            if tt is not None and tt > 0 and ses.world.get(a, b, tt) in mats:
+                cell = (a, b, tt)
+                break
+        if cell and _stand_near(ses, cell, look_at, 4):
+            p.drifting = True
+            p.y += 1.2
+            _aim(look_at, ses, cell)
+            p.pitch = max(-25, min(p.pitch, -8))
+            yield settled()
+            yield 1.0
+            yield shot(name)
     p.pitch = -4
     yield 3.0
     ft = app.frame_times[-60:]
