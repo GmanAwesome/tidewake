@@ -1,10 +1,10 @@
-"""The in-sky overlay: chord gems, wayfinder, tide dial, toasts and the hex reticle."""
+"""The in-sky overlay: hotbar, hearts and food, wayfinder, tide dial, toasts and the hex reticle."""
 import math
 import time
 
 from .gui import INK, ACCENT, ACCENT2, MUTED, WHITE
 from .. import materials as MT
-from ..materials import ELEMENTS, ELEMENT_COLORS, FORM_HINTS, chord_cost
+from .. import items as I
 from ..hexgrid import center, cell_at
 from .. import tide as TIDE
 
@@ -23,7 +23,10 @@ def draw_hud(gui, app, ses, w, h):
     gui.hexagon(w / 2, h / 2, 7 * s, (1, 1, 1, 0), border=(1, 1, 1), border_w=1.8 * s)
     gui.circle(w / 2, h / 2, 1.4 * s, (1, 1, 1, 0.9))
     if ses.target_name:
-        soft_text(gui, ses.target_name, w / 2, h / 2 - 26 * s, 10, (1, 1, 1, 0.9), 'center', 'center')
+        nm = ses.target_name
+        if ses.target_mob:
+            nm += f'  {max(0, ses.target_mob.hp):.0f}/{ses.target_mob.max_hp}'
+        soft_text(gui, nm, w / 2, h / 2 - 30 * s, 10, (1, 1, 1, 0.9), 'center', 'center')
         if ses.target:
             m = ses.world.get(*ses.target)
             if m == MT.ID['dormant_spire']:
@@ -31,36 +34,66 @@ def draw_hud(gui, app, ses, w, h):
                 if sp:
                     _, missing = ses.spire_state(sp)
                     soft_text(gui, 'It longs for: ' + ', '.join(MT.NAMES[x] for x in sp['wants']) +
-                              '  (shape them around its base)', w / 2, h / 2 - 46 * s, 9.5, (1, 0.92, 0.8, 1), 'center', 'center')
+                              '  (place them around its base)', w / 2, h / 2 - 46 * s, 9.5, (1, 0.92, 0.8, 1), 'center', 'center')
 
-    # chord gems
-    n = 4
-    r = 26 * s
-    gap = 58 * s
-    cy = 46 * s
-    x0 = w / 2 - gap * (n - 1) / 2
-    form = ses.form
-    cost = chord_cost(ses.chord)
-    gui.rect(w / 2 - 150 * s, 8 * s, 300 * s, 80 * s, (0.2, 0.15, 0.3, 0.22), 30 * s)
-    for i in range(4):
-        on = i in ses.chord
-        cx = x0 + i * gap
-        lift = 6 * s if on else 0
-        col = ELEMENT_COLORS[i]
-        gui.hexagon(cx, cy + lift - 2 * s, r + 3 * s, (0.15, 0.1, 0.25, 0.25))
-        gui.hexagon(cx, cy + lift, r, (*col, 1.0 if on else 0.55), border=(1, 1, 1) if on else (0.95, 0.92, 1),
-                    border_w=(3 if on else 1.5) * s)
-        val = '∞' if ses.mode == 'dreamer' else str(ses.essence[i])
-        gui.text(val, cx, cy + lift + 3 * s, 12, INK if on else (0.25, 0.22, 0.34, 0.8), 'center', 'center', font='bold')
-        gui.text(f'{i + 1} {ELEMENTS[i]}', cx, cy + lift - 11 * s, 6.5, (0.25, 0.22, 0.34, 0.85), 'center', 'center')
-    # tuned form
-    afford = ses.can_afford()
-    name = MT.NAMES[form]
-    fy = cy + r + 40 * s
-    gui.hexagon(w / 2 - gui.text_width(name, 15, 'title') / 2 - 18 * s, fy, 9 * s, (*MT.TOP[form], 1), border=(1, 1, 1),
-                border_w=2 * s)
-    soft_text(gui, name, w / 2, fy, 15, WHITE if afford else (1, 0.8, 0.8, 1), 'center', 'center', 'title')
-    soft_text(gui, FORM_HINTS.get(form, ''), w / 2, fy - 20 * s, 9, (1, 1, 1, 0.85), 'center', 'center')
+    # mining progress ring
+    if ses.mining and ses.mining[1] > 0:
+        f = min(1.0, ses.mining[1])
+        n = 18
+        for k in range(n):
+            a = math.pi / 2 - k / n * math.tau
+            on = k / n < f
+            gui.circle(w / 2 + math.cos(a) * 16 * s, h / 2 + math.sin(a) * 16 * s, 2.2 * s,
+                       (1, 1, 1, 0.95) if on else (1, 1, 1, 0.25))
+
+    # hotbar
+    from .inventory_ui import draw_stack
+    size, gap = 50 * s, 6 * s
+    total = 9 * size + 8 * gap
+    hx = w / 2 - total / 2
+    hy = 14 * s
+    gui.rect(hx - 8 * s, hy - 8 * s, total + 16 * s, size + 16 * s, (0.2, 0.15, 0.3, 0.30), 18 * s)
+    for k in range(9):
+        x = hx + k * (size + gap)
+        sel = k == ses.hot
+        gui.rect(x, hy + (4 * s if sel else 0), size, size, (1, 1, 1, 0.92 if sel else 0.55), 12 * s,
+                 border=ACCENT if sel else (1, 1, 1), border_w=(3 if sel else 1) * s)
+        draw_stack(gui, app, ses.inv.slots[k], x, hy + (4 * s if sel else 0), size)
+        gui.text(str(k + 1), x + 6 * s, hy + size - 8 * s + (4 * s if sel else 0), 7, (0.3, 0.25, 0.4, 0.7), 'left', 'center')
+    it = ses.held_item
+    if it:
+        lab = it.name
+        if ses.dev:
+            lab += '  ·  endless'
+        soft_text(gui, lab, w / 2, hy + size + 26 * s, 12, WHITE, 'center', 'center', 'bold')
+    # hearts and food
+    by = hy + size + 46 * s
+    if not ses.dev:
+        hp = ses.hp
+        for k in range(10):
+            x = hx + k * 20 * s + 8 * s
+            v = max(0.0, min(1.0, (hp - k * 2) / 2))
+            gui.hexagon(x, by, 8 * s, (0.3, 0.2, 0.3, 0.45))
+            if v > 0:
+                shake = math.sin(time.time() * 40 + k) * 1.5 * s if ses.hurt_flash > 0 else 0
+                gui.hexagon(x, by + shake, 7 * s * (0.55 + 0.45 * v), (1.0, 0.42, 0.52, 1), border=(1, 1, 1), border_w=1.2 * s)
+        for k in range(10):
+            x = hx + total - k * 20 * s - 8 * s
+            v = max(0.0, min(1.0, (ses.food - k * 2) / 2))
+            gui.circle(x, by, 7.5 * s, (0.3, 0.2, 0.3, 0.45))
+            if v > 0:
+                gui.circle(x, by, 6.5 * s * (0.55 + 0.45 * v), (1.0, 0.76, 0.40, 1), border=(1, 1, 1), border_w=1.2 * s)
+    else:
+        soft_text(gui, 'DEV MODE  ·  F fly  ·  N noclip  ·  [ ] speed  ·  F5 admin panel', w / 2, by, 9.5,
+                  (1, 0.9, 0.6, 1), 'center', 'center', 'bold')
+        flags = []
+        if p.drifting: flags.append(f'flying {p.fly_speed:.0f}')
+        if p.noclip: flags.append('noclip')
+        soft_text(gui, '  ·  '.join(flags), w / 2, by + 18 * s, 9, (1, 1, 1, 0.85), 'center', 'center')
+    if ses.hurt_flash > 0:
+        gui.rect(0, 0, w, h, (1.0, 0.3, 0.35, ses.hurt_flash * 0.4))
+    if ses.weather == 'rain':
+        gui.rect(0, 0, w, h, (0.45, 0.5, 0.65, 0.08))
 
     # tide dial (top left)
     dx, dy = 44 * s, h - 44 * s
@@ -77,7 +110,6 @@ def draw_hud(gui, app, ses, w, h):
     if p.can_glide: gifts.append('Glide')
     if p.can_updraft: gifts.append('Updraft')
     if ses.can_tidecall: gifts.append('Tidecall')
-    if p.drifting: gifts.append('drifting')
     if gifts:
         soft_text(gui, '  ·  '.join(gifts), dx - 20 * s, dy - 44 * s, 9, (1, 0.95, 0.85, 0.9), 'left', 'center')
 
@@ -121,8 +153,8 @@ def draw_hud(gui, app, ses, w, h):
         a = 1 - abs(ses.carry - 0.8) / 0.8
         gui.rect(0, 0, w, h, (1, 0.98, 0.98, max(0, min(1, a * 1.3))))
     if time.perf_counter() - app.started < 40 and not app.show_debug:
-        soft_text(gui, 'Left click gather  ·  Right click shape  ·  1-4 tune  ·  Space jump  ·  J journal  ·  Esc rest',
-                  14 * s, 14 * s, 9, (1, 1, 1, 0.8))
+        soft_text(gui, 'Hold left click: mine  ·  Right click: place / use  ·  E backpack  ·  J journal  ·  F4 dev mode',
+                  14 * s, h - 92 * s, 9, (1, 1, 1, 0.8))
 
 
 def _spire_for(ses, cell):

@@ -28,6 +28,9 @@ from . import materials as MT
 from .ui.gui import Gui
 from .ui.hud import draw_hud
 from .ui import screens as S
+from .ui import inventory_ui as IU
+from . import items as IT
+from . import models as MD
 from .world import World
 from . import workers
 
@@ -45,6 +48,7 @@ class App(pyglet.window.Window):
         self.set_minimum_size(800, 480)
         self.ctx = moderngl.create_context()
         self.renderer = Renderer(self.ctx)
+        self._build_icons()
         self.gui = Gui(self.ctx)
         self.audio = Audio(self.settings['sounds'] / 100, self.settings['music'] / 100)
         self.gui.sound = lambda n: self.audio.play(n, 0.5)
@@ -77,6 +81,28 @@ class App(pyglet.window.Window):
         if self.settings['fullscreen']:
             self.set_fullscreen(True)
         self.schedule_frames()
+
+    def _build_icons(self):
+        models = {}
+        for iid, it in IT.ITEMS.items():
+            v = MD.cached_item(iid)
+            if it.model in ('block', 'deco'):
+                models[iid] = (v, 30.0, -30.0, 0.95 if it.model == 'block' else 1.15)
+            elif it.model in MD.SPRITES:
+                models[iid] = (v, 18.0, -8.0, 1.05)
+            else:
+                models[iid] = (v, 30.0, -32.0, 1.55)
+        try:
+            self.renderer.build_icons(models)
+        except Exception as e:
+            print('icons failed:', e)
+        self.ctx.viewport = (0, 0, *self.get_framebuffer_size())
+
+    def keys_down_shift(self):
+        return bool(self.keys[key.LSHIFT] or self.keys[key.RSHIFT])
+
+    def on_faded(self, why):
+        self.set_screen(IU.FadedScreen(why))
 
     def _set_icon(self):
         try:
@@ -234,23 +260,60 @@ class App(pyglet.window.Window):
             self.apply_settings({'fullscreen': not self.settings['fullscreen']})
         if self.mode != 'game' or not self.session:
             return pyglet.event.EVENT_HANDLED
+        ses = self.session
         if self.menu is not None:
             if isinstance(self.menu, S.JournalScreen) and symbol in (key.J, key.TAB):
                 self.set_screen(None)
+            elif isinstance(self.menu, IU.SlotScreen) and symbol == key.E:
+                self.menu.escape(self)
+            elif isinstance(self.menu, IU.AdminScreen) and symbol == key.F5:
+                self.set_screen(None)
+            elif isinstance(self.menu, IU.SlotScreen) and key._1 <= symbol <= key._9:
+                # hotkey swap: put the hovered stack into that hotbar slot (handled simply: select it)
+                ses.select(symbol - key._1)
             return pyglet.event.EVENT_HANDLED
-        ses = self.session
-        if key._1 <= symbol <= key._4:
-            ses.toggle_element(symbol - key._1)
+        if key._1 <= symbol <= key._9:
+            ses.select(symbol - key._1)
         elif symbol == key.SPACE:
             self.jump_pressed = True
         elif symbol == key.F3:
             self.show_debug = not self.show_debug
         elif symbol == key.F1:
             self.hide_hud = not self.hide_hud
-        elif symbol == key.F and ses.mode == 'dreamer':
+        elif symbol == key.F4:
+            ses.set_dev(not ses.dev)
+            self.audio.play('chord', 0.7)
+        elif symbol == key.F5:
+            if not ses.dev:
+                ses.toast('Dev mode is off', 'Press F4 to turn it on, then F5 for the admin panel.', 3)
+            else:
+                self.set_screen(IU.AdminScreen())
+        elif symbol == key.E:
+            self.set_screen(IU.BackpackScreen())
+            self.audio.play('step_wood', 0.5)
+        elif symbol == key.Q:
+            sl = ses.held
+            if sl:
+                from .entities import Drop
+                from .mathutil import forward_vector
+                p = ses.player
+                f = forward_vector(p.yaw, p.pitch)
+                n = sl[1] if modifiers & key.MOD_CTRL else 1
+                d = Drop(sl[0], n, p.x + f[0] * 0.8, p.y + 1.3, p.z + f[2] * 0.8, sl[2], vy=2 + f[1] * 3)
+                d.vx, d.vz = f[0] * 5, f[2] * 5
+                d.age = -1.0
+                ses.drops.append(d)
+                ses.inv.take_from(ses.hot, n)
+        elif symbol == key.F and ses.dev:
             ses.player.drifting = not ses.player.drifting
             ses.player.vy = 0
-            ses.toast('Drifting' if ses.player.drifting else 'Walking', '', 1.5)
+            ses.toast('Flying' if ses.player.drifting else 'Walking', 'Space up, Ctrl / C down, Shift faster' if ses.player.drifting else '', 1.5)
+        elif symbol == key.N and ses.dev:
+            ses.command('/noclip')
+        elif symbol in (key.BRACKETLEFT, key.BRACKETRIGHT) and ses.dev:
+            p = ses.player
+            p.fly_speed = max(2.0, min(120.0, p.fly_speed * (1.25 if symbol == key.BRACKETRIGHT else 0.8)))
+            ses.toast(f'Flying speed {p.fly_speed:.0f}', '', 1.2)
         elif symbol == key.T:
             if ses.can_tidecall:
                 ses.tide_rush = 30.0
@@ -284,6 +347,8 @@ class App(pyglet.window.Window):
             if button == mouse.LEFT:
                 self.gui.clicks.append((self.gui.mx, self.gui.my, 1))
                 self.gui.mouse_down = True
+            elif button == mouse.RIGHT:
+                self.gui.clicks.append((self.gui.mx, self.gui.my, 4))
             return
         if not self.captured:
             self.set_capture(True)
@@ -312,7 +377,7 @@ class App(pyglet.window.Window):
         if self.menu is not None or self.mode != 'game':
             self.gui.scroll += sy
         elif self.session:
-            self.session.cycle_form(-1 if sy > 0 else 1)
+            self.session.cycle_hot(-1 if sy > 0 else 1)
 
     def on_deactivate(self):
         if self.mode == 'game' and self.menu is None:
@@ -346,6 +411,10 @@ class App(pyglet.window.Window):
             if not paused:
                 k = self.keys
                 ti = self.test_input or {}
+                free = self.menu is None or isinstance(self.menu, S.WhisperScreen)
+                if not free:
+                    k = {}
+                    k = key.KeyStateHandler()
                 inp = dict(
                     fwd=ti.get('fwd', (1 if k[key.W] or k[key.UP] else 0) - (1 if k[key.S] or k[key.DOWN] else 0)),
                     strafe=ti.get('strafe', (1 if k[key.D] or k[key.RIGHT] else 0) - (1 if k[key.A] or k[key.LEFT] else 0)),
@@ -357,7 +426,8 @@ class App(pyglet.window.Window):
                     shape=ti.get('shape', mouse.RIGHT in self.buttons and self.menu is None))
                 if self.test_input:
                     self.test_input.pop('jump_pressed', None)
-                    self.test_input.pop('gather', None)
+                    if not self.test_input.get('hold'):
+                        self.test_input.pop('gather', None)
                     self.test_input.pop('shape', None)
                 ses.update(dt, inp)
             else:
@@ -397,8 +467,9 @@ class App(pyglet.window.Window):
             proj = perspective(self.settings['fov'], fw / max(1, fh), 0.08, fog_end * 2.5 + 200)
             vr = view_matrix((0, 0, 0), yaw, pitch)
             extra = self.session.extra_lights((cx, cy, cz)) if self.mode == 'game' and self.session else []
+            dyn = self.session.dynamic_models((cx, cy, cz)) if self.mode == 'game' and self.session else None
             self.renderer.draw((cx, cy, cz), proj, vr, world.meshes(), atmo, fog_end, self.clock_t, extra,
-                               clouds=self.settings['clouds'])
+                               clouds=self.settings['clouds'], dynamic=dyn)
             if self.mode == 'game' and self.session:
                 ses = self.session
                 if ses.target and not self.hide_hud and self.menu is None:
@@ -406,6 +477,9 @@ class App(pyglet.window.Window):
                     tx, tz = center(q, r)
                     self.renderer.draw_outline((tx - cx, y * LAYER - cy, tz - cz))
                 self.renderer.draw_points(ses.point_data((cx, cy, cz)))
+                if not self.hide_hud and self.menu is None and not ses.dead:
+                    bob = math.sin(ses.walk * 2.2) * 0.015 if self.settings['head_bob'] else 0.0
+                    self.renderer.draw_held(ses.held_model((cx, cy, cz), bob))
                 if self.want_thumb:
                     self.want_thumb = False
                     self._save_thumb()
@@ -465,7 +539,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.0   {fps:.0f} fps',
+        lines = [f'Tidewake 1.1   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

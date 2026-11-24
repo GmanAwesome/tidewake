@@ -16,6 +16,13 @@ OPAQUE = MT.OPAQUE
 _ID = MT.ID
 
 
+def pack(emit, sky=1.0):
+    """Colour alpha byte as a 0-1 float: high nibble emit, low nibble sky light."""
+    e = np.clip(np.round(np.asarray(emit, dtype=np.float64) * 15), 0, 15)
+    s = np.clip(np.round(np.asarray(sky, dtype=np.float64) * 15), 0, 15)
+    return (e * 16 + s) / 255.0
+
+
 def pad_chunk(get, cq, cr):
     """Assemble (CHUNK+2, LAYERS, CHUNK+2) cells from a chunk and its neighbours. get(cq, cr) -> cells or None"""
     P = np.zeros((CHUNK + 2, LAYERS, CHUNK + 2), np.uint8)
@@ -57,7 +64,7 @@ def _faces_top(cx, cz, y, rad, col, emit, ao, up=True):
     C[:, :, 0, :3] = np.clip(c255 * ao.mean(1)[:, None] * 0.5 + c255 * 0.5, 0, 255)[:, None, :]
     C[:, :, 1, :3] = np.clip(c255[:, None, :] * ao[:, first, None], 0, 255)
     C[:, :, 2, :3] = np.clip(c255[:, None, :] * ao[:, second, None], 0, 255)
-    C[..., 3] = np.clip(emit * 255, 0, 255)[:, None, None]
+    C[..., 3] = np.clip(np.round(emit * 255), 0, 255)[:, None, None]
     Nn = out['n']
     Nn[..., 0], Nn[..., 1], Nn[..., 2] = 128, (255 if up else 0), 128
     Nn[:, :, 0, 3] = 255
@@ -83,7 +90,7 @@ def _faces_side(cx, cz, y0, y1, rad, d, col_top, col_bot, emit, shade_bot=0.80):
     ct = np.clip(col_top * 255.0, 0, 255)
     cb = np.clip(col_bot * 255.0 * shade_bot, 0, 255)
     out['c'][:, :, :3] = np.where(top[None, :, None], ct[:, None, :], cb[:, None, :])
-    out['c'][..., 3] = np.clip(emit * 255, 0, 255)[:, None]
+    out['c'][..., 3] = np.clip(np.round(emit * 255), 0, 255)[:, None]
     nx, nz = DIR_NORMALS[d]
     out['n'][..., 0], out['n'][..., 1], out['n'][..., 2], out['n'][..., 3] = nx * 127.5 + 127.5, 128, nz * 127.5 + 127.5, 255
     return out.reshape(-1)
@@ -91,19 +98,21 @@ def _faces_side(cx, cz, y0, y1, rad, d, col_top, col_bot, emit, shade_bot=0.80):
 
 def _prisms(cx, cz, y0, y1, rad, ctop, cside_t, cside_b, emit, mask_top=None, mask_bot=None, mask_side=None,
             ao=None, shade_bot=0.80):
+    """emit: (n,) packed values, or (n, 8) per face: top, bottom, then the six sides."""
     parts = []
     n = len(cx)
     if n == 0:
         return parts
     if ao is None:
         ao = np.ones((n, 6))
+    E = emit if emit.ndim == 2 else np.repeat(emit[:, None], 8, 1)
     mt = np.ones(n, bool) if mask_top is None else mask_top
-    parts.append(_faces_top(cx[mt], cz[mt], y1[mt], rad[mt], ctop[mt], emit[mt], ao[mt], True))
+    parts.append(_faces_top(cx[mt], cz[mt], y1[mt], rad[mt], ctop[mt], E[mt, 0], ao[mt], True))
     mb = np.ones(n, bool) if mask_bot is None else mask_bot
-    parts.append(_faces_top(cx[mb], cz[mb], y0[mb], rad[mb], cside_b[mb] * 0.8, emit[mb], np.ones((mb.sum(), 6)), False))
+    parts.append(_faces_top(cx[mb], cz[mb], y0[mb], rad[mb], cside_b[mb] * 0.8, E[mb, 1], np.ones((mb.sum(), 6)), False))
     for d in range(6):
         ms = np.ones(n, bool) if mask_side is None else mask_side[:, d]
-        parts.append(_faces_side(cx[ms], cz[ms], y0[ms], y1[ms], rad[ms], d, cside_t[ms], cside_b[ms], emit[ms], shade_bot))
+        parts.append(_faces_side(cx[ms], cz[ms], y0[ms], y1[ms], rad[ms], d, cside_t[ms], cside_b[ms], E[ms, 2 + d], shade_bot))
     return parts
 
 
@@ -112,6 +121,16 @@ def mesh_chunk(P, realm, cq, cr):
     core = P[1:-1, :, 1:-1]
     occ = OPAQUE[P]
     wat = MT.IS_WATER[P]
+    gls = MT.IS_GLASS[P]
+    # sky light: is an (empty) cell roofed over, and is it enclosed from below too (a cave)?
+    roof = occ & (P != _ID['canopy'])
+    leaf = P == _ID['canopy']
+    cs = np.cumsum(roof[:, ::-1, :], axis=1)[:, ::-1, :]
+    above = (cs - roof) > 0
+    below = (np.cumsum(roof, axis=1) - roof) > 0
+    ls = np.cumsum(leaf[:, ::-1, :], axis=1)[:, ::-1, :]
+    under_leaf = (ls - leaf) > 0
+    SKY = np.where(above, np.where(below, 0.22, 0.62), np.where(under_leaf, 0.78, 1.0))
     nz = np.nonzero(core)
     if len(nz[0]) == 0:
         return b'', b'', np.zeros((0, 4), np.float32)
@@ -148,6 +167,8 @@ def mesh_chunk(P, realm, cq, cr):
     side_top *= jit[:, None]
     emit = MT.EMIT[mat].astype(np.float64)
     emit[rune & (mat == _ID['dormant_spire'])] = 0.25
+    ore = np.isin(mat, MT.ORES)
+    side_top[ore] = top[ore] * 0.9
 
     pq, pr = lq + 1, lr + 1
     up = np.minimum(ly + 1, LAYERS - 1)
@@ -167,7 +188,13 @@ def mesh_chunk(P, realm, cq, cr):
         ao = 1.0 - 0.17 * (occ_up + np.roll(occ_up, -1, axis=1))
         y0 = y_ * LAYER
         y1 = y0 + LAYER
-        out_o += _prisms(cx[f], cz[f], y0, y1, np.ones(f.sum()), top[f], side_top[f], side[f], emit[f],
+        E = np.empty((f.sum(), 8))
+        ef = emit[f]
+        E[:, 0] = pack(ef, SKY[q_, u_, r_])
+        E[:, 1] = pack(ef, 0.55)
+        for d, (dq, dr) in enumerate(DIRS):
+            E[:, 2 + d] = pack(ef, SKY[q_ + dq, y_, r_ + dr])
+        out_o += _prisms(cx[f], cz[f], y0, y1, np.ones(f.sum()), top[f], side_top[f], side[f], E,
                          show_top, show_bot, sides, ao)
 
     # ---- water
@@ -181,8 +208,20 @@ def mesh_chunk(P, realm, cq, cr):
         sides = np.stack([~wat[q_ + dq, y_, r_ + dr] & ~occ[q_ + dq, y_, r_ + dr] for dq, dr in DIRS], 1)
         y0 = y_ * LAYER
         y1 = y0 + np.where(above_w, LAYER, LAYER * 0.82)
-        out_w += _prisms(cx[w], cz[w], y0, y1, np.ones(w.sum()), top[w], side[w], side[w], emit[w],
-                         show_top, show_bot, sides, None, shade_bot=0.95)
+        out_w += _prisms(cx[w], cz[w], y0, y1, np.ones(w.sum()), top[w], side[w], side[w],
+                         pack(emit[w], SKY[q_, y_, r_]), show_top, show_bot, sides, None, shade_bot=0.95)
+
+    # ---- glass (drawn with the water, see-through)
+    g = MT.IS_GLASS[mat]
+    if g.any():
+        q_, y_, r_ = pq[g], ly[g], pr[g]
+        u_, d_ = up[g], dn[g]
+        show_top = ~gls[q_, u_, r_] & ~occ[q_, u_, r_]
+        show_bot = ~gls[q_, d_, r_] & ~occ[q_, d_, r_]
+        sides = np.stack([~gls[q_ + dq, y_, r_ + dr] & ~occ[q_ + dq, y_, r_ + dr] for dq, dr in DIRS], 1)
+        y0 = y_ * LAYER
+        out_w += _prisms(cx[g], cz[g], y0, y0 + LAYER, np.ones(g.sum()), top[g], side[g], side[g],
+                         pack(emit[g], SKY[q_, y_, r_]), show_top, show_bot, sides, None, shade_bot=1.0)
 
     # ---- small cells built from parts
     lights = []
@@ -206,10 +245,21 @@ def mesh_chunk(P, realm, cq, cr):
             if use_top == 'core':
                 ct = np.tile(np.array([1.0, 0.90, 0.55]), (n, 1))
                 em = np.maximum(emit[s], 0.25)
+            elif use_top == 'berry':
+                ct = np.tile(np.array([0.62, 0.36, 0.86]), (n, 1))
+                em = np.full(n, 0.2)
             else:
                 ct = top[s] if use_top else side[s]
                 em = emit[s] if use_top else emit[s] * 0.2
-            out_o += _prisms(cx[s], cz[s], y0, y1, np.full(n, rad), ct, ct, ct * 0.85, em)
+            sk = SKY[pq[s], ly[s], pr[s]]
+            if use_top == 'berry':
+                # berries peek out of the bush on all sides
+                for k in range(6):
+                    ang = k * np.pi / 3 + 0.4
+                    out_o += _prisms(cx[s] + np.cos(ang) * 0.42, cz[s] + np.sin(ang) * 0.42, y0 + (k % 2) * 0.08 * LAYER,
+                                     y0 + (0.14 + (k % 2) * 0.08) * LAYER, np.full(n, 0.09), ct, ct, ct * 0.85, pack(em, sk))
+                continue
+            out_o += _prisms(cx[s], cz[s], y0, y1, np.full(n, rad), ct, ct, ct * 0.85, pack(em, sk))
         if m_id in MT.LIGHTS:
             lights.append(np.stack([cx[s], (ly[s] + 0.6) * LAYER, cz[s], np.full(n, m_id)], 1))
     sp = mat == _ID['awake_spire']

@@ -15,6 +15,8 @@ DEFAULTS = {
     'clouds': True,
     'head_bob': True,
     'motes': True,
+    'creatures': True,        # woolhops, pebblebeaks, mossbacks
+    'dusk_critters': True,    # gloomlings in the dusk tide
 }
 FPS_CHOICES = [30, 60, 90, 120, 144, 0]
 

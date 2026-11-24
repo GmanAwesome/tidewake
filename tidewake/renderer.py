@@ -112,6 +112,87 @@ class Renderer:
         self.point_vbo = ctx.buffer(reserve=8 * 4 * 4096, dynamic=True)
         self.point_vao = ctx.vertex_array(self.point_prog, [(self.point_vbo, '3f 4f 1f', 'in_pos', 'in_col', 'in_size')])
         self.stats = {'drawn': 0, 'verts': 0}
+        self.dyn_vbo = ctx.buffer(reserve=VERT.itemsize * 60000, dynamic=True)
+        self.dyn_vao = ctx.vertex_array(self.chunk_prog, [(self.dyn_vbo, '3f 4f1 4f1', 'in_pos', 'in_col', 'in_nrm')])
+        self.icon_tex = None
+        self.icon_uv = {}
+
+    def _draw_verts(self, verts):
+        if verts is None or not len(verts):
+            return
+        data = np.ascontiguousarray(verts, VERT).tobytes()
+        if len(data) > self.dyn_vbo.size:
+            self.dyn_vbo.orphan(len(data))
+        self.dyn_vbo.write(data)
+        _set(self.chunk_prog, 'u_offset', (0.0, 0.0, 0.0))
+        self.dyn_vao.render(moderngl.TRIANGLES, vertices=len(data) // VERT.itemsize)
+
+    def draw_held(self, verts):
+        """Draw the item in your hand (camera-relative), always in front of the world."""
+        if verts is None or not len(verts):
+            return
+        ctx = self.ctx
+        ctx.enable(moderngl.DEPTH_TEST | moderngl.CULL_FACE)
+        _set(self.chunk_prog, 'u_alpha', 1.0)
+        _set(self.chunk_prog, 'u_hand', 1.0)
+        self._draw_verts(verts)
+        _set(self.chunk_prog, 'u_hand', 0.0)
+        ctx.disable(moderngl.DEPTH_TEST | moderngl.CULL_FACE)
+
+    def build_icons(self, models, cell=64, cols=16):
+        """Render item models into an atlas texture. models: {id: (verts, yaw, pitch, scale)}"""
+        from .mathutil import view_matrix
+        ids = sorted(models)
+        rows = (len(ids) + cols - 1) // cols
+        W, H = cols * cell, rows * cell
+        ctx = self.ctx
+        tex = ctx.texture((W, H), 4)
+        depth = ctx.depth_renderbuffer((W, H))
+        fbo = ctx.framebuffer([tex], depth)
+        fbo.use()
+        fbo.clear(0, 0, 0, 0, 1.0)
+        p = self.chunk_prog
+        _set(p, 'u_sun_dir', tuple(np.array([0.45, 0.8, 0.35]) / np.linalg.norm([0.45, 0.8, 0.35])))
+        _set(p, 'u_sun_col', (0.95, 0.90, 0.85))
+        _set(p, 'u_amb_top', (0.75, 0.74, 0.80))
+        _set(p, 'u_amb_bot', (0.45, 0.42, 0.50))
+        _set(p, 'u_fog_col', (1, 1, 1))
+        _set(p, 'u_cloud_col', (1, 1, 1))
+        _set(p, 'u_fog_start', 1e6)
+        _set(p, 'u_fog_end', 2e6)
+        _set(p, 'u_cloud_y', -1e6)
+        _set(p, 'u_glow', 0.8)
+        _set(p, 'u_time', 0.0)
+        _set(p, 'u_nl', 0)
+        _set(p, 'u_alpha', 1.0)
+        _set(p, 'u_hand', 0.0)
+        ctx.enable(moderngl.DEPTH_TEST | moderngl.CULL_FACE)
+        ctx.disable(moderngl.BLEND)
+        s = 0.62
+        proj = np.array([[1 / s, 0, 0, 0], [0, 1 / s, 0, 0], [0, 0, -0.1, 0], [0, 0, 0, 1]], dtype=np.float64)
+        for k, iid in enumerate(ids):
+            verts, yaw, pitch, scale = models[iid]
+            col, row = k % cols, k // cols
+            ctx.viewport = (col * cell, H - (row + 1) * cell, cell, cell)
+            vr = view_matrix((0, 0, 0), yaw, pitch)
+            # camera sits back along its view; the model is at the origin
+            from .mathutil import forward_vector
+            fx, fy, fz = forward_vector(yaw, pitch)
+            T = np.eye(4)
+            T[:3, 3] = [fx * 5, fy * 5, fz * 5]
+            _write(p, 'u_vp', _mat(proj @ vr @ T))
+            v = verts.copy()
+            v['p'] = v['p'] * scale
+            self._draw_verts(v)
+            self.icon_uv[iid] = (col * cell / W, 1 - (row + 1) * cell / H, (col + 1) * cell / W, 1 - row * cell / H)
+        ctx.screen.use()
+        tex.filter = (moderngl.LINEAR, moderngl.LINEAR)
+        tex.build_mipmaps()
+        tex.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR)
+        fbo.release()
+        depth.release()
+        self.icon_tex = tex
+        self.icon_px = (W, H)
 
     def set_cloud_grid(self, n):
         s = self.cloud_step
@@ -129,7 +210,7 @@ class Renderer:
         self.cloud_vao = self.ctx.vertex_array(self.cloud_prog, [(self.cloud_vbo, '2f', 'in_pos')], self.cloud_ibo)
 
     # ------------------------------------------------------------------ frame
-    def draw(self, cam, proj, view_rot, meshes, atmo, fog_end, time_, extra_lights=(), clouds=True):
+    def draw(self, cam, proj, view_rot, meshes, atmo, fog_end, time_, extra_lights=(), clouds=True, dynamic=None):
         """cam: float64 (x, y, z). view_rot: rotation-only view matrix. meshes: iterable of ChunkMesh."""
         ctx = self.ctx
         vp = proj @ view_rot
@@ -210,6 +291,7 @@ class Renderer:
                 _set(p, 'u_offset', (float(ox_), float(-cy), float(oz_)))
                 m.vao.render(moderngl.TRIANGLES)
                 verts += m.n_o
+        self._draw_verts(dynamic)
         # cloud sea
         if clouds:
             ctx.disable(moderngl.CULL_FACE)

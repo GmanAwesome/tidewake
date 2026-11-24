@@ -1,4 +1,4 @@
-"""One open sky: the wanderer, essences and tuning, spires, tides, motes and saving."""
+"""One open sky: the wanderer, mining and building, creatures, spires, tides and saving."""
 import math
 import random
 import time
@@ -10,20 +10,31 @@ from .config import LAYER, CHUNK, CLOUD_SEA
 from .generator import Generator, SPIRE_REGION
 from .hexgrid import cell_at, center, hex_distance, DIRS, ring, spiral
 from . import materials as MT
-from .materials import ID as M, ELEMENTS, ELEMENT_COLORS, FORMS, FORM_LIST, chord_cost
+from .materials import ID as M
 from .mathutil import forward_vector
 from .player import Player, raycast
 from .sim import Simulation, grow_tree, LIVING
 from . import tide as TIDE
 from .world import World
+from . import items as I
+from .inventory import Inventory
+from .entities import Mob, Drop, spawn_spot, KINDS
+from . import models as MD
 
-START_ESSENCE = [14, 6, 4, 8]
-MAX_ESSENCE = 99
 ABILITIES = [('Glide', 'Hold Space while falling to glide on the wind.'),
              ('Updraft', 'Press Space in mid-air for a second jump.'),
              ('Tidecall', 'Press T to call the next tide early.')]
 INITIAL_META = {M['water']: 4, M['vine']: 8, M['crystal']: 0, M['bloom']: 4, M['mossrock']: 5, M['sprout']: 0}
-NEEDS_GROUND = {M['sprout'], M['bloom'], M['crystal']}
+NEEDS_GROUND = {M['sprout'], M['bloom'], M['crystal'], M['berry_bush'], M['glowstick'], M['bedroll'], M['petals'],
+                M['glowcap']}
+MAX_HP = 20
+MAX_FOOD = 20
+STARTER = [(I.BERRIES.id, 4), (M['glowstick'], 3)]
+USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll']}
+SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick'}
+PASSIVE_REALMS = {
+    'woolhop': (0, 1, 5, 3, 7), 'pebblebeak': (0, 2, 6, 1, 4), 'mossback': (5, 4, 3, 7),
+}
 
 
 def find_spawn(gen):
@@ -63,6 +74,9 @@ class Session:
     def __init__(self, app, storage, create=None, view_distance=6):
         self.app = app
         self.storage = storage
+        self.inv = Inventory(36)
+        self.chests = {}
+        self.kilns = {}
         if create:
             self.name = create['name']
             self.seed = create['seed']
@@ -77,14 +91,19 @@ class Session:
                 yaw = math.degrees(math.atan2(sx - x, -(sz - z)))
             self.player = Player(x, (top + 1) * LAYER + 0.001, z, yaw=yaw, pitch=4.0)
             self.spawn_spire = sp
-            self.essence = list(START_ESSENCE)
-            self.chord = [0]
             self.awakened = []
             self.phase = 0.08
             self.play_time = 0.0
             self.created = time.time()
-            self.stats = {'gathered': 0, 'shaped': 0, 'motes': 0}
+            self.stats = {'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0}
             self.new_sky = True
+            self.hp, self.food = MAX_HP, MAX_FOOD
+            self.spawn = None
+            self.dev = self.mode == 'dreamer'
+            self.hot = 0
+            self.weather = 'clear'
+            for iid, n in STARTER:
+                self.inv.add(iid, n)
         else:
             d = storage.load()
             self.name = d.get('name', storage.folder)
@@ -94,83 +113,132 @@ class Session:
             self.gen = Generator(self.seed)
             p = d['player']
             self.player = Player(p['x'], p['y'], p['z'], p.get('yaw', 0), p.get('pitch', 0))
-            self.player.drifting = bool(p.get('drifting')) and self.mode == 'dreamer'
+            self.player.drifting = bool(p.get('drifting'))
+            self.player.noclip = bool(p.get('noclip'))
+            self.player.fly_speed = float(p.get('fly_speed', C.DRIFT_SPEED))
             self.player.last_safe = tuple(p.get('safe', (p['x'], p['y'], p['z'])))
-            self.essence = [int(v) for v in d.get('essence', START_ESSENCE)][:4]
-            self.chord = [int(e) for e in d.get('chord', [0])][:2] or [0]
             self.awakened = list(d.get('awakened', []))
             self.phase = float(d.get('phase', 0.1))
             self.play_time = float(d.get('play_time', 0))
             self.created = d.get('created', time.time())
-            self.stats = dict({'gathered': 0, 'shaped': 0, 'motes': 0}, **d.get('stats', {}))
+            self.stats = dict({'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0}, **d.get('stats', {}))
             self.new_sky = False
+            self.hp = float(d.get('hp', MAX_HP))
+            self.food = float(d.get('food', MAX_FOOD))
+            self.spawn = tuple(d['spawn']) if d.get('spawn') else None
+            self.dev = bool(d.get('dev', self.mode == 'dreamer'))
+            self.hot = int(d.get('hot', 0)) % 9
+            self.weather = d.get('weather', 'clear')
+            if 'inventory' in d:
+                self.inv.load(d['inventory'])
+            else:                                   # a 1.0 sky: hand over a starter kit
+                for iid, n in STARTER:
+                    self.inv.add(iid, n)
+            self.chests = {k: Inventory(27).load(v) for k, v in d.get('chests', {}).items()}
+            self.kilns = {k: {'slots': Inventory(3).load(v.get('slots', [])), 'burn': float(v.get('burn', 0)),
+                              'burn_max': float(v.get('burn_max', 1)), 'prog': float(v.get('prog', 0))}
+                          for k, v in d.get('kilns', {}).items()}
         self.world = World(self.seed, storage, app.renderer, app.pool, view_distance)
         self.sim = Simulation(self.world, self.seed & 0xFFFF)
         self.sim.on_tree = self._grow_tree
         self.world.on_chunk_loaded = self._chunk_loaded
         self.apply_abilities()
+        self.apply_dev()
         self.ready = False
         self.target = self.target_prev = None
         self.target_name = ''
+        self.target_mob = None
         self.cooldown = 0.0
+        self.mining = None                       # (cell, progress 0-1, total secs)
+        self.mine_sound = 0.0
+        self.swing = 0.0
+        self.eat_t = 0.0
         self.particles = np.zeros((0, 12))      # x y z vx vy vz r g b life size homing
-        self.motes = []                          # [x, y, z, phase, life]
-        self.jellies = []                        # drifting sky jellies: [x, y, z, phase, hue, size, vx, vz]
-        self.toasts = []                         # [text, sub, time_left]
+        self.motes = []
+        self.jellies = []
+        self.mobs = []
+        self.drops = []
+        self.toasts = []
         self.autosave = C.AUTOSAVE
         self.walk = 0.0
         self.step_acc = 0.0
-        self.carry = 0.0                         # > 0 while the clouds carry you back
+        self.carry = 0.0
         self.tide_rush = 0.0
         self.last_tide_name = TIDE.name(self.phase)
         self.spire_cache_t = 0.0
         self.nearest_spire = None
-        self.beams = []                          # awakened spires near you get a light beam
+        self.beams = []
         self.time = 0.0
         self.hold = False
+        self.hurt_flash = 0.0
+        self.food_t = 0.0
+        self.regen_t = 0.0
+        self.mob_t = 0.0
+        self.dead = False
+        self.pos1 = self.pos2 = None
+        self.undo = []
+        self.cursor = None                       # item held on the mouse in menus
         if self.new_sky:
-            self.toast('Welcome to ' + self.name, 'Follow the wayfinder to the dormant spire. Press J for the journal.')
+            if self.dev:
+                self.toast('Welcome to ' + self.name, 'Dreamer sky: you can fly (F) and build freely. F5 opens the admin panel.')
+            else:
+                self.toast('Welcome to ' + self.name, 'Hold left click on a tree to gather wood. Press E for your backpack.')
         self.save()
 
     # ------------------------------------------------------------------ helpers
     def apply_abilities(self):
-        n = len(self.awakened) if self.mode == 'wanderer' else 3
+        n = len(self.awakened) if not self.dev else 3
         self.player.can_glide = n >= 1
         self.player.can_updraft = n >= 2
         self.can_tidecall = n >= 3
+
+    def apply_dev(self):
+        p = self.player
+        p.dev_ghost = self.dev
+        if not self.dev:
+            p.drifting = False
+            p.noclip = False
+        self.apply_abilities()
+
+    def set_dev(self, on):
+        self.dev = on
+        if on:
+            self.player.drifting = True
+            self.player.vy = 0
+            self.hp, self.food = MAX_HP, MAX_FOOD
+        self.apply_dev()
+        self.toast('Dev mode on' if on else 'Dev mode off',
+                   'F fly · N noclip · [ ] speed · F5 admin panel · instant break, endless items' if on else
+                   'Back to wandering: mining takes time and things cost items.', 4)
 
     def toast(self, text, sub='', secs=5.0):
         self.toasts = [t for t in self.toasts if t[0] != text][-1:]
         self.toasts.append([text, sub, secs])
 
     @property
-    def form(self):
-        return FORMS[tuple(sorted(self.chord))]
+    def held(self):
+        return self.inv.slots[self.hot]
 
-    def form_name(self):
-        return MT.NAMES[self.form]
+    @property
+    def held_item(self):
+        s = self.inv.slots[self.hot]
+        return I.get(s[0]) if s else None
 
-    def toggle_element(self, e):
-        ch = list(self.chord)
-        if e in ch:
-            if len(ch) > 1:
-                ch.remove(e)
-        else:
-            ch = ([ch[-1]] if ch else []) + [e]
-            ch = ch[-2:]
-        self.chord = sorted(ch)
-        self.app.audio.play('chord')
+    def select(self, i):
+        self.hot = i % 9
+        self.mining = None
+        self.app.audio.play('chord', 0.35)
 
-    def cycle_form(self, d):
-        i = FORM_LIST.index(tuple(sorted(self.chord)))
-        self.chord = list(FORM_LIST[(i + d) % len(FORM_LIST)])
-        self.app.audio.play('chord', 0.6)
+    def cycle_hot(self, d):
+        self.select(self.hot + d)
 
-    def can_afford(self):
-        if self.mode == 'dreamer':
-            return True
-        cost = chord_cost(self.chord)
-        return all(self.essence[i] >= cost[i] for i in range(4))
+    def give(self, iid, n=1, uses=None, quiet=False):
+        left = self.inv.add(iid, n, uses)
+        if left:
+            p = self.player
+            self.drops.append(Drop(iid, left, p.x, p.y + 1.0, p.z, uses, vy=2))
+        if not quiet:
+            self.app.audio.play('mote', 0.35)
 
     # ------------------------------------------------------------------ loading
     def load_progress(self):
@@ -240,6 +308,7 @@ class Session:
         self.app.audio.play('chord', 0.5)
         self.burst(q, r, top + 3, (0.6, 0.95, 0.5), 18)
 
+
     # ------------------------------------------------------------------ frame
     def update(self, dt, inp):
         self.time += dt
@@ -250,14 +319,22 @@ class Session:
         self.phase = (self.phase + dt * speed) % 1.0
         if self.tide_rush > 0:
             self.tide_rush -= dt
-            if (old < 0.5 <= self.phase) or (old > self.phase):     # reached a tide peak
+            if (old < 0.5 <= self.phase) or (old > self.phase):
                 self.tide_rush = 0
         nm = TIDE.name(self.phase)
         if nm != self.last_tide_name and nm in ('Lighttide', 'Dusktide'):
-            self.toast(nm + ' rises', 'Things grow in the light; crystals and blooms shine in the dusk.'
-                       if nm == 'Dusktide' else 'Sprouts, vines and blooms spread while the light is high.', 4)
+            critters = self.app.settings['dusk_critters'] and not self.dev
+            self.toast(nm + ' rises', ('Gloomlings creep out in the dusk. Stay near light, or rest on a bedroll.'
+                                       if critters else 'Crystals and blooms shine in the dusk.')
+                       if nm == 'Dusktide' else 'The gloomlings fade. Sprouts and blooms grow in the light.', 4)
             self.app.audio.play('tide', 0.6)
+            if random.random() < 0.3:
+                self.weather = 'rain' if self.weather == 'clear' else 'clear'
         self.last_tide_name = nm
+        if self.dead:
+            return
+        self.hurt_flash = max(0.0, self.hurt_flash - dt)
+        self.swing = max(0.0, self.swing - dt * 3.5)
 
         if self.carry > 0:
             self.carry -= dt
@@ -277,11 +354,15 @@ class Session:
             self.app.audio.play('bounce', 0.8)
         if p.landed:
             self.app.audio.play('step_soft', 0.7)
+            if p.landed > 13.5 and not p.in_water:
+                self.damage((p.landed - 13.5) * 0.9 + 1, 'fall')
             p.landed = 0
-        if p.y < CLOUD_SEA * LAYER - 2 and self.carry <= 0:
+        if p.y < CLOUD_SEA * LAYER - 2 and self.carry <= 0 and not p.noclip:
             self.carry = 1.6
             self.app.audio.play('whoosh', 0.8)
-            self.toast('The clouds carry you back', 'Nothing is ever lost in Tidewake.', 3.5)
+            self.toast('The clouds carry you back', 'They are gentle, but it still stings a little.', 3.5)
+            if not self.dev:
+                self.hp = max(1.0, self.hp - 3)
         # footsteps
         moving = math.hypot(p.vx, p.vz)
         if p.on_ground and moving > 0.5:
@@ -293,25 +374,55 @@ class Session:
                 snd = MT.SOUND[g] if g > 0 else None
                 if snd:
                     self.app.audio.play('step_' + snd, 0.5)
-        # aim
+        self._survival(dt, inp, moving)
+        # aim: blocks and creatures
         ex, ey, ez = p.eye
         fx, fy, fz = forward_vector(p.yaw, p.pitch)
-        self.target, self.target_prev = raycast(self.world, ex, ey, ez, fx, fy, fz, C.REACH)
-        self.target_name = ''
+        reach = C.REACH + (6 if self.dev else 0)
+        self.target, self.target_prev = raycast(self.world, ex, ey, ez, fx, fy, fz, reach, skip_water=True)
+        bd = 1e9
         if self.target:
+            q, r, y = self.target
+            cx_, cz_ = center(q, r)
+            bd = math.sqrt((cx_ - ex) ** 2 + ((y + 0.5) * LAYER - ey) ** 2 + (cz_ - ez) ** 2) - 0.5
+        self.target_mob = None
+        for mob in self.mobs:
+            t = mob.hit_test(ex, ey, ez, fx, fy, fz, 4.5)
+            if t is not None and t < bd:
+                bd = t
+                self.target_mob = mob
+        if self.target_mob:
+            self.target = self.target_prev = None
+        self.target_name = ''
+        if self.target_mob:
+            self.target_name = self.target_mob.kind.capitalize()
+        elif self.target:
             m = self.world.get(*self.target)
             if m > 0:
                 self.target_name = MT.NAMES[m]
         self.cooldown -= dt
-        if self.cooldown <= 0 and self.carry <= 0:
+        self.eat_t = max(0.0, self.eat_t - dt)
+        if self.carry <= 0:
             if inp.get('gather'):
-                self.gather()
-                self.cooldown = 0.22
-            elif inp.get('shape'):
-                self.shape()
-                self.cooldown = 0.22
+                if self.target_mob:
+                    if self.cooldown <= 0:
+                        self.attack(self.target_mob)
+                        self.cooldown = 0.45
+                    self.mining = None
+                else:
+                    self.mine(dt)
+            else:
+                self.mining = None
+            if inp.get('shape') and self.cooldown <= 0:
+                if self.use():
+                    self.cooldown = 0.25
+                else:
+                    self.cooldown = 0.1
         self.sim.step(dt, TIDE.dusk_amount(self.phase))
         self.world.update(p.x, p.z)
+        self._update_mobs(dt)
+        self._update_drops(dt)
+        self._update_kilns(dt)
         self._update_motes(dt)
         self._update_jellies(dt)
         self._update_particles(dt)
@@ -327,71 +438,461 @@ class Session:
             self.autosave = C.AUTOSAVE
             self.save()
 
-    # ------------------------------------------------------------------ gather / shape
-    def gather(self):
+    # ------------------------------------------------------------------ health and food
+    def _survival(self, dt, inp, moving):
+        if self.dev:
+            self.hp, self.food = MAX_HP, MAX_FOOD
+            return
+        drain = 1 / 50.0 + (1 / 30.0 if inp.get('hurry') and moving > 0.5 else 0)
+        self.food = max(0.0, self.food - drain * dt * 0.5)
+        self.regen_t += dt
+        if self.regen_t > 3.0:
+            self.regen_t = 0
+            if self.food >= 14 and self.hp < MAX_HP:
+                self.hp = min(MAX_HP, self.hp + 1)
+                self.food = max(0, self.food - 0.4)
+            elif self.food <= 0 and self.hp > 2:
+                self.hp -= 1
+                self.hurt_flash = 0.3
+                self.toast('You are hungry', 'Eat something: berries, roast hopmeat, pie...', 3)
+
+    def damage(self, amount, why=''):
+        if self.dev or self.dead or amount <= 0:
+            return
+        self.hp -= amount
+        self.hurt_flash = 0.45
+        self.app.audio.play('gather_soft', 0.9)
+        if self.hp <= 0:
+            self.hp = 0
+            self.dead = True
+            self.mining = None
+            self.app.on_faded(why)
+
+    def respawn(self):
+        p = self.player
+        if self.spawn:
+            p.x, p.y, p.z = self.spawn
+        else:
+            p.x, p.y, p.z = p.last_safe
+        p.y += 0.01
+        p.vx = p.vy = p.vz = 0
+        self.hp = MAX_HP
+        self.food = max(self.food, 12)
+        self.dead = False
+        self.hold = True
+        self.mobs = [m for m in self.mobs if not m.hostile]
+        self.toast('You wake again', 'Your things are still with you.', 3)
+
+    def eat(self, it):
+        if self.food >= MAX_FOOD - 0.5 and not self.dev:
+            self.toast('You are full', '', 1.5)
+            return False
+        self.food = min(MAX_FOOD, self.food + it.food)
+        self.hp = min(MAX_HP, self.hp + it.food * 0.25)
+        if not self.dev:
+            self.inv.take_from(self.hot)
+        self.app.audio.play('chord', 0.6)
+        p = self.player
+        ex, ey, ez = p.eye
+        fx, fy, fz = forward_vector(p.yaw, p.pitch)
+        self._spawn(ex + fx * 0.6, ey - 0.2, ez + fz * 0.6, it.color, 8)
+        return True
+
+    # ------------------------------------------------------------------ mining
+    def mine(self, dt):
         if not self.target:
+            self.mining = None
             return
         q, r, y = self.target
         m = self.world.get(q, r, y)
-        if m <= 0 or not MT.GATHERABLE[m]:
-            if m in (M['dormant_spire'], M['awake_spire']):
+        if m <= 0 or m in I.UNBREAKABLE:
+            if m in (M['dormant_spire'], M['awake_spire']) and self.cooldown <= 0:
                 self.toast('The spire will not move', 'It is older than the islands.', 2.5)
+                self.cooldown = 1.0
+            self.mining = None
             return
+        it = self.held_item
+        secs, drops = I.mine_time(m, it)
+        if self.dev:
+            if self.cooldown > 0:
+                return
+            self.break_cell(q, r, y, m, drop=False)
+            self.cooldown = 0.18
+            return
+        if self.mining is None or self.mining[0] != self.target:
+            self.mining = [self.target, 0.0, secs, drops]
+        self.mining[1] += dt / secs
+        self.swing = 1.0
+        self.mine_sound -= dt
+        cx, cz = center(q, r)
+        if self.mine_sound <= 0:
+            self.mine_sound = 0.28
+            snd = MT.SOUND[m] or 'stone'
+            self.app.audio.play('step_' + snd, 0.6)
+            self._spawn(cx, (y + 0.7) * LAYER, cz, MT.TOP[m], 3, speed=1.5)
+        if self.mining[1] >= 1.0:
+            self.break_cell(q, r, y, m, drop=drops)
+            if not drops and MT.NAMES[m].endswith('Ore') or (not drops and I.HARD.get(MT.NAMES[m].lower().replace(' ', '_'), (0, 0, 0))[2] > 0):
+                self.toast('It crumbles to nothing', 'You need a better pick to collect this.', 2.5)
+            self.mining = None
+            self._wear_tool()
+
+    def _wear_tool(self):
+        s = self.held
+        it = self.held_item
+        if not s or not it or it.kind != 'tool' or self.dev:
+            return
+        s[2] -= 1
+        if s[2] <= 0:
+            self.inv.slots[self.hot] = None
+            self.toast(f'Your {it.name} wore out', '', 2.5)
+            self.app.audio.play('gather_stone', 0.8)
+
+    def break_cell(self, q, r, y, m, drop=True):
         self.world.set(q, r, y, 0, 0, now=True)
         above = self.world.get(q, r, y + 1)
-        if above > 0 and MT.IS_DECO[above] and above not in (M['vine'], M['lantern']):
+        cx, cz = center(q, r)
+        if above > 0 and MT.IS_DECO[above] and above in NEEDS_GROUND:
             self.world.set(q, r, y + 1, 0, 0, now=True)
-        y_ = MT.YIELDS[m]
-        if self.mode == 'wanderer':
-            for i in range(4):
-                self.essence[i] = min(MAX_ESSENCE, self.essence[i] + y_[i])
-        self.stats['gathered'] += 1
+            if drop:
+                for iid, n in I.drops_for(above):
+                    self.drops.append(Drop(iid, n, cx, (y + 1.3) * LAYER, cz))
+        key = f'{q},{r},{y}'
+        if key in self.chests:
+            for s in self.chests.pop(key).slots:
+                if s:
+                    self.drops.append(Drop(s[0], s[1], cx, (y + 0.5) * LAYER, cz, s[2]))
+        if key in self.kilns:
+            for s in self.kilns.pop(key)['slots'].slots:
+                if s:
+                    self.drops.append(Drop(s[0], s[1], cx, (y + 0.5) * LAYER, cz, s[2]))
+        if self.spawn and m == M['bedroll']:
+            sq, sr = cell_at(self.spawn[0], self.spawn[2])
+            if (sq, sr) == (q, r):
+                self.spawn = None
+        if drop:
+            for iid, n in I.drops_for(m):
+                self.drops.append(Drop(iid, n, cx, (y + 0.3) * LAYER, cz))
+        self.stats['mined'] += 1
         self.sim.wake_around(q, r, y)
         snd = MT.SOUND[m] or 'stone'
         self.app.audio.play('gather_' + snd, 0.8)
-        cx, cz = center(q, r)
-        for i in range(4):
-            if y_[i]:
-                self._spawn(cx, (y + 0.5) * LAYER, cz, ELEMENT_COLORS[i], 7 * y_[i], homing=True)
-        self._spawn(cx, (y + 0.5) * LAYER, cz, MT.TOP[m], 8, homing=False)
+        self._spawn(cx, (y + 0.5) * LAYER, cz, MT.TOP[m], 14, homing=False, speed=2.5)
 
-    def shape(self):
-        if not self.target or not self.target_prev:
-            return
+    def attack(self, mob):
+        it = self.held_item
+        dmg = it.damage if it and it.kind == 'tool' else 1.0
+        if self.dev:
+            dmg = 999
+        mob.hp -= dmg
+        mob.hurt = 0.35
+        mob.panic = 5.0
+        p = self.player
+        dx, dz = mob.x - p.x, mob.z - p.z
+        d = math.hypot(dx, dz) or 1
+        mob.vx += dx / d * 5
+        mob.vz += dz / d * 5
+        mob.vy = 4.5
+        self.swing = 1.0
+        self.app.audio.play('gather_soft', 0.8)
+        self._spawn(mob.x, mob.y + 0.6, mob.z, (1, 0.8, 0.8), 6)
+        if it and it.kind == 'tool' and it.tool[0] == 'blade':
+            self._wear_tool()
+        if mob.hp <= 0:
+            self.kill(mob)
+
+    def kill(self, mob, drops=True):
+        mob.dead = True
+        self._spawn(mob.x, mob.y + 0.5, mob.z, (0.9, 0.85, 1.0), 20, speed=3)
+        self.app.audio.play('whoosh', 0.5)
+        if drops:
+            for iid, lo, hi in mob.drops:
+                n = random.randint(lo, hi)
+                if n:
+                    self.drops.append(Drop(iid, n, mob.x, mob.y + 0.5, mob.z))
+
+    # ------------------------------------------------------------------ placing and using
+    def use(self):
+        p = self.player
+        it = self.held_item
+        # use a block you're looking at
+        if self.target:
+            q, r, y = self.target
+            m = self.world.get(q, r, y)
+            if m in USE_BLOCKS and not self.app.keys_down_shift():
+                return self.use_block(q, r, y, m)
+        if it and it.kind == 'food':
+            if self.eat_t <= 0 and self.eat(it):
+                self.eat_t = 0.6
+                return True
+            return False
+        if it and it.kind == 'pail':
+            return self.use_pail(it)
+        if not it or it.kind != 'block' or not self.target_prev:
+            return False
         q, r, y = self.target_prev
         cur = self.world.get(q, r, y)
-        if cur not in (0, M['water']) or y >= C.LAYERS - 1 or y < 1:
-            return
-        form = self.form
-        if not self.can_afford():
-            cost = chord_cost(self.chord)
-            lack = [ELEMENTS[i] for i in range(4) if self.essence[i] < cost[i]]
-            hint = 'Gather glowing things, or catch dusk motes.' if 'Light' in lack else 'Gather cells to collect more.'
-            self.toast('Not enough ' + ' and '.join(lack), hint, 2.5)
-            return
+        if cur not in (0, M['water'], M['petals']) or y >= C.LAYERS - 1 or y < 1:
+            return False
+        mat = it.block
         below = self.world.get(q, r, y - 1)
-        if form in NEEDS_GROUND and not (below > 0 and MT.SOLID[below]):
-            self.toast(MT.NAMES[form] + ' needs solid ground beneath it', '', 2.0)
-            return
-        if MT.SOLID[form]:
-            p = self.player
-            # don't shape a cell inside yourself
+        if mat in NEEDS_GROUND and not (below > 0 and MT.SOLID[below]):
+            self.toast(MT.NAMES[mat] + ' needs solid ground beneath it', '', 2.0)
+            return False
+        if MT.SOLID[mat] and not p.noclip:
             lo, hi = math.floor((p.y + 0.01) / LAYER), math.floor((p.y + C.HEIGHT) / LAYER)
             if lo <= y <= hi and (q, r) in p._columns(p.x, p.z):
-                return
-        self.world.set(q, r, y, form, INITIAL_META.get(form, 0), now=True)
-        if self.mode == 'wanderer':
-            cost = chord_cost(self.chord)
-            for i in range(4):
-                self.essence[i] -= cost[i]
-        self.stats['shaped'] += 1
-        if form in LIVING:
+                return False
+            for mob in self.mobs:
+                if cell_at(mob.x, mob.z) == (q, r) and math.floor(mob.y / LAYER) <= y <= math.floor((mob.y + mob.height) / LAYER):
+                    return False
+        self.world.set(q, r, y, mat, INITIAL_META.get(mat, 0), now=True)
+        if not self.dev:
+            self.inv.take_from(self.hot)
+        self.stats['placed'] += 1
+        if mat in LIVING:
             self.sim.wake(q, r, y, 0.5)
         self.sim.wake_around(q, r, y)
         self.app.audio.play('shape', 0.7)
+        self.swing = 0.6
         cx, cz = center(q, r)
-        self._spawn(cx, (y + 0.5) * LAYER, cz, MT.TOP[form], 10, homing=False)
+        self._spawn(cx, (y + 0.5) * LAYER, cz, MT.TOP[mat], 8, homing=False)
+        if mat == M['chest']:
+            self.chests[f'{q},{r},{y}'] = Inventory(27)
+        elif mat == M['kiln']:
+            self.kilns[f'{q},{r},{y}'] = {'slots': Inventory(3), 'burn': 0.0, 'burn_max': 1.0, 'prog': 0.0}
         self._check_spires(q, r, y)
+        return True
+
+    def use_block(self, q, r, y, m):
+        from .ui import inventory_ui as IU
+        key = f'{q},{r},{y}'
+        if m == M['tinker_bench']:
+            self.app.set_screen(IU.CraftScreen(3))
+        elif m == M['chest']:
+            if key not in self.chests:
+                self.chests[key] = Inventory(27)
+            self.app.set_screen(IU.ChestScreen(self.chests[key]))
+            self.app.audio.play('step_wood', 0.8)
+        elif m == M['kiln']:
+            if key not in self.kilns:
+                self.kilns[key] = {'slots': Inventory(3), 'burn': 0.0, 'burn_max': 1.0, 'prog': 0.0}
+            self.app.set_screen(IU.KilnScreen(self.kilns[key]))
+        elif m == M['bedroll']:
+            cx, cz = center(q, r)
+            self.spawn = (cx, (y + 1) * LAYER + 0.01, cz)
+            dusk = TIDE.dusk_amount(self.phase)
+            if dusk > 0.4:
+                hostile = [mob for mob in self.mobs if mob.hostile and math.hypot(mob.x - cx, mob.z - cz) < 10]
+                if hostile:
+                    self.toast('You can\'t rest now', 'Gloomlings are close by.', 2.5)
+                else:
+                    self.phase = 0.0
+                    self.mobs = [mob for mob in self.mobs if not mob.hostile]
+                    self.toast('You rest until the light returns', 'You will wake here from now on.', 4)
+                    self.app.audio.play('tide', 0.8)
+            else:
+                self.toast('Waking spot set', 'Rest here during the dusk to skip to the light.', 3)
+        return True
+
+    def use_pail(self, it):
+        ex, ey, ez = self.player.eye
+        fx, fy, fz = forward_vector(self.player.yaw, self.player.pitch)
+        if it.id == I.PAIL.id:
+            hit, prev = raycast(self.world, ex, ey, ez, fx, fy, fz, C.REACH)
+            if hit and self.world.get(*hit) == M['water']:
+                self.world.set(*hit, 0, 0, now=True)
+                self.sim.wake_around(*hit)
+                if not self.dev:
+                    self.inv.take_from(self.hot)
+                self.give(I.PAIL_FULL.id, 1, quiet=True)
+                self.app.audio.play('gather_water', 0.8)
+                return True
+            return False
+        if self.target_prev:
+            q, r, y = self.target_prev
+            if self.world.get(q, r, y) in (0, M['petals']):
+                self.world.set(q, r, y, M['water'], 7, now=True)
+                self.sim.wake(q, r, y, 0.3)
+                if not self.dev:
+                    self.inv.slots[self.hot] = [I.PAIL.id, 1, 0]
+                self.app.audio.play('gather_water', 0.8)
+                self._check_spires(q, r, y)
+                return True
+        return False
+
+    def craft_take(self, grid_slots, result):
+        """Consume one of each ingredient in a crafting grid."""
+        for i, s in enumerate(grid_slots):
+            if s:
+                s[1] -= 1
+                if s[1] <= 0:
+                    grid_slots[i] = None
+        self.stats['crafted'] += 1
+
+    # ------------------------------------------------------------------ creatures and drops
+    def _update_mobs(self, dt):
+        p = self.player
+        dusk = TIDE.dusk_amount(self.phase)
+        peaceful = not self.app.settings['dusk_critters']
+        self.mob_t -= dt
+        if self.mob_t <= 0 and self.app.settings['creatures']:
+            self.mob_t = 1.0
+            passive = [m for m in self.mobs if not m.hostile]
+            hostile = [m for m in self.mobs if m.hostile]
+            if len(passive) < 9:
+                self._try_spawn(False)
+            if dusk > 0.55 and not peaceful and len(hostile) < 6:
+                self._try_spawn(True)
+        for mob in self.mobs:
+            mob.update(dt, self.world, p, dusk, peaceful)
+            if mob.hostile and not mob.dead and mob.fade > 0.5 and not self.dev:
+                d = math.hypot(mob.x - p.x, mob.z - p.z)
+                if d < 0.75 + mob.radius * mob.scale and abs(mob.y - p.y) < 1.4 and mob.attack_cd <= 0:
+                    mob.attack_cd = 1.5
+                    self.damage(3 if mob.kind == 'brute' else 1, mob.kind)
+                    k = 6.0 / max(d, 0.1)
+                    p.knock = ((p.x - mob.x) * k, (p.z - mob.z) * k)
+                    p.vy = 5.0
+            if mob.kind == 'pebblebeak':
+                mob.lay -= dt
+                if mob.lay <= 0:
+                    mob.lay = random.uniform(80, 220)
+                    self.drops.append(Drop(I.EGG.id, 1, mob.x, mob.y + 0.3, mob.z))
+        far = 70
+        self.mobs = [m for m in self.mobs if not m.dead and math.hypot(m.x - p.x, m.z - p.z) < far]
+
+    def _try_spawn(self, hostile, kind=None, near=None):
+        p = self.player
+        for _ in range(6):
+            a = random.uniform(0, math.tau)
+            d = random.uniform(14, 28) if hostile else random.uniform(18, 40)
+            if near:
+                d = random.uniform(2, 6)
+            x, z = p.x + math.cos(a) * d, p.z + math.sin(a) * d
+            spot = spawn_spot(self.world, x, z)
+            if not spot:
+                continue
+            sx, sy, sz, ground = spot
+            q, r = cell_at(sx, sz)
+            realm = self.world.realm_at(q, r) or 0
+            if kind is None:
+                if hostile:
+                    kind = 'brute' if random.random() < 0.15 else 'gloomling'
+                else:
+                    if ground not in (M['turf'], M['snow'], M['sand'], M['loam'], M['mossrock']):
+                        continue
+                    opts = [k for k, rs in PASSIVE_REALMS.items() if realm in rs]
+                    if not opts:
+                        continue
+                    kind = random.choice(opts)
+            if hostile and not near:
+                # not right next to bright lights
+                if any(self.world.get(q + dq, r + dr, math.floor(sy / LAYER) + dy) in (M['glowstick'], M['lantern'], M['lumen_lamp'])
+                       for dq, dr in [(0, 0)] + DIRS for dy in (0, 1)):
+                    continue
+            n = 1 if hostile or near else random.randint(1, 3)
+            for k in range(n):
+                self.mobs.append(Mob(kind, sx + random.uniform(-0.4, 0.4), sy, sz + random.uniform(-0.4, 0.4)))
+            return True
+        return False
+
+    def _update_drops(self, dt):
+        p = self.player
+        keep = []
+        for dr in self.drops:
+            dr.update(dt, self.world)
+            dx, dy, dz = p.x - dr.x, (p.y + 0.8) - dr.y, p.z - dr.z
+            d = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if dr.age > 0.5 and d < 3.2:
+                dr.x += dx * min(1, dt * 10)
+                dr.y += dy * min(1, dt * 10)
+                dr.z += dz * min(1, dt * 10)
+                if d < 0.7:
+                    left = self.inv.add(dr.iid, dr.count, dr.uses)
+                    if left < dr.count:
+                        self.app.audio.play('mote', 0.45)
+                    if left:
+                        dr.count = left
+                        keep.append(dr)
+                    continue
+            if dr.age < 600 and dr.y > CLOUD_SEA * LAYER - 6:
+                keep.append(dr)
+        self.drops = keep[-300:]
+
+    def _update_kilns(self, dt):
+        for k in self.kilns.values():
+            sl = k['slots'].slots            # 0 input, 1 fuel, 2 output
+            inp, fuel, out = sl
+            res = I.SMELT.get(inp[0]) if inp else None
+            can = res is not None and (out is None or (out[0] == res and out[1] < I.get(res).stack))
+            if k['burn'] <= 0 and can and fuel and fuel[0] in I.FUEL:
+                k['burn'] = k['burn_max'] = I.FUEL[fuel[0]] * I.SMELT_TIME
+                fuel[1] -= 1
+                if fuel[1] <= 0:
+                    sl[1] = None
+            if k['burn'] > 0:
+                k['burn'] -= dt
+                if can:
+                    k['prog'] += dt / I.SMELT_TIME
+                    if k['prog'] >= 1:
+                        k['prog'] = 0
+                        inp[1] -= 1
+                        if inp[1] <= 0:
+                            sl[0] = None
+                        if out is None:
+                            sl[2] = [res, 1, I.get(res).uses]
+                        else:
+                            out[1] += 1
+                else:
+                    k['prog'] = 0
+            else:
+                k['prog'] = max(0.0, k['prog'] - dt)
+
+    def dynamic_models(self, cam):
+        """Creatures and dropped items as one VERT array (camera-relative)."""
+        parts = []
+        for mob in self.mobs:
+            if math.hypot(mob.x - cam[0], mob.z - cam[2]) < 60:
+                parts.append(MD.set_sky(mob.model(cam), self.sky_at(mob.x, mob.y + 0.5, mob.z)))
+        for dr in self.drops:
+            if math.hypot(dr.x - cam[0], dr.z - cam[2]) < 40:
+                parts.append(dr.model(cam))
+        return MD.cat(*parts) if parts else None
+
+    def sky_at(self, x, y, z):
+        q, r = cell_at(x, z)
+        y0 = math.floor(y / LAYER) + 1
+        col = [max(0, self.world.get(q, r, k)) for k in range(y0, min(C.LAYERS, y0 + 24))]
+        roof = any(MT.OPAQUE[m] and m != M['canopy'] for m in col)
+        if not roof:
+            return 0.78 if M['canopy'] in col else 1.0
+        floor_ = any(MT.OPAQUE[max(0, self.world.get(q, r, k))] for k in range(max(0, y0 - 24), y0 - 1))
+        return 0.22 if floor_ else 0.62
+
+    def held_model(self, cam, bob=0.0):
+        """The item in your hand, placed in front of the camera."""
+        return MD.set_sky(self._held_model(cam, bob), self.sky_at(*self.player.eye))
+
+    def _held_model(self, cam, bob=0.0):
+        p = self.player
+        it = self.held_item
+        fwd = forward_vector(p.yaw, p.pitch)
+        right = np.array([math.cos(math.radians(p.yaw)), 0, math.sin(math.radians(p.yaw))])
+        up = np.cross(right, fwd)
+        sw = math.sin(self.swing * math.pi) if self.swing > 0 else 0.0
+        pos = fwd * (0.62 - sw * 0.06) + right * (0.36 - sw * 0.08) - up * (0.30 + bob + sw * 0.05)
+        if it is None:
+            # a soft mitten
+            v = MD.prisms(0, 0, -0.18, 0.18, 0.12, (0.98, 0.80, 0.70), (0.92, 0.72, 0.62))
+            return MD.transform(v, yaw_deg=p.yaw + 10, pitch_deg=p.pitch - 60 + sw * 40, scale=1.0,
+                                offset=tuple(fwd * 0.55 + right * 0.38 - up * (0.42 + bob)))
+        v = MD.cached_item(it.id)
+        if it.model in SPRITE_HELD:
+            v = MD.transform(v, yaw_deg=p.yaw - 75, pitch_deg=p.pitch, roll_deg=-25 - sw * 55, scale=0.42, offset=tuple(pos))
+        else:
+            v = MD.transform(v, yaw_deg=p.yaw + 30, pitch_deg=p.pitch - 15 - sw * 30, scale=0.24, offset=tuple(pos))
+        return v
 
     # ------------------------------------------------------------------ spires
     def spire_state(self, s):
@@ -415,6 +916,7 @@ class Session:
                     self.awaken(s)
                 else:
                     self.toast('The spire stirs...', 'It still longs for ' + ', '.join(MT.NAMES[m] for m in missing), 3.5)
+                    self.app.audio.play('chord', 0.6)
 
     def awaken(self, s):
         self.awakened.append(s['id'])
@@ -434,17 +936,16 @@ class Session:
                     self.world.get(a, b, top + 1) == 0 and rng.random() < 0.35:
                 self.world.set(a, b, top + 1, M['bloom'] if g in (M['turf'], M['mossrock']) else M['crystal'], 1)
         n = len(self.awakened)
-        if self.mode == 'wanderer':
-            self.essence[2] = min(MAX_ESSENCE, self.essence[2] + 12)
-            self.essence[3] = min(MAX_ESSENCE, self.essence[3] + 6)
+        self.give(I.GLIMMER.id, 6, quiet=True)
+        self.give(I.AETHERITE.id, 1, quiet=True)
         self.apply_abilities()
         self.app.audio.play('awaken', 1.0)
         cx, cz = center(s['q'], s['r'])
         for k in range(5):
             self._spawn(cx, (T + 2 + k * 2) * LAYER, cz, (0.85, 0.78, 1.0), 25, homing=False, speed=4.0)
-        if self.mode == 'wanderer' and n <= len(ABILITIES):
+        if n <= len(ABILITIES):
             ab = ABILITIES[n - 1]
-            self.toast(f'A spire awakens! You learned {ab[0]}', ab[1], 7.0)
+            self.toast(f'A spire awakens! You learned {ab[0]}', ab[1] + ' It also left you Aetherite and Glimmer.', 7.0)
         else:
             self.toast('A spire awakens!', f'{n} spires sing in this sky now.', 6.0)
         self.save()
@@ -532,11 +1033,10 @@ class Session:
             m[1] += math.sin(m[3] * 1.3) * 0.25 * dt
             d = math.sqrt((m[0] - ex) ** 2 + (m[1] - ey) ** 2 + (m[2] - ez) ** 2)
             if d < 1.5 and m[5]:
-                if self.mode == 'wanderer':
-                    self.essence[2] = min(MAX_ESSENCE, self.essence[2] + 1)
+                self.inv.add(I.GLIMMER.id, 1)
                 self.stats['motes'] += 1
                 self.app.audio.play('mote', 0.7)
-                self._spawn(m[0], m[1], m[2], ELEMENT_COLORS[2], 6, homing=True)
+                self._spawn(m[0], m[1], m[2], (1.0, 0.84, 0.45), 6, homing=True)
                 continue
             if m[4] > 0 and math.hypot(m[0] - p.x, m[2] - p.z) < 26:
                 keep.append(m)
@@ -606,6 +1106,15 @@ class Session:
         J = self._jelly_points(cx, cy, cz)
         if J is not None:
             out.append(J)
+        if self.weather == 'rain' and self.app.settings['motes'] is not None:
+            rng = np.random.default_rng(int(self.time * 30))
+            n = 500
+            ph = (np.arange(n) * 0.6180339 + self.time * 1.7) % 1.0
+            rx = (np.arange(n) * 7.13 % 1.0 - 0.5) * 36 + (cx % 36) * 0
+            rz = (np.arange(n) * 3.77 % 1.0 - 0.5) * 36
+            ry = 14 - ph * 20
+            out.append(np.column_stack([rx, ry, rz, np.full(n, 0.80), np.full(n, 0.86), np.full(n, 1.0),
+                                        np.full(n, 0.35), np.full(n, 0.12)]))
         for s in self.beams:
             sx, sz = center(s['q'], s['r'])
             base = (s['top'] + 1 + s['height']) * LAYER
@@ -624,62 +1133,271 @@ class Session:
         L = [(m[0] - cx, m[1] - cy, m[2] - cz, M['lantern']) for m in self.motes[:6] if m[5]]
         return [np.array(L)] if L else []
 
-    # ------------------------------------------------------------------ commands
+    # ------------------------------------------------------------------ commands (whisper box)
+    ADMIN_HELP = [
+        ('/tp x z  ·  /tp x y z', 'go to a spot (finds land)'),
+        ('/tp spire  ·  /tp spawn', 'go to the nearest sleeping spire, or your waking spot'),
+        ('/give item [count]', 'e.g. /give aetherite pick, /give glass 64'),
+        ('/spawn creature [count]', 'woolhop, pebblebeak, mossback, gloomling, brute'),
+        ('/killmobs', 'clear all creatures (also /kill)'),
+        ('/tide light|dusk|0-1', 'set the tide (also /time day|night)'),
+        ('/weather clear|rain', 'change the weather'),
+        ('/pos1  /pos2', 'mark two corners at the cell you look at'),
+        ('/fill block  ·  /clear', 'fill (or empty) the marked box'),
+        ('/replace from to', 'swap one block for another in the box'),
+        ('/undo', 'undo the last fill / replace / clear'),
+        ('/speed n', 'flying speed (default 13)'),
+        ('/heal  ·  /feed', 'full health / full food'),
+        ('/fly  ·  /noclip', 'toggle flying / passing through walls'),
+        ('/mobs on|off', 'dusk gloomlings on or off'),
+        ('/locate spire', 'distance and direction to the nearest spire'),
+        ('/seed  ·  /spawnpoint', 'show the seed / set your waking spot here'),
+        ('/clearinv', 'empty your backpack'),
+    ]
+    OPEN_CMDS = {'help', 'seed', 'locate', 'dev'}
+
     def command(self, text):
         parts = text.strip().lstrip('/').split()
         if not parts:
             return
         cmd, args = parts[0].lower(), parts[1:]
         p = self.player
+        if cmd not in self.OPEN_CMDS and not self.dev:
+            self.toast('That is an admin command', 'Press F4 to turn on dev mode first.', 3.5)
+            return
         try:
-            if cmd == 'tp' and len(args) >= 2:
-                x, z = float(args[0].replace(',', '')), float(args[1].replace(',', ''))
-                q0, r0 = cell_at(x, z)
-                spot = None
-                for rad in range(0, 300, 2):
-                    pts = ring(q0, r0, rad)[::max(1, rad // 6)]
-                    c = self.gen.columns(np.array([a for a, b in pts]), np.array([b for a, b in pts]))
-                    ok = np.nonzero(c['land'] & ~c['pool'] & ~c['fall'] & (c['e'] > 0.03))[0]
-                    if len(ok):
-                        i = ok[0]
-                        spot = (pts[i][0], pts[i][1], int(c['top'][i]))
-                        break
-                if spot is None:
-                    self.toast('Only clouds out there', 'No island found near that spot.', 3)
+            if cmd == 'help':
+                from .ui import inventory_ui as IU
+                self.app.set_screen(IU.AdminScreen())
+            elif cmd == 'dev':
+                self.set_dev(not self.dev if not args else args[0] in ('on', '1', 'true'))
+            elif cmd in ('tp', 'teleport'):
+                self._cmd_tp(args)
+            elif cmd in ('tide', 'time'):
+                a = args[0].lower() if args else 'light'
+                if a in ('dusk', 'night', 'd', 'n'):
+                    self.phase = 0.5
+                elif a in ('light', 'day', 'l', 'morning'):
+                    self.phase = 0.0
+                else:
+                    self.phase = float(a) % 1.0
+                self.toast('The tide turns', TIDE.name(self.phase), 2)
+            elif cmd == 'give':
+                count = 1
+                if args and args[-1].isdigit():
+                    count = int(args[-1])
+                    args = args[:-1]
+                it = I.find(' '.join(args)) if args else None
+                if not it:
+                    self.toast('No such item', 'Try /give stone pick, /give planks 64, /give glimmer 10', 3)
                     return
-                p.x, p.z = center(spot[0], spot[1])
-                p.y = (spot[2] + 4) * LAYER
-                p.vx = p.vy = p.vz = 0
-                p.last_safe = (p.x, (spot[2] + 1) * LAYER + 0.001, p.z)
-                self.hold = True
-                self.toast(f'Drifted to {p.x:,.0f}, {p.z:,.0f}', '', 3)
-            elif cmd == 'tide':
-                self.phase = 0.5 if args and args[0].startswith('d') else 0.0
-                self.toast('The tide turns', '', 2)
+                self.give(it.id, max(1, min(count, 999)))
+                self.toast(f'Gave {count} {it.name}', '', 2)
+            elif cmd in ('spawn', 'summon'):
+                kind = (args[0].lower() if args else 'woolhop')
+                kind = next((k for k in KINDS if k.startswith(kind)), None)
+                if not kind:
+                    self.toast('Unknown creature', 'woolhop, pebblebeak, mossback, gloomling, brute', 3)
+                    return
+                n = int(args[1]) if len(args) > 1 else 1
+                ex, ey, ez = p.eye
+                fx, fy, fz = forward_vector(p.yaw, 0)
+                made = 0
+                for k in range(min(n, 30)):
+                    x, z = p.x + fx * (3 + k % 4) + random.uniform(-1, 1), p.z + fz * (3 + k % 4) + random.uniform(-1, 1)
+                    spot = spawn_spot(self.world, x, z)
+                    if spot:
+                        self.mobs.append(Mob(kind, spot[0], spot[1], spot[2]))
+                    else:
+                        self.mobs.append(Mob(kind, x, p.y + 1, z))
+                    made += 1
+                self.toast(f'Spawned {made} {kind}', '', 2)
+            elif cmd in ('killmobs', 'kill', 'butcher'):
+                n = len(self.mobs)
+                for m in self.mobs:
+                    self.kill(m, drops=False)
+                self.mobs = []
+                self.toast(f'Cleared {n} creatures', '', 2)
+            elif cmd == 'weather':
+                self.weather = 'rain' if args and args[0].startswith('r') else 'clear'
+                self.toast('Weather: ' + self.weather, '', 2)
+            elif cmd in ('pos1', 'pos2'):
+                cell = self.target or (cell_at(p.x, p.z) + (math.floor(p.y / LAYER) - 1,))
+                setattr(self, cmd, tuple(cell))
+                self.toast(f'{cmd} set', f'q {cell[0]}  r {cell[1]}  layer {cell[2]}', 2.5)
+            elif cmd in ('fill', 'clear', 'set'):
+                mat = 0 if cmd == 'clear' else self._block_arg(' '.join(args))
+                if mat is None:
+                    return
+                self._fill(lambda m: mat)
+            elif cmd == 'replace':
+                if len(args) < 2:
+                    self.toast('Use: /replace from to', 'e.g. /replace stone glass', 3)
+                    return
+                a, b = self._block_arg(args[0]), self._block_arg(' '.join(args[1:]))
+                if a is None or b is None:
+                    return
+                self._fill(lambda m: b if m == a else None)
+            elif cmd == 'undo':
+                if not self.undo:
+                    self.toast('Nothing to undo', '', 2)
+                    return
+                last = self.undo.pop()
+                for q, r, y, m in last:
+                    self.world.set(q, r, y, m)
+                self.toast(f'Undid {len(last)} cells', '', 2)
+            elif cmd == 'speed':
+                p.fly_speed = max(2.0, min(120.0, float(args[0]) if args else C.DRIFT_SPEED))
+                self.toast(f'Flying speed {p.fly_speed:.0f}', '', 2)
+            elif cmd == 'heal':
+                self.hp = MAX_HP
+                self.toast('Healed', '', 1.5)
+            elif cmd == 'feed':
+                self.food = MAX_FOOD
+                self.toast('Fed', '', 1.5)
+            elif cmd == 'fly':
+                p.drifting = not p.drifting
+                p.vy = 0
+                self.toast('Flying' if p.drifting else 'Walking', '', 1.5)
+            elif cmd == 'noclip':
+                p.noclip = not p.noclip
+                if p.noclip:
+                    p.drifting = True
+                self.toast('Noclip on' if p.noclip else 'Noclip off', 'Fly through anything.' if p.noclip else '', 2)
+            elif cmd == 'mobs':
+                on = not args or args[0] in ('on', '1', 'true')
+                self.app.settings['dusk_critters'] = on
+                if not on:
+                    self.mobs = [m for m in self.mobs if not m.hostile]
+                self.toast('Dusk gloomlings ' + ('on' if on else 'off'), '', 2)
+            elif cmd == 'locate':
+                if self.nearest_spire:
+                    s, d = self.nearest_spire
+                    sx, sz = center(s['q'], s['r'])
+                    ang = math.degrees(math.atan2(sx - p.x, -(sz - p.z))) % 360
+                    dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west']
+                    self.toast(f'Nearest sleeping spire: {d:,.0f} m {dirs[int((ang + 22.5) // 45) % 8]}',
+                               f'at x {sx:,.0f}  z {sz:,.0f}. Use /tp spire to go there.', 5)
+                else:
+                    self.toast('No sleeping spire nearby', '', 3)
             elif cmd == 'seed':
                 self.toast(f'Seed: {self.seed}', self.seed_text, 6)
-            elif cmd == 'spire':
-                if self.nearest_spire:
-                    s = self.nearest_spire[0]
-                    x, z = center(s['q'] + 5, s['r'] + 2)
-                    p.x, p.z, p.y = x, z, (s['top'] + 4) * LAYER
-                    self.toast('Drifted near a spire', '', 3)
+            elif cmd == 'spawnpoint':
+                self.spawn = (p.x, p.y + 0.01, p.z)
+                self.toast('Waking spot set here', '', 2)
+            elif cmd == 'clearinv':
+                self.inv.clear()
+                self.toast('Backpack emptied', '', 2)
             else:
-                self.toast('Unknown words: ' + cmd, 'Try /tp x z, /tide dusk, /tide light, /seed, /spire', 4)
-        except ValueError:
-            self.toast('Those words did not make sense', '', 3)
+                self.toast('Unknown command: ' + cmd, 'Type /help or press F5 for the admin panel.', 4)
+        except (ValueError, IndexError):
+            self.toast('Those words did not make sense', 'Type /help for the list of commands.', 3)
+
+    def _block_arg(self, name):
+        if name.strip().lower() in ('air', 'nothing', 'empty'):
+            return 0
+        it = I.find(name) if name.strip() else None
+        if not it or it.kind != 'block':
+            self.toast('Not a block: ' + name, 'e.g. stone, glass, planks, water, lumen lamp', 3)
+            return None
+        return it.block
+
+    def _fill(self, fn):
+        if not self.pos1 or not self.pos2:
+            self.toast('Mark a box first', 'Look at a cell and type /pos1, then another and /pos2.', 4)
+            return
+        (q1, r1, y1), (q2, r2, y2) = self.pos1, self.pos2
+        qa, qb = sorted((q1, q2))
+        ra, rb = sorted((r1, r2))
+        ya, yb = sorted((y1, y2))
+        vol = (qb - qa + 1) * (rb - ra + 1) * (yb - ya + 1)
+        if vol > 200000:
+            self.toast('That box is too big', f'{vol:,} cells; the limit is 200,000.', 3)
+            return
+        backup = []
+        n = 0
+        w = self.world
+        for q in range(qa, qb + 1):
+            for r in range(ra, rb + 1):
+                for y in range(max(0, ya), min(C.LAYERS - 1, yb) + 1):
+                    m = w.get(q, r, y)
+                    if m < 0:
+                        continue
+                    new = fn(m)
+                    if new is None or new == m:
+                        continue
+                    if m in (M['dormant_spire'], M['awake_spire']):
+                        continue
+                    backup.append((q, r, y, m))
+                    w.set(q, r, y, new, INITIAL_META.get(new, 0))
+                    n += 1
+        self.undo = (self.undo + [backup])[-5:]
+        self.toast(f'Changed {n:,} cells', 'Type /undo to take it back.', 3)
+
+    def _cmd_tp(self, args):
+        p = self.player
+        if args and args[0] in ('spire', 'spawn'):
+            if args[0] == 'spawn':
+                if self.spawn:
+                    p.x, p.y, p.z = self.spawn
+                else:
+                    p.x, p.y, p.z = p.last_safe
+                self.hold = True
+                self.toast('Back to your waking spot', '', 2)
+                return
+            if self.nearest_spire:
+                s = self.nearest_spire[0]
+                x, z = center(s['q'] + 5, s['r'] + 2)
+                p.x, p.z, p.y = x, z, (s['top'] + 4) * LAYER
+                self.hold = True
+                self.toast('Drifted near a spire', '', 3)
+            return
+        nums = [float(a.replace(',', '')) for a in args]
+        if len(nums) >= 3:
+            p.x, p.y, p.z = nums[0], nums[1], nums[2]
+            p.vx = p.vy = p.vz = 0
+            self.hold = True
+            self.toast(f'Moved to {p.x:,.0f}, {p.y:,.0f}, {p.z:,.0f}', '', 3)
+            return
+        x, z = nums[0], nums[1]
+        q0, r0 = cell_at(x, z)
+        spot = None
+        for rad in range(0, 300, 2):
+            pts = ring(q0, r0, rad)[::max(1, rad // 6)]
+            c = self.gen.columns(np.array([a for a, b in pts]), np.array([b for a, b in pts]))
+            ok = np.nonzero(c['land'] & ~c['pool'] & ~c['fall'] & (c['e'] > 0.03))[0]
+            if len(ok):
+                i = ok[0]
+                spot = (pts[i][0], pts[i][1], int(c['top'][i]))
+                break
+        if spot is None:
+            self.toast('Only clouds out there', 'No island found near that spot.', 3)
+            return
+        p.x, p.z = center(spot[0], spot[1])
+        p.y = (spot[2] + 4) * LAYER
+        p.vx = p.vy = p.vz = 0
+        p.last_safe = (p.x, (spot[2] + 1) * LAYER + 0.001, p.z)
+        self.hold = True
+        self.toast(f'Drifted to {p.x:,.0f}, {p.z:,.0f}', '', 3)
 
     # ------------------------------------------------------------------ saving
     def to_dict(self):
         p = self.player
-        return {'name': self.name, 'seed': self.seed, 'seed_text': self.seed_text, 'mode': self.mode,
+        return {'version': 2, 'name': self.name, 'seed': self.seed, 'seed_text': self.seed_text, 'mode': self.mode,
                 'player': {'x': p.x, 'y': p.y, 'z': p.z, 'yaw': p.yaw, 'pitch': p.pitch, 'drifting': p.drifting,
-                           'safe': list(p.last_safe)},
-                'essence': self.essence, 'chord': self.chord, 'awakened': self.awakened, 'phase': self.phase,
-                'play_time': self.play_time, 'created': self.created, 'stats': self.stats}
+                           'noclip': p.noclip, 'fly_speed': p.fly_speed, 'safe': list(p.last_safe)},
+                'awakened': self.awakened, 'phase': self.phase, 'play_time': self.play_time, 'created': self.created,
+                'stats': self.stats, 'hp': self.hp, 'food': self.food, 'spawn': list(self.spawn) if self.spawn else None,
+                'dev': self.dev, 'hot': self.hot, 'weather': self.weather, 'inventory': self.inv.to_list(),
+                'chests': {k: v.to_list() for k, v in self.chests.items()},
+                'kilns': {k: {'slots': v['slots'].to_list(), 'burn': v['burn'], 'burn_max': v['burn_max'], 'prog': v['prog']}
+                          for k, v in self.kilns.items()}}
 
     def save(self):
         if self.storage:
+            if self.cursor:
+                self.give(self.cursor[0], self.cursor[1], self.cursor[2], quiet=True)
+                self.cursor = None
             self.world.save_modified()
             self.storage.save(self.to_dict())
 

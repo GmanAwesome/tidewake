@@ -16,10 +16,12 @@ uniform int u_nl;
 uniform vec4 u_lp[32];
 uniform vec3 u_lc[32];
 
-vec3 shade(vec3 albedo, vec3 n, vec3 pos, float emit) {
+vec3 shade(vec3 albedo, vec3 n, vec3 pos, float emit, float sky) {
     float diff = max(dot(n, u_sun_dir), 0.0);
     float wrap = max(dot(n, u_sun_dir) * 0.5 + 0.5, 0.0);
-    vec3 light = mix(u_amb_bot, u_amb_top, n.y * 0.5 + 0.5) * 0.9 + u_sun_col * (diff * 0.55 + wrap * 0.12);
+    float sun_k = smoothstep(0.5, 1.0, sky);
+    vec3 light = mix(u_amb_bot, u_amb_top, n.y * 0.5 + 0.5) * 0.9 * (0.18 + 0.82 * sky)
+               + u_sun_col * (diff * 0.55 * sun_k + wrap * 0.12 * sky);
     for (int i = 0; i < u_nl; i++) {
         vec3 L = u_lp[i].xyz - pos;
         float d = length(L);
@@ -51,18 +53,23 @@ in vec4 in_col;
 in vec4 in_nrm;
 uniform mat4 u_vp;
 uniform vec3 u_offset;
+uniform float u_hand;
 out vec3 v_pos;
 out vec3 v_col;
 out vec3 v_n;
 out float v_emit;
 out float v_rim;
+out float v_sky;
 void main() {
     v_pos = in_pos + u_offset;
     v_col = in_col.rgb;
-    v_emit = in_col.a;
+    float a = floor(in_col.a * 255.0 + 0.5);
+    v_emit = floor(a / 16.0) / 15.0;
+    v_sky = mod(a, 16.0) / 15.0;
     v_n = in_nrm.xyz * 2.0 - 1.0;
     v_rim = in_nrm.w;
     gl_Position = u_vp * vec4(v_pos, 1.0);
+    if (u_hand > 0.5) gl_Position.z = gl_Position.z * 0.02 - 0.97 * gl_Position.w;
 }
 """
 
@@ -73,6 +80,7 @@ in vec3 v_col;
 in vec3 v_n;
 in float v_emit;
 in float v_rim;
+in float v_sky;
 uniform float u_alpha;
 uniform vec2 u_cam_mod;
 out vec4 color;
@@ -81,7 +89,7 @@ void main() {
     vec3 n = normalize(v_n);
     float rim = mix(0.80, 1.0, smoothstep(0.02, 0.17, v_rim));
     vec3 albedo = v_col * rim;
-    vec3 c = shade(albedo, n, v_pos, v_emit);
+    vec3 c = shade(albedo, n, v_pos, v_emit, v_sky);
     float a = u_alpha;
     if (u_alpha < 0.99) {
         vec2 wp = v_pos.xz + u_cam_mod;

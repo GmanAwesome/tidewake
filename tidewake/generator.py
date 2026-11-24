@@ -14,7 +14,7 @@ import random
 import numpy as np
 
 from .config import CHUNK, LAYERS, CLOUD_SEA, HEX, SQ3
-from .materials import ID, FORMS
+from .materials import ID
 from .noise import Noise, splitmix64, hash2, rand01, hash_ints
 
 M = ID
@@ -38,6 +38,7 @@ class Generator:
         self.n_island, self.n_warp1, self.n_warp2, self.n_alt, self.n_hill = (Noise(k(i)) for i in range(5))
         self.n_heat, self.n_wet, self.n_lumen, self.n_detail, self.n_pool = (Noise(k(i)) for i in range(5, 10))
         self.n_depth, self.n_islet, self.n_tunnel, self.n_islet_alt = (Noise(k(i)) for i in range(10, 14))
+        self.n_mount, self.n_cave, self.n_ore = Noise(k(14)), Noise(k(15)), Noise(k(16))
         self.h = k(20)
         # the seed's temperament
         self.island_scale = rng.uniform(120, 300)
@@ -46,7 +47,9 @@ class Generator:
         self.alt_base = rng.uniform(52, 66)
         self.alt_amp = rng.uniform(10, 30)
         self.hill_amp = rng.uniform(4, 16)
-        self.depth_amp = rng.uniform(22, 55)
+        self.depth_amp = rng.uniform(34, 70)
+        self.mount_amp = rng.uniform(24, 46)
+        self.caves = rng.uniform(0.07, 0.12)
         self.realm_scale = rng.uniform(260, 720)
         self.islet_rate = rng.uniform(0.05, 0.35)
         self.tunnels = rng.uniform(0.0, 0.09)
@@ -87,6 +90,8 @@ class Generator:
         inner = smoothstep(0.0, 0.18, e)
         h = alt + self.hill_amp * (hills * 0.8 + 0.6) * inner - 5.0 * (1 - smoothstep(0.0, 0.06, e))
         h = h + np.where(realm == FROST, ridge * 9 * inner, 0)
+        mount = smoothstep(0.04, 0.5, self.n_mount.fbm2(X / 240.0, Z / 240.0, 3)) * smoothstep(0.05, 0.3, e)
+        h = h + self.mount_amp * mount * (0.55 + 0.45 * ridge) * np.where(realm == FEN, 0.3, 1.0)
         h = h + np.where(realm == DUNE, np.sin(wx / 9.0 + hills * 4) * 2.2 * inner, 0)
         h = np.where(realm == FEN, alt + (h - alt) * 0.35, h)
         top = np.floor(h)
@@ -115,7 +120,7 @@ class Generator:
         fall = land & ~sk & (e > 0.0) & (e < 0.03) & (rand01(Q, R, self.h + 2) < 0.012) & \
             np.isin(realm, (MEADOW, AMBER, FEN, BASALT, LUMEN))
         return {'e': e, 'land': land, 'top': top, 'bottom': bottom, 'realm': realm, 'pool': pool, 'fall': fall,
-                'skerry': sk, 'inner': inner, 'rand': col_rand}
+                'skerry': sk, 'inner': inner, 'rand': col_rand, 'peak': top > self.alt_base + 30}
 
     # ------------------------------------------------------------------ spires
     def spire(self, rq, rr):
@@ -184,22 +189,39 @@ class Generator:
         surf = np.where((Rm == BASALT) & (det > 0.1), M['turf'], surf)
         surf = np.where((Rm == ROSE) & (det > 0.15), M['turf'], surf)
         surf = np.where((Rm == FROST) & (det > 0.35), M['ice'], surf)
+        surf = np.where((Rm == FEN) & (det < -0.32), M['clay'], surf)
+        peak = col['peak'][sl][:, None, :] & ~np.isin(Rm, (DUNE, LUMEN))
+        surf = np.where(peak, M['snow'], surf)
         cells = np.where(solid, body, 0).astype(np.uint8)
         cells = np.where(solid & (d <= 3) & (d >= 1), mid, cells)
         cells = np.where(solid & (d == 0), surf, cells)
-        # tunnels and arches through thick island bodies
-        if self.tunnels > 0.01:
-            thick = solid & (d >= 3) & ((ys - B) >= 2)
-            if thick.any():
-                idx = np.nonzero(thick)
-                qq = Q[sl][idx[0], idx[2]].astype(np.float64)
-                rr = R[sl][idx[0], idx[2]].astype(np.float64)
-                xx, zz = qq + rr * 0.5, rr * 0.866
-                yy = idx[1].astype(np.float64) * 0.7 / 1.73
-                n1 = self.n_tunnel.noise3(xx / 14.0, yy / 9.0, zz / 14.0)
-                n2 = self.n_tunnel.noise3(xx / 14.0 + 31.7, yy / 9.0 - 3.3, zz / 14.0 + 11.9)
-                hole = (np.abs(n1) < self.tunnels) & (np.abs(n2) < self.tunnels * 1.6)
-                cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
+        # ores in the stone body, in veins, rarer the deeper you go
+        body_mask = solid & (d >= 3)
+        if body_mask.any():
+            idx = np.nonzero(body_mask)
+            qq = Q[sl][idx[0], idx[2]].astype(np.float64)
+            rr = R[sl][idx[0], idx[2]].astype(np.float64)
+            xx, zz = qq + rr * 0.5, rr * 0.866
+            yy = idx[1].astype(np.float64) * 0.7 / 1.73
+            dd = d[idx[0], idx[1], idx[2]]
+            for k, (ore, mind, thr, sc) in enumerate(((M['emberite_ore'], 3, 0.50, 3.2), (M['verdigris_ore'], 7, 0.55, 2.8),
+                                                      (M['silverine_ore'], 14, 0.60, 2.6), (M['aetherite_ore'], 24, 0.70, 2.2))):
+                n = self.n_ore.noise3(xx / sc + 37.1 * k, yy / sc - 11.3 * k, zz / sc + 5.7 * k)
+                hit = (dd >= mind) & (n > thr)
+                cells[idx[0][hit], idx[1][hit], idx[2][hit]] = ore
+            # caves: winding worm tunnels plus a few big caverns
+            deep = (dd >= 3) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 3)
+            n1 = self.n_cave.noise3(xx / 16.0, yy / 7.0, zz / 16.0)
+            n2 = self.n_cave.noise3(xx / 16.0 + 31.7, yy / 7.0 - 3.3, zz / 16.0 + 11.9)
+            worm = (np.abs(n1) < self.caves) & (np.abs(n2) < self.caves * 1.7)
+            big = self.n_tunnel.noise3(xx / 34.0, yy / 14.0, zz / 34.0) > 0.42
+            hole = deep & (worm | big)
+            cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
+            # glowcaps and crystals on cave floors
+            fl = hole & (rand01(qq.astype(np.int64), rr.astype(np.int64) * 7 + idx[1], self.h + 31) < 0.04)
+            for a, y, b in zip(idx[0][fl], idx[1][fl], idx[2][fl]):
+                if y > 0 and cells[a, y - 1, b] not in (0, M['water']) and cells[a, y, b] == 0:
+                    cells[a, y, b] = M['glowcap'] if (a + b + y) % 3 else M['crystal']
         meta = np.zeros_like(cells)
 
         # pools and waterfalls
@@ -227,7 +249,13 @@ class Generator:
         place = on_turf & (rnd < deco_rate)
         ii, kk = np.nonzero(place)
         for i, k in zip(ii, kk):
-            cells[i, top[i, k] + 1, k] = deco[i, k]
+            if cells[i, top[i, k], k] != 0:
+                cells[i, top[i, k] + 1, k] = deco[i, k]
+        bush = on_turf & ~place & (rnd2 > 1 - np.choose(realm, [0.012, 0.02, 0.004, 0.0, 0.006, 0.02, 0.0, 0.004]))
+        ii, kk = np.nonzero(bush)
+        for i, k in zip(ii, kk):
+            if cells[i, top[i, k], k] != 0:
+                cells[i, top[i, k] + 1, k] = M['berry_bush']
         under = land & (rnd2 < 0.02) & (bot > CLOUD_SEA + 3) & ~fall
         ii, kk = np.nonzero(under)
         for i, k in zip(ii, kk):

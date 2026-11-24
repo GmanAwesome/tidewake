@@ -14,12 +14,41 @@ fills you with light and teaches you a gift.
 
 ## Download (Windows)
 
-1. Open the [latest release](../../releases/latest) and download **Tidewake-1.0-Windows.zip**.
+1. Open the [latest release](../../releases/latest) and download **Tidewake-1.1-Windows.zip**.
 2. Right-click the zip, choose **Extract All…**, and open the extracted `Tidewake` folder.
 3. Double-click **Tidewake.exe**.
 
 Windows may show a blue "Windows protected your PC" box because the game isn't signed. Click **More info**, then **Run anyway**.
 Your skies, settings and snapshots are saved in the same folder as the exe (`skies/`, `settings.json`, `snapshots/`).
+
+## New in 1.1 — more like Minecraft
+
+- **Mining**: hold left click to break blocks; harder blocks take longer, and tools (Wooden → Stone → Verdigris → Silverine → Aetherite picks, axes, spades) speed it up.
+- **Crafting**: 2x2 grid in your backpack (E), 3x3 at a Tinker Bench, with a clickable recipe book. Kiln for smelting ores, chests for storage.
+- **Survival (Wanderer)**: hearts and food; eat berries, roast hopmeat, pies and stews. Bedrolls set your spawn and sleep through Dusktide.
+- **Creatures**: woolhops, pebblebeaks and mossbacks (drops: fluff, hopmeat, eggs, plumes); gloomlings and brutes sneak out at Dusktide (toggle in Settings).
+- **World**: caves and caverns with Emberite, Verdigris, Silverine and Aetherite ore, taller mountains, 17 new blocks.
+
+![Crafting](docs/v11_14_bench_craft.png)
+
+## Dev mode
+
+Press **F4** (or pick Dreamer mode) to turn on dev mode:
+
+| Key | What it does |
+|---|---|
+| F4 | Dev mode on/off |
+| F5 | Admin panel (every item, quick buttons, command list) |
+| F | Fly on/off |
+| N | Noclip (fly through blocks) |
+| [ / ] | Fly slower / faster |
+| Enter or / | Type a command |
+
+Commands: `/tp x z`, `/tp x y z`, `/tp spire`, `/tp spawn`, `/time` or `/tide <light|dusk|0-1>`, `/give <item> [n]`, `/spawn <creature> [n]`, `/killmobs`, `/weather <clear|rain>`, `/pos1` `/pos2` then `/fill <block>`, `/clear`, `/replace <a> <b>`, `/undo`, `/speed <n>`, `/heal`, `/feed`, `/fly`, `/noclip`, `/mobs on|off`, `/locate spire`, `/seed`, `/spawnpoint`, `/clearinv`, `/help`.
+
+In dev mode you break blocks instantly, take no damage, and creatures ignore you.
+
+![Admin panel](docs/v11_61_admin_panel.png)
 
 ## How it plays
 

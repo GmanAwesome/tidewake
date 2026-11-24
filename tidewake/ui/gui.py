@@ -194,6 +194,15 @@ class Gui:
         for (px, py), (u, v) in zip(pts, uv):
             self.verts.append((px, py, u, v, 0, 0, 0, 5.0, *color, 0, 0, 0, 0))
 
+    def icon_tex(self, tex, uv, x, y, w, h, color=(1, 1, 1, 1)):
+        """Quad from part of an existing texture. uv = (u0, v0, u1, v1), v0 at the bottom."""
+        u0, v0, u1, v1 = uv
+        self.tex_queue.append((len(self.verts), tex))
+        uvs = ((u0, v0), (u1, v0), (u1, v1), (u0, v0), (u1, v1), (u0, v1))
+        pts = ((x, y), (x + w, y), (x + w, y + h), (x, y), (x + w, y + h), (x, y + h))
+        for (px, py), (u, v) in zip(pts, uvs):
+            self.verts.append((px, py, u, v, 0, 0, 0, 5.0, *color, 0, 0, 0, 0))
+
     def drop_texture(self, key):
         t = self.textures.pop(key, None)
         if t:
@@ -232,9 +241,9 @@ class Gui:
     def inside(self, x, y, w, h):
         return x <= self.mx <= x + w and y <= self.my <= y + h
 
-    def clicked(self, x, y, w, h):
+    def clicked(self, x, y, w, h, button=1):
         for (cx, cy, b) in self.clicks:
-            if x <= cx <= x + w and y <= cy <= y + h and b == 1:
+            if x <= cx <= x + w and y <= cy <= y + h and b == button:
                 return True
         return False
 

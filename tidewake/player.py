@@ -30,6 +30,10 @@ class Player:
         self.last_safe = (x, y, z)
         self.bounced = False
         self.landed = 0.0
+        self.noclip = False
+        self.fly_speed = C.DRIFT_SPEED
+        self.dev_ghost = False          # creatures ignore you (dev mode)
+        self.knock = (0.0, 0.0)
 
     # ------------------------------------------------------------------ collision
     def _columns(self, x, z):
@@ -89,7 +93,7 @@ class Player:
         self.climbing = self.touching(world, _VINE)
         self.bounced = False
         if self.drifting:
-            sp = C.DRIFT_SPEED * (1.8 if hurry else 1.0)
+            sp = self.fly_speed * (1.8 if hurry else 1.0)
             self.vx, self.vz = mx * sp, mz * sp
             self.vy = (sp * 0.7) * ((1 if jump_held else 0) - (1 if down_held else 0))
             self.gliding = False
@@ -105,6 +109,10 @@ class Player:
             k = min(1.0, accel * dt)
             self.vx += (mx * sp - self.vx) * k
             self.vz += (mz * sp - self.vz) * k
+            if self.knock != (0.0, 0.0):
+                self.vx += self.knock[0]
+                self.vz += self.knock[1]
+                self.knock = (0.0, 0.0)
             if self.on_ground:
                 self.air_jumps = 0
             if jump_pressed:
@@ -130,6 +138,12 @@ class Player:
             self.eye_offset = min(0.0, self.eye_offset + dt * 5.0)
 
     def _move(self, world, dt):
+        if self.noclip and self.drifting:
+            self.x += self.vx * dt
+            self.y += self.vy * dt
+            self.z += self.vz * dt
+            self.on_ground = False
+            return
         total = max(abs(self.vx), abs(self.vy), abs(self.vz)) * dt
         steps = max(1, int(total / 0.2) + 1)
         h = dt / steps
@@ -190,7 +204,7 @@ class Player:
         return self.x, self.y + C.EYE + self.eye_offset, self.z
 
 
-def raycast(world, ox, oy, oz, dx, dy, dz, reach):
+def raycast(world, ox, oy, oz, dx, dy, dz, reach, skip_water=False):
     """March along the ray; returns ((q, r, y) hit, (q, r, y) previous empty) or (None, None)."""
     step = 0.05
     n = int(reach / step)
@@ -209,7 +223,7 @@ def raycast(world, ox, oy, oz, dx, dy, dz, reach):
         m = world.get(q, r, ly)
         if m < 0:
             return None, None
-        if m != 0:
+        if m != 0 and not (skip_water and m == _WATER):
             return cell, prev
         prev = cell
         last = cell

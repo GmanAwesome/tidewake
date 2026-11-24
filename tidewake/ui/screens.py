@@ -5,7 +5,8 @@ import time
 
 from .gui import INK, PAPER, ACCENT, ACCENT2, MUTED, WHITE
 from .. import materials as MT
-from ..materials import ELEMENTS, ELEMENT_COLORS, FORMS, FORM_HINTS
+from .. import items as I
+ELEMENT_COLORS = [(0.80, 0.72, 0.62), (0.42, 0.70, 0.95), (1.00, 0.84, 0.45), (0.52, 0.82, 0.48)]
 from ..noise import seed_from_text, random_seed
 from ..settings import FPS_CHOICES
 from ..storage import SkyStorage
@@ -77,7 +78,7 @@ class TitleScreen(Screen):
         if gui.button(x, y - 156 * s, bw, bh, 'Leave'):
             app.quit()
         gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
-        gui.text('Tidewake 1.0', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
+        gui.text('Tidewake 1.1', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
         gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
 
     def escape(self, app):
@@ -186,8 +187,8 @@ class NewSkyScreen(Screen):
         y -= 70 * s
         gui.text('Way of play', fx, y + 46 * s, 10, MUTED, font='bold')
         cw = (fw - 12 * s) / 2
-        for i, (mode, label, desc) in enumerate([('wanderer', 'Wanderer', 'gather essence, wake spires, earn gifts'),
-                                                  ('dreamer', 'Dreamer', 'endless essence, free drifting, all gifts')]):
+        for i, (mode, label, desc) in enumerate([('wanderer', 'Wanderer', 'mine, craft, eat, brave the dusk'),
+                                                  ('dreamer', 'Dreamer', 'build freely: fly, endless items, dev mode')]):
             cx = fx + i * (cw + 12 * s)
             on = self.mode == mode
             gui.rect(cx, y - 30 * s, cw, 68 * s, (1, 0.93, 0.88, 1) if on else (0.97, 0.95, 0.98, 1), 14 * s,
@@ -303,7 +304,7 @@ class SettingsScreen(Screen):
         s = gui.s
         st = app.settings
         veil(gui, w, h, 0.3)
-        pw, ph = min(860 * s, w - 30 * s), min(470 * s, h - 30 * s)
+        pw, ph = min(860 * s, w - 30 * s), min(520 * s, h - 30 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
         gui.text('Settings', w / 2, py + ph - 38 * s, 22, INK, 'center', 'center', font='title')
@@ -335,6 +336,9 @@ class SettingsScreen(Screen):
         st['head_bob'] = gui.toggle(x2, y, cw, rh, 'Gentle head bob', st['head_bob'])
         y -= rh + gap
         st['motes'] = gui.toggle(x1, y, cw, rh, 'Floating motes', st['motes'])
+        st['creatures'] = gui.toggle(x2, y, cw, rh, 'Friendly creatures', st['creatures'])
+        y -= rh + gap
+        st['dusk_critters'] = gui.toggle(x1, y, cw, rh, 'Gloomlings at dusk', st['dusk_critters'])
         if dict(st) != old:
             app.apply_settings(old)
         if gui.button(w / 2 - 110 * s, py + 22 * s, 220 * s, 40 * s, 'Done', primary=True):
@@ -368,21 +372,22 @@ class RestScreen(Screen):
 
 
 class JournalScreen(Screen):
-    TABS = ['Tuning', 'Spires', 'Gifts', 'Controls']
+    TABS = ['Basics', 'Crafting', 'Creatures', 'Spires', 'Controls']
 
     def __init__(self, parent=None, tab=0, help_only=False):
         self.parent = parent
         self.tab = tab
         self.help_only = help_only
+        self.scroll = 0
 
     def build(self, gui, app, w, h):
         s = gui.s
         veil(gui, w, h, 0.35)
-        pw, ph = min(860 * s, w - 30 * s), min(580 * s, h - 30 * s)
+        pw, ph = min(920 * s, w - 30 * s), min(600 * s, h - 30 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
         gui.text('Journal', px + 30 * s, py + ph - 42 * s, 22, INK, 'left', 'center', font='title')
-        tw = 108 * s
+        tw = 104 * s
         for i, name in enumerate(self.TABS):
             tx = px + pw - 30 * s - (len(self.TABS) - i) * (tw + 8 * s)
             on = i == self.tab
@@ -391,65 +396,72 @@ class JournalScreen(Screen):
                 gui.text(name, tx + tw / 2, py + ph - 42 * s, 11, WHITE, 'center', 'center', font='bold')
             elif gui.button(tx, py + ph - 60 * s, tw, 36 * s, name, size=11, key='tab' + name):
                 self.tab = i
+                self.scroll = 0
         ses = app.session if not self.help_only else None
-        x0, y0 = px + 34 * s, py + ph - 100 * s
+        x0, y0 = px + 34 * s, py + ph - 96 * s
+        tw_ = pw - 68 * s
         if self.tab == 0:
-            gui.text('Nothing here is mined or crafted. Gather a cell to draw out its elements, then tune a chord of one '
-                     'or two elements (keys 1-4, or the mouse wheel) and shape it into the world.', x0, y0, 10.5, MUTED,
-                     width=pw - 68 * s, anchor_y='top')
-            y = y0 - 56 * s
-            col_w = (pw - 68 * s) / 2
-            for i, (chord, mat) in enumerate(FORMS.items()):
-                cx = x0 + (i % 2) * col_w
-                cy = y - (i // 2) * 54 * s
-                for k, e in enumerate(chord):
-                    gui.hexagon(cx + 14 * s + k * 26 * s, cy, 12 * s, ELEMENT_COLORS[e], border=(1, 1, 1), border_w=2 * s)
-                ex = cx + 14 * s + len(chord) * 26 * s + 8 * s
-                gui.text('→', ex, cy, 12, MUTED, 'left', 'center', font='title')
-                gui.hexagon(ex + 30 * s, cy, 14 * s, (*MT.TOP[mat], 1), border=(1, 1, 1), border_w=2 * s)
-                gui.text(MT.NAMES[mat], ex + 52 * s, cy + 7 * s, 12, INK, 'left', 'center', font='bold')
-                gui.text(FORM_HINTS[mat], ex + 52 * s, cy - 10 * s, 9, MUTED, 'left', 'center')
+            lines = [
+                ('Mine', 'Hold left click on a cell. Wood comes off by hand; stone needs a pick. Better picks dig faster and '
+                         'can collect rarer ores: Emberite and Verdigris, then Silverine, then glowing Aetherite deep inside the islands.'),
+                ('Build', 'Pick a hotbar slot with 1-9 or the mouse wheel, then right click to place it.'),
+                ('Craft', 'Press E. Turn Heartwood into Planks, Planks into Sticks and a Tinker Bench. Right click a placed bench '
+                          'for the full 3x3 grid. Click a recipe in the book to fill the grid for you.'),
+                ('Smelt', 'A Kiln (8 stone in a ring) turns ores into ingots, sand into glass, clay into bricks, and cooks hopmeat. '
+                          'Feed it Emberite, wood or sticks.'),
+                ('Eat and rest', 'Hearts come back when you are well fed. Eat berries, eggs, roast hopmeat or pie (right click). '
+                                 'Right click a Bedroll to set your waking spot and sleep through the dusk.'),
+                ('Tides', 'The sky turns between Lighttide and Dusktide. In the dusk, gloomlings creep out (you can switch them '
+                          'off in Settings) and golden motes drift by: catch them for Glimmer.'),
+                ('Never lost', 'Fall into the clouds and they carry you back. If your hearts run out you wake at your bedroll '
+                               'with everything you carried.'),
+            ]
+            y = y0
+            for head, body in lines:
+                gui.text(head, x0, y, 12, INK, font='bold', anchor_y='top')
+                lab = gui.text(body, x0 + 130 * s, y, 10, MUTED, width=tw_ - 130 * s, anchor_y='top')
+                y -= max(26 * s, lab.content_height + 12 * s)
         elif self.tab == 1:
-            lines = ['Dormant spires stand on old plinths across every sky. Each one longs for certain tuned cells.',
-                     'Shape those cells on the ring of six hexes right around its base, and it will wake.',
-                     'Each awakening fills you with light and teaches you a gift. The wayfinder at the top of the '
-                     'screen points to the nearest sleeping spire.']
-            gui.text('\n\n'.join(lines), x0, y0, 11, INK, width=pw - 68 * s, anchor_y='top')
+            self._recipes(gui, app, x0, y0, tw_, py + 80 * s)
+        elif self.tab == 2:
+            rows = [('woolhop', 'Woolhop', 'Fluffy and calm. Drops Fluff (bedrolls, fluff blocks, cloudstuff) and hopmeat.'),
+                    ('pebblebeak', 'Pebblebeak', 'A round little bird. Drops Plumes and lays Speckled Eggs.'),
+                    ('mossback', 'Mossback', 'A slow, mossy tortoise. Drops Mossrock and Vines.'),
+                    ('gloomling', 'Gloomling', 'Comes out in the dusk and bumps into you. Fades in the light. Drops Gloom Dust.'),
+                    ('brute', 'Gloom Brute', 'A big gloomling. Hits harder; drops more.')]
+            for i, (k, name, desc) in enumerate(rows):
+                y = y0 - i * 66 * s
+                gui.rect(x0, y - 50 * s, tw_, 58 * s, (0.97, 0.95, 0.98, 1), 14 * s)
+                col = {'woolhop': (0.99, 0.95, 0.90), 'pebblebeak': (0.98, 0.86, 0.70), 'mossback': (0.46, 0.68, 0.42),
+                       'gloomling': (0.30, 0.22, 0.46), 'brute': (0.30, 0.22, 0.46)}[k]
+                gui.hexagon(x0 + 30 * s, y - 21 * s, 18 * s, (*col, 1), border=(1, 1, 1), border_w=2 * s)
+                gui.text(name, x0 + 62 * s, y - 12 * s, 12, INK, font='bold')
+                gui.text(desc, x0 + 62 * s, y - 34 * s, 9.5, MUTED)
+        elif self.tab == 3:
+            lines = ['Dormant spires stand on old plinths across every sky. Each one longs for certain cells.',
+                     'Place those cells on the ring of six hexes right around its base, and it will wake.',
+                     'Each awakening teaches you a gift (Glide, then Updraft, then Tidecall) and leaves you Aetherite and Glimmer. '
+                     'The wayfinder at the top of the screen points to the nearest sleeping spire.']
+            gui.text('\n\n'.join(lines), x0, y0, 11, INK, width=tw_, anchor_y='top')
             if ses:
                 gui.text(f'Spires awake in this sky: {len(ses.awakened)}', x0, y0 - 170 * s, 14, INK, font='bold')
                 ns = ses.nearest_spire
                 if ns:
                     sp, d = ns
-                    _, missing = ses.spire_state(sp) if d < 120 else (None, sp['wants'])
                     want = ', '.join(MT.NAMES[m] for m in sp['wants'])
                     gui.text(f'The nearest sleeping spire ({d:.0f} m away) longs for: {want}', x0, y0 - 204 * s, 11, MUTED)
-                    for k, m in enumerate(sp['wants']):
-                        gui.hexagon(x0 + 16 * s + k * 34 * s, y0 - 240 * s, 14 * s, (*MT.TOP[m], 1), border=(1, 1, 1),
-                                    border_w=2 * s)
-        elif self.tab == 2:
-            from ..session import ABILITIES
-            n = len(ses.awakened) if ses else 0
-            dreamer = ses and ses.mode == 'dreamer'
-            for i, (name, desc) in enumerate(ABILITIES):
-                y = y0 - i * 76 * s
-                got = dreamer or n > i
-                gui.rect(x0, y - 56 * s, pw - 68 * s, 64 * s, (1, 0.95, 0.90, 1) if got else (0.95, 0.94, 0.97, 1), 14 * s)
-                gui.hexagon(x0 + 34 * s, y - 24 * s, 20 * s, ACCENT2 if got else (0.8, 0.79, 0.86, 1))
-                gui.text(name if got else f'{name}  (wake {i + 1} spire{"s" if i else ""})', x0 + 70 * s, y - 14 * s, 13,
-                         INK if got else MUTED, font='bold')
-                gui.text(desc, x0 + 70 * s, y - 38 * s, 10, MUTED)
-            gui.text('Dusk motes: walk through the golden motes of the dusk tide to gather Light.', x0, y0 - 250 * s, 10.5, INK)
-            gui.text('Falling: the cloud sea always carries you back to the last solid ground.', x0, y0 - 276 * s, 10.5, INK)
         else:
-            rows = [('W A S D / mouse', 'wander and look'), ('Space', 'jump · hold to glide · climb vines'),
-                    ('Shift', 'hurry'), ('Left click', 'gather a cell into essence'),
-                    ('Right click', 'shape your tuned form'), ('1  2  3  4', 'toggle Stone, Water, Light, Growth'),
-                    ('Mouse wheel', 'cycle through forms'), ('J or Tab', 'journal'), ('T', 'tidecall (once learned)'),
-                    ('F', 'drift freely (Dreamer skies)'), ('Enter or /', 'whisper a command (/tp x z, /tide dusk)'),
-                    ('F1 · F2 · F3', 'hide HUD · snapshot · details'), ('Esc', 'rest')]
+            rows = [('W A S D / mouse', 'walk and look'), ('Space', 'jump · hold to glide · climb vines'),
+                    ('Shift', 'hurry'), ('Left click (hold)', 'mine · hit creatures'),
+                    ('Right click', 'place · use · eat'), ('1 - 9 / wheel', 'pick a hotbar slot'),
+                    ('E', 'backpack and crafting'), ('Q', 'drop the held item'),
+                    ('J', 'journal'), ('T', 'tidecall (once learned)'),
+                    ('Enter or /', 'type a command (/help)'), ('F1 · F2 · F3', 'hide HUD · snapshot · details'),
+                    ('F4', 'dev mode on / off'), ('F5', 'admin panel (dev mode)'),
+                    ('F · N · [ ]', 'dev: fly · noclip · fly speed'), ('Esc', 'rest (pause)')]
             for i, (k, d) in enumerate(rows):
                 col, row = i % 2, i // 2
-                cx = x0 + col * (pw - 68 * s) / 2
+                cx = x0 + col * tw_ / 2
                 cy = y0 - row * 46 * s
                 kw = gui.text_width(k, 10, 'bold') + 20 * s
                 gui.rect(cx, cy - 26 * s, kw, 28 * s, (0.95, 0.93, 0.98, 1), 9 * s)
@@ -457,6 +469,31 @@ class JournalScreen(Screen):
                 gui.text(d, cx + kw + 12 * s, cy - 12 * s, 10, MUTED, 'left', 'center')
         if gui.button(px + pw - 170 * s, py + 22 * s, 140 * s, 38 * s, 'Close', primary=True):
             self.escape(app)
+
+    def _recipes(self, gui, app, x0, y0, tw_, ybot):
+        s = gui.s
+        from .inventory_ui import draw_icon, recipe_rows
+        rows = recipe_rows()
+        per_row = 3
+        cw = tw_ / per_row
+        rh = 58 * s
+        vis = max(1, int((y0 - ybot) // rh))
+        total = (len(rows) + per_row - 1) // per_row
+        if gui.scroll:
+            self.scroll = max(0, min(total - vis, self.scroll - int(gui.scroll)))
+        for k, (rec, res, cnt) in enumerate(rows[self.scroll * per_row:(self.scroll + vis) * per_row]):
+            col, row = k % per_row, k // per_row
+            x, y = x0 + col * cw, y0 - (row + 1) * rh + 8 * s
+            gui.rect(x, y, cw - 10 * s, rh - 8 * s, (0.97, 0.95, 0.98, 1), 12 * s)
+            draw_icon(gui, app, res, x + 6 * s, y + 4 * s, rh - 16 * s)
+            name = I.get(res).name + (f' x{cnt}' if cnt > 1 else '')
+            gui.text(name, x + rh, y + rh * 0.56, 10, INK, font='bold')
+            need = I.recipe_needs(rec[0])
+            txt = ', '.join(f'{n} {I.name_of(v)}' for v, n in need.items())
+            gui.text(txt[:46], x + rh, y + rh * 0.24, 8, MUTED)
+        if total > vis:
+            gui.text(f'scroll for more  ·  {self.scroll + 1}-{min(total, self.scroll + vis)} of {total} rows',
+                     x0, ybot - 10 * s, 9, MUTED)
 
     def escape(self, app):
         app.set_screen(self.parent if self.help_only else None)
@@ -471,7 +508,7 @@ class WhisperScreen(Screen):
 
     def build(self, gui, app, w, h):
         s = gui.s
-        gui.text('Whisper to the sky (try /tp 100000 0, /tide dusk, /spire, /seed)', 20 * s, 72 * s, 10, WHITE)
+        gui.text('Whisper to the sky: /help lists every command (admin commands need dev mode, F4)', 20 * s, 72 * s, 10, WHITE)
         self.text = gui.textfield(16 * s, 20 * s, w - 32 * s, 40 * s, 'cmd', self.text, '/', 80)
         if 'enter' in gui.keys:
             if app.session and self.text.strip():

@@ -1,7 +1,7 @@
-"""Every kind of cell in Tidewake, the four elements, and the forms you can tune.
+"""Every kind of cell in Tidewake.
 
-Nothing is mined or crafted. You *gather* a cell back into the elements it is made of,
-and you *shape* new cells by tuning a chord of one or two elements.
+Cells are mined (hold the mouse), drop items, and items are placed or crafted.
+New cells are only ever appended, so old saves keep their meaning.
 """
 import numpy as np
 
@@ -39,6 +39,24 @@ _M = [
     ('Awake Spire', 'full', (0.90, 0.86, 1.00),   (0.80, 0.76, 0.98),    0.45, True,  (0, 0, 0, 0), 'glass'),
     ('Lumen Shard', 'deco', (0.80, 0.68, 1.00),   (0.72, 0.60, 0.98),    0.9, False, (0, 0, 2, 0), 'glass'),
     ('Petals',      'deco', (1.00, 0.96, 0.80),   (0.45, 0.70, 0.40),    0.0, False, (0, 0, 0, 1), 'leaf'),
+    # ---- 1.1: blocks you craft, ores you mine
+    ('Planks',      'full', (0.86, 0.68, 0.48),   (0.78, 0.60, 0.42),    0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Tinker Bench', 'full', (0.92, 0.74, 0.50),  (0.62, 0.44, 0.32),    0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Kiln',        'full', (0.98, 0.62, 0.38),   (0.58, 0.54, 0.56),    0.25, True, (1, 0, 0, 0), 'stone'),
+    ('Chest',       'full', (0.80, 0.56, 0.36),   (0.70, 0.46, 0.30),    0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Glass',       'glass', (0.84, 0.94, 1.00),  (0.80, 0.92, 1.00),    0.05, True, (0, 0, 0, 0), 'glass'),
+    ('Bricks',      'full', (0.82, 0.46, 0.40),   (0.74, 0.40, 0.36),    0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Fluff Block', 'full', (0.99, 0.95, 0.90),   (0.95, 0.90, 0.86),    0.0, True,  (0, 0, 0, 0), 'puff'),
+    ('Bedroll',     'deco', (0.94, 0.52, 0.56),   (0.99, 0.95, 0.90),    0.0, False, (0, 0, 0, 0), 'puff'),
+    ('Glowstick',   'deco', (1.00, 0.78, 0.40),   (0.60, 0.44, 0.30),    1.0, False, (0, 0, 0, 0), 'wood'),
+    ('Berry Bush',  'deco', (0.36, 0.62, 0.40),   (0.36, 0.62, 0.40),    0.0, False, (0, 0, 0, 1), 'leaf'),
+    ('Emberite Ore', 'full', (0.98, 0.52, 0.30),  (0.40, 0.38, 0.42),    0.30, True, (1, 0, 0, 0), 'stone'),
+    ('Verdigris Ore', 'full', (0.38, 0.86, 0.72), (0.58, 0.60, 0.60),    0.12, True, (1, 0, 0, 0), 'stone'),
+    ('Silverine Ore', 'full', (0.88, 0.92, 1.00), (0.56, 0.56, 0.64),    0.20, True, (1, 0, 0, 0), 'stone'),
+    ('Aetherite Ore', 'full', (0.80, 0.56, 1.00), (0.42, 0.38, 0.52),    0.60, True, (1, 0, 0, 0), 'glass'),
+    ('Polished Stone', 'full', (0.90, 0.88, 0.84), (0.80, 0.78, 0.74),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Mossy Bricks', 'full', (0.56, 0.70, 0.46),  (0.68, 0.48, 0.42),    0.0, True,  (1, 0, 0, 1), 'stone'),
+    ('Lumen Lamp',  'full', (1.00, 0.92, 0.70),   (0.98, 0.84, 0.60),    1.0, True,  (0, 0, 1, 0), 'glass'),
 ]
 
 NAMES = [m[0] for m in _M]
@@ -53,6 +71,7 @@ YIELDS = [m[6] for m in _M]
 SOUND = [m[7] for m in _M]
 
 OPAQUE = np.array([k == 'full' for k in KIND], dtype=bool)      # hides neighbouring faces
+IS_GLASS = np.array([k == 'glass' for k in KIND], dtype=bool)
 IS_WATER = np.array([k == 'water' for k in KIND], dtype=bool)
 IS_DECO = np.array([k == 'deco' for k in KIND], dtype=bool)
 GATHERABLE = np.array([k != 'air' and m[0] not in ('Dormant Spire', 'Awake Spire') for k, m in zip(KIND, _M)])
@@ -67,6 +86,10 @@ PARTS = {
     ID['glowcap']: [(0.13, 0.0, 0.62, False), (0.56, 0.60, 0.86, True)],
     ID['lumen_shard']: [(0.30, 0.45, 1.0, True), (0.16, 0.12, 0.45, True)],
     ID['petals']: [(0.05, 0.0, 0.30, False), (0.24, 0.30, 0.36, True), (0.09, 0.36, 0.42, 'core')],
+    ID['bedroll']: [(0.80, 0.0, 0.16, False), (0.62, 0.16, 0.30, True), (0.26, 0.30, 0.42, False)],
+    ID['glowstick']: [(0.07, 0.0, 0.62, False), (0.13, 0.62, 0.86, True)],
+    ID['berry_bush']: [(0.10, 0.0, 0.20, False), (0.52, 0.18, 0.62, True), (0.30, 0.62, 0.78, True),
+                       (0.12, 0.40, 0.70, 'berry')],
 }
 
 # point-light colour and radius (world units) for glowing cells
@@ -78,7 +101,13 @@ LIGHTS = {
     ID['awake_spire']: ((0.80, 0.70, 1.0), 16.0),
     ID['lumen_shard']: ((0.70, 0.55, 1.0), 6.0),
     ID['cloudstuff']: ((0.9, 0.9, 1.0), 3.0),
+    ID['glowstick']: ((1.0, 0.72, 0.40), 9.0),
+    ID['aetherite_ore']: ((0.75, 0.50, 1.0), 4.0),
+    ID['emberite_ore']: ((1.0, 0.50, 0.25), 3.0),
+    ID['lumen_lamp']: ((1.0, 0.86, 0.60), 13.0),
+    ID['kiln']: ((1.0, 0.55, 0.30), 4.0),
 }
+ORES = [ID['emberite_ore'], ID['verdigris_ore'], ID['silverine_ore'], ID['aetherite_ore']]
 
 # ---- realms (biomes) -----------------------------------------------------------
 REALMS = ['Meadow Isles', 'Amberwood', 'Rose Mesas', 'Frostglass', 'Basalt Steps', 'Mossfen', 'Duneglass',
@@ -91,37 +120,3 @@ ROSE_BANDS = np.array([(0.93, 0.64, 0.56), (0.97, 0.80, 0.67), (0.84, 0.54, 0.52
                        (0.90, 0.70, 0.60)], np.float32)
 PETAL_COLORS = np.array([(1.0, 0.96, 0.80), (1.0, 0.84, 0.40), (0.70, 0.78, 1.0), (1.0, 0.70, 0.82)], np.float32)
 
-# ---- tuning: chord of elements -> form -----------------------------------------
-# a chord is a sorted tuple of 1 or 2 element indices
-FORMS = {
-    (STONE_E,): ID['stone'],
-    (WATER_E,): ID['water'],
-    (LIGHT_E,): ID['lantern'],
-    (GROWTH_E,): ID['sprout'],
-    (STONE_E, WATER_E): ID['clay'],
-    (STONE_E, LIGHT_E): ID['crystal'],
-    (STONE_E, GROWTH_E): ID['mossrock'],
-    (WATER_E, LIGHT_E): ID['cloudstuff'],
-    (WATER_E, GROWTH_E): ID['vine'],
-    (LIGHT_E, GROWTH_E): ID['bloom'],
-}
-FORM_HINTS = {
-    ID['stone']: 'a plain building cell',
-    ID['water']: 'flows, falls and pools',
-    ID['lantern']: 'a warm hanging light',
-    ID['sprout']: 'grows into a tree on turf',
-    ID['clay']: 'soft terracotta for building',
-    ID['crystal']: 'grows taller in the dusk tide',
-    ID['mossrock']: 'slowly greens the stone around it',
-    ID['cloudstuff']: 'springy: bounce on it',
-    ID['vine']: 'creeps down cliffs; climb it',
-    ID['bloom']: 'glowing flowers that spread in the light',
-}
-FORM_LIST = list(FORMS.keys())
-
-
-def chord_cost(chord):
-    cost = [0, 0, 0, 0]
-    for e in chord:
-        cost[e] += 1
-    return cost
