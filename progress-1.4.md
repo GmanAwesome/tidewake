@@ -376,4 +376,8 @@ The eight player builds and the seed-only title skies now sit on generator v3. T
 
 The version line is 1.4.2-test. After shots are in `screenshots-final/v1.4.2/`: comparable views at the five playtest sites, a look-up at the tall islands, a look-down from a 292 cliff edge on the high island (lower isles visible far below), and elevated wide shots of the hills, ridges, and sky gaps. Title showcases were photographed on v3 as well. This goes out as a pre-release so 1.4.1 stays Latest.
 
+## November 25, 2026, 6:59 PM EST — 1.4.2 is the real release
+
+The version line is 1.4.2, without -test. The changelog and the README download link are updated, and the title hero and landscape shots on the README now show the new sky. This is going out as a full Latest release rather than another pre-release.
+
 

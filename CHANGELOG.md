@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.4.2-test — 25 November 2026
+## 1.4.2 — 25 November 2026
 
-A pre-release for playtesting. 1.4.1 remains the current (Latest) release. Skies from 1.4 and 1.4.1 keep their original terrain. These changes apply to new skies (generator v3).
+The current release. Skies from 1.4 and 1.4.1 still load and keep their original terrain. These changes apply to new skies (generator v3).
 
 ### Worlds
 

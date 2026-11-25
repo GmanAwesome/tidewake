@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/v1.4/hero.jpg" alt="Tidewake 1.4 title screen: the Lighthouse Cottage on a floating meadow at golden hour" width="100%">
+<img src="docs/v1.4.2/hero.jpg" alt="Tidewake 1.4.2 title screen: the Lighthouse Cottage on a chalk cape, with a neighbouring island across the sky" width="100%">
 
 # Tidewake
 
@@ -19,7 +19,7 @@ Mine, craft and build on an endless archipelago made of hexagonal prisms, not cu
 Get the game from **Releases**, not the green **Code → Download ZIP** button. That button gives you the source, which will not run without Python.
 
 1. Open the **[latest release](../../releases/latest)**.
-2. Under Assets, download **`Tidewake-1.4.1-Windows.zip`**.
+2. Under Assets, download **`Tidewake-1.4.2-Windows.zip`**.
 3. Right-click the zip, choose **Extract All…**, and open the `Tidewake` folder.
 4. Double-click **`Tidewake.exe`**.
 
@@ -43,7 +43,7 @@ Trees grow tall enough that you can walk under most canopies. Caves run under th
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/v1.4/islands.jpg" alt="Lavender downs and chalk hills in a generated sky"><br><sub>A generated sky on the current generator</sub></td>
+    <td width="50%"><img src="docs/v1.4.2/islands.jpg" alt="A high island of snow, forest and ridges, with other shelves floating far below"><br><sub>A generated sky on the 1.4.2 generator</sub></td>
     <td width="50%"><img src="docs/v1.4/canopy.jpg" alt="Looking up through a walkable tree canopy"><br><sub>Under a canopy in a generated world</sub></td>
   </tr>
 </table>
@@ -181,7 +181,9 @@ The game ends up in `dist/Tidewake/`. The spec bundles the fonts, the showcase b
 
 ## Changelog
 
-**1.4.1** is the current release. It polishes 1.4: more island height, rounded undersides, sealed cave mouths, richer ground cover, steadier creatures and lamps, mid-hex double doors, hex-centred textures, a larger lesson island, a title screen without the grey boxes, and eight hand-built title showcases on the new generator. Skies from 1.3 still load.
+**1.4.2** is the current release. New skies use generator v3: neighbouring islands at different heights are separated by sky instead of a tall vertical wall, some surfaces reach layer 300, and large islands have real hills, ridges and mountains. The eight hand-built title scenes sit on that generator, with a larger Sky-boat Dock and a longer Twin Isles Bridge. Skies from 1.4 and 1.4.1 keep their original terrain.
+
+**1.4.1** polished 1.4: more island height, rounded undersides, sealed cave mouths, richer ground cover, steadier creatures and lamps, mid-hex double doors, hex-centred textures, a larger lesson island, a title screen without the grey boxes, and the first set of hand-built title showcases.
 
 **1.4** added the new landscapes and world sliders, structures, a lesson island, Glimmer, fishing, farming, the Path, skywhales and fairies, more soundtrack, taller trees, a third-person camera, a dawn after you rest, and a cohesion pass.
 
