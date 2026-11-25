@@ -62,3 +62,23 @@ def test_fishing_rod_and_catches():
             got = True
             break
     assert got
+
+
+def test_farming_hoe_seeds_and_harvest():
+    from tidewake import materials as MT, items as I, farming as F
+    import random
+    assert MT.ID['farmland'] == 118
+    assert MT.ID['skywheat'] in MT.CROP_GROW
+    assert I.HOE.kind == 'hoe'
+    assert any(r[1][0] == I.HOE.id for r in I.RECIPES)
+    assert any(r[1][0] == I.LOAF.id for r in I.RECIPES)
+    assert I.SMELT[I.SWEETROOT.id] == I.COOKED_ROOT.id
+    assert F.plant_of(I.GRAIN_SEEDS.id) == MT.ID['skywheat']
+    assert F.plant_of(I.BERRY_SEEDS.id) == MT.ID['berry_crop']
+    ripe = F.harvest(MT.ID['skywheat'], 3, random.Random(2))
+    assert any(i == I.WHEAT.id for i, _ in ripe)
+    assert any(i == I.GRAIN_SEEDS.id for i, _ in ripe)
+    young = F.harvest(MT.ID['skywheat'], 0, random.Random(0))
+    assert all(i != I.WHEAT.id for i, _ in young)
+    from tidewake.sim import LIVING
+    assert MT.ID['farmland'] in LIVING and MT.ID['skywheat'] in LIVING

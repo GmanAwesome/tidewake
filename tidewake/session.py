@@ -27,12 +27,12 @@ ABILITIES = [('Glide', 'Hold Space while falling to glide on the wind.'),
              ('Tidecall', 'Press T to call the next tide early.')]
 INITIAL_META = {M['water']: 4, M['vine']: 8, M['crystal']: 0, M['bloom']: 4, M['mossrock']: 5, M['sprout']: 0}
 NEEDS_GROUND = {M['sprout'], M['bloom'], M['crystal'], M['berry_bush'], M['glowstick'], M['bedroll'], M['petals'],
-                M['glowcap'], M['door']}
+                M['glowcap'], M['door'], M['skywheat'], M['sweetroot_crop'], M['berry_crop']}
 MAX_HP = 20
 MAX_FOOD = 20
 STARTER = [(I.BERRIES.id, 4), (M['glowstick'], 3)]
 USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door'], M['waystone'], M['glimmer_font']}
-SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick', 'rod'}
+SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick', 'rod', 'hoe'}
 PASSIVE_REALMS = {
     'woolhop': (0, 1, 5, 3, 7, 8, 9, 10, 14),
     'pebblebeak': (0, 2, 6, 1, 4, 11, 12),
@@ -99,7 +99,7 @@ class Session:
             self.phase = 0.08
             self.play_time = 0.0
             self.created = time.time()
-            self.stats = {'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0, 'fished': 0}
+            self.stats = {'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0, 'fished': 0, 'farmed': 0}
             self.new_sky = True
             self.hp, self.food = MAX_HP, MAX_FOOD
             self.spawn = None
@@ -128,7 +128,7 @@ class Session:
             self.phase = float(d.get('phase', 0.1))
             self.play_time = float(d.get('play_time', 0))
             self.created = d.get('created', time.time())
-            self.stats = dict({'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0, 'fished': 0}, **d.get('stats', {}))
+            self.stats = dict({'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0, 'fished': 0, 'farmed': 0}, **d.get('stats', {}))
             self.new_sky = False
             self.hp = float(d.get('hp', MAX_HP))
             self.food = float(d.get('food', MAX_FOOD))
@@ -648,7 +648,7 @@ class Session:
     def _wear_tool(self):
         s = self.held
         it = self.held_item
-        if not s or not it or it.kind not in ('tool', 'rod') or self.dev or not it.uses:
+        if not s or not it or it.kind not in ('tool', 'rod', 'hoe') or self.dev or not it.uses:
             return
         s[2] -= 1
         if s[2] <= 0:
@@ -657,6 +657,7 @@ class Session:
             self.app.audio.play('gather_stone', 0.8)
 
     def break_cell(self, q, r, y, m, drop=True):
+        harvest_meta = self.world.get_meta(q, r, y) if m in getattr(MT, 'CROP_GROW', ()) else None
         other = None
         if m == M['door']:
             mt = self.world.get_meta(q, r, y)
@@ -687,7 +688,14 @@ class Session:
             if (sq, sr) == (q, r):
                 self.spawn = None
         if drop:
-            for iid, n in I.drops_for(m):
+            if harvest_meta is not None:
+                from . import farming as F
+                drops = F.harvest(m, harvest_meta)
+                if harvest_meta >= F.STAGES - 1:
+                    self.stats['farmed'] = self.stats.get('farmed', 0) + 1
+            else:
+                drops = I.drops_for(m)
+            for iid, n in drops:
                 self.drops.append(Drop(iid, n, cx, (y + 0.3) * LAYER, cz))
         self.stats['mined'] += 1
         self.sim.wake_around(q, r, y)
@@ -735,6 +743,10 @@ class Session:
             return self.use_rod()
         if it and it.kind == 'rod':
             return self.use_rod()
+        if it and it.kind == 'hoe':
+            return self.use_hoe()
+        if it and it.kind == 'seed':
+            return self.use_seed()
         # use a block you're looking at
         if self.target:
             q, r, y = self.target
@@ -869,6 +881,64 @@ class Session:
                 self.toast('Waking spot set', 'Rest here during the dusk to skip to the light.', 3)
         return True
 
+
+
+    def use_hoe(self):
+        from . import farming as F
+        if not self.target:
+            self.toast('Till some soil', 'Right-click turf or loam with the hoe.', 2.2)
+            return False
+        q, r, y = self.target
+        m = self.world.get(q, r, y)
+        if m not in F.TILLABLE:
+            self.toast('The hoe needs soil', 'Turf, loam, packed earth or heather will do.', 2.2)
+            return False
+        self.world.set(q, r, y, M['farmland'], 0, now=True)
+        self.sim.wake(q, r, y, 8.0)
+        self._wear_tool()
+        self.swing = 0.45
+        self.app.audio.play('gather_soft', 0.7)
+        # first turning of turf sometimes turns up grain seeds
+        if m == M['turf'] and random.random() < 0.28:
+            self.give(I.GRAIN_SEEDS.id, 1)
+            self.toast('Grain seeds in the soil', 'Plant them on the tilled bed.', 3.0)
+        elif m == M['loam'] and random.random() < 0.12:
+            self.give(I.ROOT_SEEDS.id, 1)
+            self.toast('Root seeds in the soil', 'Plant them on the tilled bed.', 3.0)
+        else:
+            self.toast('Tilled soil', 'Plant seeds here. A nearby pool helps them grow.', 2.5)
+        cx, cz = center(q, r)
+        self._spawn(cx, (y + 1) * LAYER, cz, (0.52, 0.38, 0.26), 6, homing=False)
+        return True
+
+    def use_seed(self):
+        from . import farming as F
+        it = self.held_item
+        crop = F.plant_of(it.id) if it else None
+        if crop is None:
+            return False
+        cell = None
+        if self.target and self.world.get(*self.target) == M['farmland']:
+            q, r, y = self.target
+            cell = (q, r, y + 1)
+        elif self.target_prev:
+            q, r, y = self.target_prev
+            if self.world.get(q, r, y) in (0, M['petals']) and self.world.get(q, r, y - 1) == M['farmland']:
+                cell = (q, r, y)
+        if cell is None:
+            self.toast('Plant on tilled soil', 'Till turf or loam with a hoe first.', 2.5)
+            return False
+        q, r, y = cell
+        if y >= C.LAYERS - 1 or self.world.get(q, r, y) not in (0, M['petals']):
+            self.toast('The bed is not empty', '', 2.0)
+            return False
+        self.world.set(q, r, y, crop, 0, now=True)
+        self.sim.wake(q, r, y, 4.0)
+        if not self.dev:
+            self.inv.take_from(self.hot)
+        self.swing = 0.4
+        self.app.audio.play('shape', 0.5)
+        return True
 
     def use_rod(self):
         from . import fishing as F

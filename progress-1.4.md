@@ -137,3 +137,7 @@ You can also craft a waystone (carved stone and Glimmer) or a Glimmer Font (poli
 
 Craft a fishing rod from three sticks and a scrap of linen, then right-click a still pool. The bobber sits and waits; when it dips, right-click again to reel. Pull too early, wander off, or miss the dip and the fish gets away. What you catch depends on the landscape and the tide — reed minnows in gentle water, saltskippers on the flats, frostfin in Frostglass, duskperch and the rare glimmerfin after the light fades — and sometimes the line brings up treasure instead. Raw fish are a light snack; roast them in a kiln for a proper meal.
 
+## November 25, 2026, 3:52 PM EST — Farming
+
+A hoe (two sticks and any stone) turns turf, loam, packed earth or heather into a tilled bed. Plant grain, root or duskberry seeds on it; the plants grow through four stages, faster in the light and faster still if a pool is close by. Ripe skywheat, sweetroot and berry bushes give food and more seeds — pick them early and you may only get the seed back. Three ears of skywheat bake into a loaf at the tinker bench, and sweetroot roasts in the kiln. Turning turf, breaking petals or digging loam sometimes turns up seeds to start with, and unused dry beds slowly rest back to loam.
+

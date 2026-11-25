@@ -12,7 +12,8 @@ from . import materials as MT
 
 M = MT.ID
 SOLID = MT.SOLID
-LIVING = {M['water'], M['vine'], M['crystal'], M['bloom'], M['mossrock'], M['sprout']}
+LIVING = {M['water'], M['vine'], M['crystal'], M['bloom'], M['mossrock'], M['sprout'],
+          M['skywheat'], M['sweetroot_crop'], M['berry_crop'], M['farmland']}
 STONY = {M['stone'], M['basalt'], M['rosestone']}
 GROUND = {M['turf'], M['loam'], M['mossrock'], M['sand'], M['snow'], M['clay'], M['heather'], M['packed_earth']}
 
@@ -209,6 +210,31 @@ class Simulation:
                 self.on_tree(q, r, y - 1)
                 return None
             return 2.0
+        from . import farming as FARM
+        if m == M['farmland']:
+            # unused dry beds slowly rest back to loam
+            if w.get(q, r, y + 1) in FARM.crops():
+                return 8.0
+            if FARM.hydrated(w, q, r, y):
+                return 12.0
+            meta += 1
+            if meta >= 8:
+                self._set(q, r, y, M['loam'], 0, None)
+                return None
+            w.set_meta(q, r, y, meta)
+            return 10.0
+        if m in FARM.crops():
+            if w.get(q, r, y - 1) != M['farmland']:
+                return None
+            if meta >= FARM.STAGES - 1:
+                return None
+            wet = FARM.hydrated(w, q, r, y - 1)
+            if light < 0.3:
+                return 6.0
+            if rng.random() < (0.25 if wet else 0.45):
+                return 4.0 if wet else 8.0
+            self._set(q, r, y, m, meta + 1, 6.0 if wet else 12.0)
+            return 6.0 if wet else 12.0
         return None
 
 

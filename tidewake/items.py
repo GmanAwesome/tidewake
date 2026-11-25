@@ -145,6 +145,17 @@ COOKED_FROSTFIN = _new('Roast Frostfin', 'food', food=7, color=(0.86, 0.70, 0.48
 COOKED_KOI = _new('Roast Koi', 'food', food=8, color=(0.90, 0.62, 0.40), model='lump')
 COOKED_GLIMMERFIN = _new('Roast Glimmerfin', 'food', food=9, color=(0.98, 0.72, 0.40), color2=(0.80, 0.62, 0.90), model='lump')
 
+# ---- 1.4 phase 3: farming
+HOE = _new('Hoe', 'hoe', stack=1, uses=100, color=(0.70, 0.68, 0.66),
+           color2=(0.66, 0.50, 0.34), model='hoe', desc='right-click turf or loam to till a bed')
+GRAIN_SEEDS = _new('Grain Seeds', 'seed', color=(0.78, 0.70, 0.42), model='lump', desc='plant on tilled soil')
+ROOT_SEEDS = _new('Root Seeds', 'seed', color=(0.62, 0.48, 0.30), model='lump', desc='plant on tilled soil')
+BERRY_SEEDS = _new('Duskberry Seeds', 'seed', color=(0.50, 0.32, 0.62), model='berries', desc='plant on tilled soil')
+WHEAT = _new('Skywheat', 'item', color=(0.88, 0.76, 0.42), model='stick', desc='bake three into a loaf')
+LOAF = _new('Skywheat Loaf', 'food', food=6, color=(0.86, 0.68, 0.42), model='pie')
+SWEETROOT = _new('Sweetroot', 'food', food=3, color=(0.78, 0.56, 0.36), model='lump')
+COOKED_ROOT = _new('Roast Sweetroot', 'food', food=7, color=(0.72, 0.48, 0.28), model='lump')
+
 
 def get(iid):
     return ITEMS.get(iid)
@@ -183,7 +194,17 @@ def drops_for(mat, rng=random):
     """List of (item id, count) dropped by a broken cell."""
     n = MT.NAMES[mat].lower().replace(' ', '_')
     if n == 'turf':
+        out = [(M['loam'], 1)]
+        if rng.random() < 0.18:
+            out.append((GRAIN_SEEDS.id, 1))
+        return out
+    if n == 'farmland':
         return [(M['loam'], 1)]
+    if n == 'loam':
+        out = [(M['loam'], 1)]
+        if rng.random() < 0.08:
+            out.append((ROOT_SEEDS.id, 1))
+        return out
     if n == 'canopy':
         out = []
         if rng.random() < 0.10:
@@ -196,9 +217,15 @@ def drops_for(mat, rng=random):
     if n == 'aetherite_ore':
         return [(AETHERITE.id, 1)]
     if n == 'berry_bush':
-        return [(BERRIES.id, rng.randint(1, 3))] + ([(M['berry_bush'], 1)] if rng.random() < 0.35 else [])
+        out = [(BERRIES.id, rng.randint(1, 3))] + ([(M['berry_bush'], 1)] if rng.random() < 0.35 else [])
+        if rng.random() < 0.35:
+            out.append((BERRY_SEEDS.id, 1))
+        return out
     if n == 'petals':
-        return [(M['petals'], 1)] if rng.random() < 0.5 else []
+        out = [(M['petals'], 1)] if rng.random() < 0.5 else []
+        if rng.random() < 0.12:
+            out.append((GRAIN_SEEDS.id, 1))
+        return out
     if n == 'ice':
         return [(M['ice'], 1)]
     if n == 'kiln':
@@ -333,6 +360,10 @@ recipe([[M['polished_stone'], G_, M['polished_stone']],
 
 # ---- 1.4 phase 3: fishing rod
 recipe([[None, None, STICK.id], [None, STICK.id, M['linen']], [STICK.id, None, None]], ROD.id)
+recipe([[None, STONES, STONES], [None, STICK.id, None], [None, STICK.id, None]], HOE.id)
+recipe([[WHEAT.id, WHEAT.id, WHEAT.id]], LOAF.id)
+recipe([[BERRIES.id]], BERRY_SEEDS.id, 2, shapeless=True)
+recipe([[WHEAT.id]], GRAIN_SEEDS.id, 2, shapeless=True)
 
 
 def _match_cell(want, have):
@@ -424,6 +455,7 @@ SMELT = {
     REED_MINNOW.id: COOKED_MINNOW.id, SILVERFIN.id: COOKED_SILVERFIN.id, DUSKPERCH.id: COOKED_DUSKPERCH.id,
     SALTSKIPPER.id: COOKED_SALTSKIPPER.id, MOSS_EEL.id: COOKED_EEL.id, FROSTFIN.id: COOKED_FROSTFIN.id,
     CLOUD_KOI.id: COOKED_KOI.id, GLIMMERFIN.id: COOKED_GLIMMERFIN.id,
+    SWEETROOT.id: COOKED_ROOT.id,
 }
 
 FUEL = {EMBERITE.id: 16.0, M['heartwood']: 6.0, M['planks']: 3.0, STICK.id: 1.0, GLOOM.id: 8.0,

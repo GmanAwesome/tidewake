@@ -286,13 +286,19 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
         hang = np.zeros(n, bool)
         if m_id in (_ID['lumen_shard'], _ID['lantern']):
             hang = occ[pq[s], up[s], pr[s]] & ~occ[pq[s], dn[s], pr[s]]       # hanging from a ceiling
+        stage = None
+        if m_id in getattr(MT, 'CROP_GROW', ()) and Pm is not None:
+            stage = (Pm[pq[s], ly[s], pr[s]].astype(np.int64) % 4)
         for rad, a, b, use_top in parts:
             if m_id == _ID['lumen_shard']:
                 a, b = (1 - b, 1 - a)
                 aa = np.where(hang, a, 1 - b)
                 bb = np.where(hang, b, 1 - a)
             else:
-                aa, bb = np.full(n, a), np.full(n, b)
+                aa, bb = np.full(n, a, np.float64), np.full(n, b, np.float64)
+                if stage is not None:
+                    sc = (stage + 1) / 4.0
+                    aa, bb = aa * sc, bb * sc
             y0 = (ly[s] + aa) * LAYER
             y1 = (ly[s] + bb) * LAYER
             if use_top == 'core':
@@ -301,18 +307,30 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
             elif use_top == 'berry':
                 ct = np.tile(np.array([0.62, 0.36, 0.86]), (n, 1))
                 em = np.full(n, 0.2)
+            elif use_top == 'grain':
+                ct = np.tile(np.array([0.90, 0.78, 0.36]), (n, 1))
+                em = np.full(n, 0.1)
             else:
                 ct = top[s] if use_top else side[s]
                 em = emit[s] if use_top else emit[s] * 0.2
             sk = SKY[pq[s], ly[s], pr[s]]
+            # crop heads / berries only show when the plant is nearly ripe
+            pick = np.ones(n, bool)
+            if stage is not None and use_top in ('berry', 'grain'):
+                pick = stage >= 3
+                if not pick.any():
+                    continue
             if use_top == 'berry':
                 # berries peek out of the bush on all sides
                 for k in range(6):
                     ang = k * np.pi / 3 + 0.4
-                    out_o += _prisms(cx[s] + np.cos(ang) * 0.42, cz[s] + np.sin(ang) * 0.42, y0 + (k % 2) * 0.08 * LAYER,
-                                     y0 + (0.14 + (k % 2) * 0.08) * LAYER, np.full(n, 0.09), ct, ct, ct * 0.85, pack(em, sk), mat=m_id)
+                    out_o += _prisms((cx[s] + np.cos(ang) * 0.42)[pick], (cz[s] + np.sin(ang) * 0.42)[pick],
+                                     (y0 + (k % 2) * 0.08 * LAYER)[pick],
+                                     (y0 + (0.14 + (k % 2) * 0.08) * LAYER)[pick], np.full(int(pick.sum()), 0.09),
+                                     ct[pick], ct[pick], ct[pick] * 0.85, pack(em[pick], sk[pick]), mat=m_id)
                 continue
-            out_o += _prisms(cx[s], cz[s], y0, y1, np.full(n, rad), ct, ct, ct * 0.85, pack(em, sk), mat=m_id)
+            out_o += _prisms(cx[s][pick], cz[s][pick], y0[pick], y1[pick], np.full(int(pick.sum()), rad),
+                             ct[pick], ct[pick], ct[pick] * 0.85, pack(em[pick], sk[pick]), mat=m_id)
         if m_id in MT.LIGHTS:
             lights.append(np.stack([cx[s], (ly[s] + 0.6) * LAYER, cz[s], np.full(n, m_id)], 1))
     out_o += _fittings(mat, Pm, cx, cz, ly, pq, pr, SKY)

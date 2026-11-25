@@ -332,6 +332,11 @@ def tile(mat, side):
         out = np.where(rim, 0.7, np.where(bowl, 1.35, 0.85)) * n(4, 2, 0.05)
         glow = np.where(bowl & ~rim, 0.9, 0.1)
         return out, glow
+    if style == 'farm':
+        row = np.floor(Y * 8) if side else np.floor(Y * 6)
+        furrow = np.abs((Y * 8 if side else Y * 6) - row - 0.5) < 0.18
+        tone = 1 + 0.08 * np.sin(row * 1.7 + X * 4)
+        return np.where(furrow, 0.72, tone) * n(5, 2, 0.07) * speck(rng, 0.06, 0.9, 1.08)
     return n(6, 2, 0.06)
 
 

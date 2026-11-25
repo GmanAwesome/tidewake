@@ -135,6 +135,10 @@ _M = [
     # ---- 1.4 phase 3: glimmer stations
     ('Waystone',      'full', (0.86, 0.80, 0.98),  (0.62, 0.56, 0.78),   0.55, True, (0, 0, 1, 0), 'stone'),
     ('Glimmer Font',  'full', (1.00, 0.90, 0.58),  (0.72, 0.62, 0.78),   0.85, True, (0, 0, 1, 0), 'glass'),
+    ('Farmland',      'full', (0.52, 0.38, 0.26),  (0.48, 0.36, 0.24),   0.0, True,  (1, 0, 0, 0), 'soft'),
+    ('Skywheat',      'deco', (0.82, 0.72, 0.38),  (0.46, 0.62, 0.32),   0.0, False, (0, 0, 0, 1), 'leaf'),
+    ('Sweetroot Crop','deco', (0.62, 0.48, 0.30),  (0.40, 0.62, 0.34),   0.0, False, (0, 0, 0, 1), 'leaf'),
+    ('Berry Crop',    'deco', (0.36, 0.62, 0.40),  (0.36, 0.62, 0.40),   0.0, False, (0, 0, 0, 1), 'leaf'),
 ]
 
 
@@ -171,7 +175,12 @@ PARTS = {
     ID['glowstick']: [(0.07, 0.0, 0.62, False), (0.13, 0.62, 0.86, True)],
     ID['berry_bush']: [(0.10, 0.0, 0.20, False), (0.52, 0.18, 0.62, True), (0.30, 0.62, 0.78, True),
                        (0.12, 0.40, 0.70, 'berry')],
+    ID['skywheat']: [(0.05, 0.0, 0.55, False), (0.10, 0.50, 0.92, True), (0.14, 0.82, 1.02, 'grain')],
+    ID['sweetroot_crop']: [(0.08, 0.0, 0.28, False), (0.28, 0.22, 0.62, True), (0.16, 0.50, 0.78, True)],
+    ID['berry_crop']: [(0.08, 0.0, 0.22, False), (0.36, 0.18, 0.58, True), (0.22, 0.50, 0.78, True),
+                       (0.10, 0.40, 0.70, 'berry')],
 }
+CROP_GROW = {ID['skywheat'], ID['sweetroot_crop'], ID['berry_crop']}
 
 # point-light colour and radius (world units) for glowing cells
 LIGHTS = {
@@ -285,6 +294,8 @@ def _tex_style(name, kind):
         return 'waystone'
     if 'font' in n:
         return 'font'
+    if 'farmland' in n:
+        return 'farm'
     if kind == 'slab':
         return _tex_style(name[:-5] if name.lower().endswith(' slab') else name, 'full')
     return ''
