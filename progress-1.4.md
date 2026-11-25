@@ -343,3 +343,10 @@ A unit test now stamps every showcase and checks the camera path for solid cells
 A first pass of screenshots showed a couple of orbits still grazing a cliff or looking at the build through a wall of leaves. The path check now also rejects a solid sitting close in front of the camera, tree-clearing around the leafy sites was widened, and a few cameras were raised or limited to a clearer arc. Pausing the orbit (or taking a still) no longer snaps an arc camera back to the middle of its swing.
 
 
+
+
+## November 25, 2026, 6:12 PM EST — 1.4.1 is the real release
+
+The version line is 1.4.1, without -test. The changelog and the README download link are updated, and this is going out as a full Latest release rather than another pre-release. The sky-boat dock and Twin Isles Bridge still have room to improve; that is left for a later update.
+
+

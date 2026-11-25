@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.4.1 — 25 November 2026
+
+A polish release on top of 1.4. Skies from 1.3 still load and keep their original terrain. These changes apply to new skies.
+
+### Worlds
+
+- Islands sit at a much wider range of heights, each on its own shelf, so neighbouring isles can tower or drop away. You still spawn on mid-height land, not the tallest peak.
+- Floating islands have rounded, tapering undersides and a solid lip, instead of thin or gappy bottoms.
+- Caves no longer punch holes in the island sides. After carving, the hull is sealed, and only a few cobble-framed mouths open onto the walking surface.
+- Biomes have richer ground cover: grass, wildflowers, mushrooms, pebbles, shrubs, reeds and the occasional signpost, clustered to suit each landscape.
+
+### Play
+
+- The lesson island is larger and more directed. Teachers stand in the open, not inside blocks, and they only start a conversation when you right-click them. A short hint can still point you at that.
+- Creatures no longer bounce or shake in place. They sit on the real floor.
+- Lanterns and lamps stay in the light list, so their glow no longer flickers out among many other lights.
+- Doors hang as a thin double leaf through the middle of the hex and swing open as a pair.
+
+### Presentation
+
+- Block textures are mapped in hex space. Tops are centred on the cell, sides run cleanly from bottom to top, log end-grain sits in the middle of the hex, and the old wrapping seams are gone.
+- The grey boxes on the title screen are gone.
+- Each launch opens the title screen on a different showcase, skipping the one you saw last time, then rotates as before.
+- Eight hand-built title scenes now sit on the current generator: the Lighthouse Cottage (rebuilt), a Cliffside Tavern, a Windmill Farm, a Sky-boat Dock, a High Keep, a Rose Temple, a Cedar Treehouse and a Twin Isles Bridge. Their camera paths are checked so the orbit does not clip through blocks or leaves, or hide the build behind a hill for long.
+
+Windows builds still embed a Common Controls v6 manifest and the app icon in the exe.
+
 ## 1.4 — 25 November 2026
 
 A full release. Skies from 1.3 still load and keep their original terrain. New skies use the 1.4 generator.

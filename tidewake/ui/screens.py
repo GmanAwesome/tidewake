@@ -110,7 +110,7 @@ class TitleScreen(Screen):
         if gui.button(x, y - 4 * gap, bw, bh, 'Leave', size=14):
             app.quit()
         gui.text(self.splash, w / 2, 30 * s, 12, (1, 1, 1, 0.86), 'center', 'center', font='body')
-        gui.text('Tidewake 1.4.1-test', 16 * s, 14 * s, 10, (1, 1, 1, 0.72), font='bold')
+        gui.text('Tidewake 1.4.1', 16 * s, 14 * s, 10, (1, 1, 1, 0.72), font='bold')
         gui.text('Python + ModernGL. Every sound and shape is made by code.',
                  w - 16 * s, 14 * s, 10, (1, 1, 1, 0.72), 'right', font='body')
         sc = app.backdrop.get('showcase') if app.backdrop else None
