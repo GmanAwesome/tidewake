@@ -69,6 +69,7 @@ class App(pyglet.window.Window):
         self.swallow_text = False
         self.show_debug = False
         self.hide_hud = False
+        self.cam_view = 0          # 0 first person, 1 behind, 2 in front
         self.frame_times = []
         self.started = time.perf_counter()
         self.clock_t = 0.0
@@ -303,7 +304,7 @@ class App(pyglet.window.Window):
                 self.set_screen(None)
             elif isinstance(self.menu, IU.SlotScreen) and symbol == key.E:
                 self.menu.escape(self)
-            elif isinstance(self.menu, IU.AdminScreen) and symbol == key.F5:
+            elif isinstance(self.menu, IU.AdminScreen) and symbol == key.F7:
                 self.set_screen(None)
             elif isinstance(self.menu, IU.SlotScreen) and key._1 <= symbol <= key._9:
                 # hotkey swap: put the hovered stack into that hotbar slot (handled simply: select it)
@@ -321,8 +322,12 @@ class App(pyglet.window.Window):
             ses.set_dev(not ses.dev)
             self.audio.play('chord', 0.7)
         elif symbol == key.F5:
+            self.cam_view = (self.cam_view + 1) % 3
+            ses.toast(('First person', 'Third person', 'Looking at you')[self.cam_view],
+                      'F5 cycles the camera, like in many sandbox games.', 2.2)
+        elif symbol == key.F7:
             if not ses.dev:
-                ses.toast('Dev mode is off', 'Press F4 to turn it on, then F5 for the admin panel.', 3)
+                ses.toast('Dev mode is off', 'Press F4 to turn it on, then F7 for the admin panel.', 3)
             else:
                 self.set_screen(IU.AdminScreen())
         elif symbol == key.E:
@@ -507,7 +512,24 @@ class App(pyglet.window.Window):
             x, y, z = p.eye
             if self.settings['head_bob'] and p.on_ground:
                 y += math.sin(self.session.walk * 2.2) * 0.04
-            return (x, y, z), p.yaw, p.pitch, self.session.phase, self.session.world
+            yaw, pitch = p.yaw, p.pitch
+            if self.cam_view:
+                from .mathutil import forward_vector
+                from .entities import solid_at
+                fwd = forward_vector(p.yaw, p.pitch)
+                sign = 1.0 if self.cam_view == 2 else -1.0
+                dist, best = 4.0, (x, y, z)
+                for i in range(1, 17):
+                    tlen = dist * i / 16
+                    nx, ny, nz = x + sign * fwd[0] * tlen, y + sign * fwd[1] * tlen, z + sign * fwd[2] * tlen
+                    if solid_at(self.session.world, nx, ny, nz):
+                        break
+                    best = (nx, ny, nz)
+                x, y, z = best
+                if self.cam_view == 2:
+                    yaw = (p.yaw + 180.0) % 360
+                    pitch = -p.pitch
+            return (x, y, z), yaw, pitch, self.session.phase, self.session.world
         b = self.backdrop
         if b:
             rad = b.get('rad', 46.0)
@@ -543,7 +565,7 @@ class App(pyglet.window.Window):
                     tx, tz = center(q, r)
                     self.renderer.draw_outline((tx - cx, y * LAYER - cy, tz - cz))
                 self.renderer.draw_points(ses.point_data((cx, cy, cz)))
-                if not self.hide_hud and self.menu is None and not ses.dead:
+                if not self.hide_hud and self.menu is None and not ses.dead and not self.cam_view:
                     bob = math.sin(ses.walk * 2.2) * 0.015 if self.settings['head_bob'] else 0.0
                     self.renderer.draw_held(ses.held_model((cx, cy, cz), bob))
                 if self.want_thumb:

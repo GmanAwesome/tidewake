@@ -217,7 +217,7 @@ class Session:
         self.cursor = None                       # item held on the mouse in menus
         if self.new_sky:
             if self.dev:
-                self.toast('Welcome to ' + self.name, 'Dreamer sky: you can fly (F) and build freely. F5 opens the admin panel.')
+                self.toast('Welcome to ' + self.name, 'Dreamer sky: you can fly (F) and build freely. F5 cycles the camera. F7 opens the admin panel.')
             else:
                 self.toast('Welcome to ' + self.name, 'Hold left click on a tree to gather wood. Press E for your backpack.')
         self.save()
@@ -245,7 +245,7 @@ class Session:
             self.hp, self.food = MAX_HP, MAX_FOOD
         self.apply_dev()
         self.toast('Dev mode on' if on else 'Dev mode off',
-                   'F fly · N noclip · [ ] speed · F5 admin panel · instant break, endless items' if on else
+                   'F fly · N noclip · [ ] speed · F5 camera · F7 admin panel · instant break, endless items' if on else
                    'Back to wandering: mining takes time and things cost items.', 4)
 
     def apply_attune(self):
@@ -1377,7 +1377,23 @@ class Session:
         for dr in self.drops:
             if math.hypot(dr.x - cam[0], dr.z - cam[2]) < 40:
                 parts.append(dr.model(cam))
+        if getattr(self.app, 'cam_view', 0):
+            parts.append(self.player_model(cam))
         return MD.cat(*parts) if parts else None
+
+    def player_model(self, cam):
+        """Third-person body. Only a held (crafted or found) item is attached; no default loot."""
+        p = self.player
+        walking = abs(getattr(p, 'vx', 0.0)) + abs(getattr(p, 'vz', 0.0)) > 0.15 or getattr(self, 'walk', 0) > 0.4
+        v = MD.wanderer(self.time, walking)
+        it = self.held_item
+        if it is not None:
+            hand = MD.transform(MD.cached_item(it.id), yaw_deg=10, pitch_deg=-25, scale=0.28,
+                                offset=(0.30, 0.88, -0.12))
+            v = MD.cat(v, hand)
+        return MD.set_sky(MD.transform(v, yaw_deg=p.yaw,
+                                       offset=(p.x - cam[0], p.y - cam[1], p.z - cam[2])),
+                          self.sky_at(p.x, p.y + 0.9, p.z))
 
     def sky_at(self, x, y, z):
         q, r = cell_at(x, z)
@@ -1858,7 +1874,7 @@ class Session:
                 self.inv.clear()
                 self.toast('Backpack emptied', '', 2)
             else:
-                self.toast('Unknown command: ' + cmd, 'Type /help or press F5 for the admin panel.', 4)
+                self.toast('Unknown command: ' + cmd, 'Type /help or press F7 for the admin panel.', 4)
         except (ValueError, IndexError):
             self.toast('Those words did not make sense', 'Type /help for the list of commands.', 3)
 

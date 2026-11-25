@@ -106,7 +106,7 @@ def draw_hud(gui, app, ses, w, h):
             if v > 0:
                 gui.circle(x, by, 6.5 * s * (0.55 + 0.45 * v), (1.0, 0.76, 0.40, 1), border=(1, 1, 1), border_w=1.2 * s)
     else:
-        soft_text(gui, 'DEV MODE  ·  F fly  ·  N noclip  ·  [ ] speed  ·  F5 admin panel', w / 2, by, 9.5,
+        soft_text(gui, 'DEV MODE  ·  F fly  ·  N noclip  ·  [ ] speed  ·  F5 camera  ·  F7 admin panel', w / 2, by, 9.5,
                   (1, 0.9, 0.6, 1), 'center', 'center', 'bold')
         flags = []
         if p.drifting: flags.append(f'flying {p.fly_speed:.0f}')

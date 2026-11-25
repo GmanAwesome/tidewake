@@ -332,3 +332,19 @@ def guide(color, t=0.0):
         prisms(0, 0.00, 1.24 + bob, 1.40 + bob, 0.17, hair, hair),
         prisms((-0.28, 0.28), (0.02, 0.02), 0.70 + bob, 1.00 + bob, 0.06, cloth, cloth * 0.9),
     )
+
+
+def wanderer(t=0.0, walking=False):
+    """Third-person figure: a plain body with no default tools or worn loot."""
+    cloth = np.array([0.46, 0.52, 0.62])
+    skin = np.array([0.90, 0.74, 0.62])
+    hair = np.array([0.28, 0.20, 0.18])
+    bob = math.sin(t * 2.2) * 0.015
+    swing = math.sin(t * 8.0) * 0.12 if walking else 0.0
+    return cat(
+        prisms((-0.09, 0.09), (0.02 + swing * 0.15, 0.02 - swing * 0.15), 0.0, 0.48, 0.07, cloth * 0.75, cloth * 0.75),
+        prisms(0, 0.02, 0.44, 1.10 + bob, 0.22, cloth, cloth * 0.9),
+        prisms(0, 0.00, 1.10 + bob, 1.36 + bob, 0.16, skin, skin * 0.92),
+        prisms(0, 0.00, 1.28 + bob, 1.44 + bob, 0.17, hair, hair),
+        prisms((-0.30, 0.30), (0.02 + swing, 0.02 - swing), 0.72 + bob, 1.05 + bob, 0.06, cloth, cloth * 0.9),
+    )

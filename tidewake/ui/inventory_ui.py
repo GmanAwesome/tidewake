@@ -458,7 +458,7 @@ class AdminScreen(Screen):
         if gui.clicked(tx, py + ph - 50 * s, 150 * s, 32 * s):
             gui.consume_click()
             ses.set_dev(not on)
-        gui.text('F4 toggles dev mode · F5 opens this panel · Enter or / to type a command', tx + 170 * s, py + ph - 34 * s,
+        gui.text('F4 toggles dev mode · F7 opens this panel · Enter or / to type a command', tx + 170 * s, py + ph - 34 * s,
                  9, MUTED, 'left', 'center')
         # commands list (left)
         cx0, cy0 = px + 26 * s, py + ph - 80 * s

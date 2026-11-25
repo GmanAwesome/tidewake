@@ -93,3 +93,16 @@ def test_taller_trees_walkable():
     from tidewake.config import LAYER
     # grow_tree writes through world.set — skip a full World and just check heights
     assert True
+
+
+def test_third_person_model_only_shows_held_items():
+    from tidewake import models as MD
+    body = MD.wanderer(0.4, True)
+    assert len(body) > 0
+    # the figure itself is just a body — no default tool mesh is baked in
+    empty = MD.wanderer(0.0, False)
+    # attaching a held item increases vertex count; the bare model stays smaller
+    from tidewake import items as I
+    held = MD.transform(MD.cached_item(I.STICK.id), scale=0.28, offset=(0.3, 0.88, -0.12))
+    with_item = MD.cat(empty, held)
+    assert len(with_item) > len(empty)

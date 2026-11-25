@@ -175,3 +175,7 @@ Four new songs join the procedural soundtrack, and the music cache is now v9 so 
 
 Trees got taller, and their leaves start higher up the trunk. You can walk under most canopies now without the leaves sitting on your head. Grown sprouts follow the same idea, and the little grove on the lesson island does too.
 
+## November 25, 2026, 4:27 PM EST — Third-person view
+
+F5 now cycles the camera the way it does in many sandbox games: first person, then behind you, then looking at you, then back again. The camera stops short of walls so it does not slip into the ground. In third person you see a simple figure of yourself, and only what you are actually holding — no default tools or worn loot appear just because the camera moved behind you. The admin panel moved to F7 (still needs dev mode).
+

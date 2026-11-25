@@ -146,7 +146,8 @@ Press **F4**, or start a sky in **Dreamer** mode, to turn on dev mode. You break
 | Key | Action |
 |---|---|
 | **F4** | Dev mode on / off |
-| **F5** | Admin panel (every item, quick buttons, command list) |
+| **F5** | Cycle first person / third person / looking at you |
+| **F7** | Admin panel (every item, quick buttons, command list; needs dev mode) |
 | **F** | Fly on / off |
 | **N** | Noclip (fly through blocks) |
 | **[** / **]** | Fly slower / faster |
