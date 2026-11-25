@@ -350,16 +350,27 @@ class Generator:
         cells = np.zeros((CHUNK, LAYERS, CHUNK), np.uint8)
         body = np.full(Rm.shape, M['stone'], np.uint8)
         body = np.where(Rm == ROSE, M['rosestone'], body)
-        body = np.where(np.isin(Rm, (BASALT, CINDER)), M['basalt'], body)
+        body = np.where(Rm == BASALT, M['basalt'], body)
+        body = np.where(Rm == CINDER, M['cinder'], body)
         body = np.where(Rm == VERDIGRIS, M['mossrock'], body)
+        body = np.where(Rm == CHALK, M['chalk'], body)
+        body = np.where(Rm == SALTWIND, M['sandstone'], body)
+        body = np.where(Rm == STARFALL, M['starstone'], body)
+        body = np.where(Rm == CLOUDSTEP, M['pale_stone'], body)
         mid = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS)), M['loam'], body)
-        mid = np.where(np.isin(Rm, (DUNE, SALTWIND, CHALK)), M['sand'], mid)
-        mid = np.where(np.isin(Rm, (FROST, CLOUDSTEP)), M['snow'], mid)
-        mid = np.where(Rm == STARFALL, M['stone'], mid)
+        mid = np.where(np.isin(Rm, (DUNE,)), M['sand'], mid)
+        mid = np.where(Rm == SALTWIND, M['sandstone'], mid)
+        mid = np.where(Rm == CHALK, M['chalk'], mid)
+        mid = np.where(np.isin(Rm, (FROST,)), M['snow'], mid)
+        mid = np.where(Rm == CLOUDSTEP, M['pale_stone'], mid)
+        mid = np.where(Rm == STARFALL, M['starstone'], mid)
+        mid = np.where(Rm == CINDER, M['cinder'], mid)
         surf = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS, STARFALL, CLOUDSTEP)), M['turf'], body)
-        surf = np.where(np.isin(Rm, (DUNE, CHALK, SALTWIND)), M['sand'], surf)
+        surf = np.where(np.isin(Rm, (DUNE,)), M['sand'], surf)
+        surf = np.where(Rm == CHALK, M['chalk'], surf)
+        surf = np.where(Rm == SALTWIND, M['sandstone'], surf)
         surf = np.where(Rm == FROST, M['snow'], surf)
-        surf = np.where(Rm == CINDER, M['basalt'], surf)
+        surf = np.where(Rm == CINDER, M['cinder'], surf)
         det = self.n_detail.fbm2(Q[sl] / 7.0, R[sl] / 7.0, 2)[:, None, :]
         surf = np.where((Rm == BASALT) & (det > 0.1), M['turf'], surf)
         surf = np.where((Rm == ROSE) & (det > 0.15), M['turf'], surf)
@@ -367,10 +378,14 @@ class Generator:
         surf = np.where((Rm == FEN) & (det < -0.32), M['clay'], surf)
         surf = np.where((Rm == SALTWIND) & (det < 0.05), M['clay'], surf)
         surf = np.where((Rm == CEDAR) & (det < -0.2), M['mossrock'], surf)
-        surf = np.where((Rm == CHALK) & (det > 0.25), M['stone'], surf)
+        surf = np.where((Rm == CHALK) & (det > 0.25), M['cobble'], surf)
         surf = np.where((Rm == CLOUDSTEP) & (det > 0.2), M['snow'], surf)
         surf = np.where((Rm == VERDIGRIS) & (det > 0.15), M['mossrock'], surf)
-        surf = np.where((Rm == CINDER) & (det > 0.35), M['stone'], surf)
+        surf = np.where((Rm == CINDER) & (det > 0.35), M['basalt'], surf)
+        surf = np.where((Rm == SALTWIND) & (det < 0.0), M['salt_block'], surf)
+        surf = np.where((Rm == LAVENDER) & (det > 0.22), M['heather'], surf)
+        surf = np.where((Rm == STARFALL) & (det < -0.2), M['starstone'], surf)
+        surf = np.where((Rm == CEDAR) & (det > 0.28), M['slate'], surf)
         peak = col['peak'][sl][:, None, :] & ~np.isin(Rm, (DUNE, LUMEN, SALTWIND, CINDER, CHALK))
         surf = np.where(peak, M['snow'], surf)
         # cloudstep undersides fade into cloudstuff
@@ -521,6 +536,12 @@ class Generator:
         if not (-3 <= lq < CHUNK + 3 and -3 <= lr < CHUNK + 3):
             return
         wood, leaf = M['heartwood'], M['canopy']
+        if realm == CEDAR:
+            wood = M['cedar_heartwood']
+        elif realm in (SALTWIND, CHALK, CLOUDSTEP):
+            wood = M['pale_heartwood']
+        elif realm in (AMBER, VERDIGRIS):
+            wood = M['dark_heartwood']
         if realm == LUMEN:                      # giant glowing toadstool
             hgt = rng.randint(4, 7)
             for y in range(top + 1, top + 1 + hgt):

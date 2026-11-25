@@ -60,7 +60,80 @@ _M = [
     # ---- 1.4: doors and ladders (not full cubes; collision is special-cased)
     ('Door',        'deco', (0.86, 0.68, 0.48),   (0.62, 0.44, 0.30),    0.0, False, (0, 0, 0, 1), 'wood'),
     ('Ladder',      'deco', (0.78, 0.58, 0.38),   (0.70, 0.50, 0.32),    0.0, False, (0, 0, 0, 1), 'wood'),
+    # ---- 1.4 phase 2b: woods, stone families, bricks, tiles, lamps, slabs, glass
+    ('Cedar Heartwood', 'full', (0.48, 0.30, 0.22),  (0.36, 0.22, 0.16),   0.0, True,  (0, 0, 0, 2), 'wood'),
+    ('Pale Heartwood',  'full', (0.86, 0.78, 0.62),  (0.74, 0.66, 0.50),   0.0, True,  (0, 0, 0, 2), 'wood'),
+    ('Dark Heartwood',  'full', (0.36, 0.24, 0.18),  (0.26, 0.16, 0.12),   0.0, True,  (0, 0, 0, 2), 'wood'),
+    ('Cedar Planks',    'full', (0.64, 0.40, 0.28),  (0.56, 0.34, 0.24),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Pale Planks',     'full', (0.92, 0.86, 0.70),  (0.86, 0.78, 0.62),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Dark Planks',     'full', (0.48, 0.32, 0.24),  (0.40, 0.26, 0.20),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Cobble',          'full', (0.62, 0.60, 0.56),  (0.56, 0.54, 0.50),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Slate',           'full', (0.40, 0.44, 0.50),  (0.34, 0.38, 0.44),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Chalk',           'full', (0.94, 0.93, 0.88),  (0.88, 0.86, 0.80),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Sandstone',       'full', (0.86, 0.72, 0.48),  (0.78, 0.64, 0.42),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Cinder',          'full', (0.28, 0.24, 0.24),  (0.22, 0.18, 0.18),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Starstone',       'full', (0.22, 0.18, 0.36),  (0.16, 0.14, 0.28),   0.18, True, (1, 0, 1, 0), 'stone'),
+    ('Salt Block',      'full', (0.96, 0.96, 0.94),  (0.90, 0.92, 0.90),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Pale Stone',      'full', (0.86, 0.86, 0.84),  (0.78, 0.78, 0.76),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Polished Basalt', 'full', (0.40, 0.42, 0.48),  (0.32, 0.34, 0.40),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Polished Rosestone', 'full', (0.96, 0.74, 0.68), (0.90, 0.66, 0.60), 0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Polished Slate',  'full', (0.50, 0.54, 0.60),  (0.42, 0.46, 0.52),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Polished Chalk',  'full', (0.98, 0.97, 0.94),  (0.92, 0.90, 0.86),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Polished Sandstone', 'full', (0.92, 0.80, 0.58), (0.86, 0.74, 0.52), 0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Polished Starstone', 'full', (0.30, 0.26, 0.48), (0.24, 0.20, 0.40), 0.22, True, (1, 0, 1, 0), 'stone'),
+    ('Polished Pale Stone', 'full', (0.94, 0.94, 0.92), (0.86, 0.86, 0.84), 0.0, True, (1, 0, 0, 0), 'stone'),
+    ('Stone Bricks',    'full', (0.76, 0.74, 0.68),  (0.68, 0.66, 0.60),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Basalt Bricks',   'full', (0.36, 0.38, 0.44),  (0.30, 0.32, 0.38),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Rosestone Bricks','full', (0.90, 0.60, 0.52),  (0.82, 0.52, 0.46),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Slate Bricks',    'full', (0.44, 0.48, 0.54),  (0.38, 0.42, 0.48),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Sandstone Bricks','full', (0.84, 0.68, 0.44),  (0.76, 0.60, 0.38),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Chalk Bricks',    'full', (0.92, 0.90, 0.84),  (0.84, 0.82, 0.76),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Cinder Bricks',   'full', (0.34, 0.28, 0.26),  (0.28, 0.22, 0.20),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Snow Bricks',     'full', (0.94, 0.96, 0.98),  (0.86, 0.88, 0.92),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Dusk Bricks',     'full', (0.40, 0.42, 0.62),  (0.34, 0.36, 0.54),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Lavender Bricks', 'full', (0.72, 0.58, 0.78),  (0.64, 0.50, 0.70),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Verdigris Bricks','full', (0.32, 0.70, 0.62),  (0.26, 0.62, 0.54),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Stone Tiles',     'full', (0.78, 0.76, 0.72),  (0.70, 0.68, 0.64),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Basalt Tiles',    'full', (0.38, 0.40, 0.46),  (0.32, 0.34, 0.40),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Rosestone Tiles', 'full', (0.94, 0.68, 0.62),  (0.86, 0.60, 0.54),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Slate Tiles',     'full', (0.46, 0.50, 0.56),  (0.40, 0.44, 0.50),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Sandstone Tiles', 'full', (0.88, 0.74, 0.52),  (0.80, 0.66, 0.46),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Chalk Tiles',     'full', (0.96, 0.95, 0.90),  (0.88, 0.86, 0.80),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Clay Tiles',      'full', (0.84, 0.50, 0.38),  (0.76, 0.44, 0.32),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Starstone Tiles', 'full', (0.28, 0.22, 0.42),  (0.22, 0.18, 0.34),   0.16, True, (1, 0, 1, 0), 'stone'),
+    ('Verdigris Tiles', 'full', (0.30, 0.72, 0.64),  (0.24, 0.64, 0.56),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Lavender Tiles',  'full', (0.76, 0.62, 0.82),  (0.68, 0.54, 0.74),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Thatch',          'full', (0.82, 0.68, 0.36),  (0.72, 0.58, 0.28),   0.0, True,  (0, 0, 0, 1), 'leaf'),
+    ('Shingles',        'full', (0.70, 0.38, 0.32),  (0.62, 0.32, 0.28),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Carved Stone',    'full', (0.84, 0.80, 0.72),  (0.74, 0.70, 0.64),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Mosaic',          'full', (0.70, 0.66, 0.72),  (0.62, 0.58, 0.64),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Packed Earth',    'full', (0.62, 0.48, 0.34),  (0.56, 0.42, 0.30),   0.0, True,  (1, 0, 0, 0), 'soft'),
+    ('Wattle',          'full', (0.78, 0.68, 0.50),  (0.70, 0.60, 0.44),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Linen',           'full', (0.90, 0.86, 0.76),  (0.82, 0.78, 0.68),   0.0, True,  (0, 0, 0, 0), 'puff'),
+    ('Crimson Cloth',   'full', (0.72, 0.22, 0.26),  (0.62, 0.16, 0.20),   0.0, True,  (0, 0, 0, 0), 'puff'),
+    ('Dusk Cloth',      'full', (0.32, 0.30, 0.48),  (0.26, 0.24, 0.40),   0.0, True,  (0, 0, 0, 0), 'puff'),
+    ('Heather',         'full', (0.62, 0.48, 0.70),  (0.42, 0.50, 0.36),   0.0, True,  (0, 0, 0, 1), 'soft'),
+    ('Ember Lamp',      'full', (1.00, 0.62, 0.32),  (0.70, 0.40, 0.28),   1.0, True,  (0, 0, 1, 0), 'glass'),
+    ('Aether Lamp',     'full', (0.78, 0.56, 1.00),  (0.48, 0.36, 0.70),   1.0, True,  (0, 0, 1, 0), 'glass'),
+    ('Verdigris Lamp',  'full', (0.40, 0.92, 0.78),  (0.30, 0.58, 0.52),   1.0, True,  (0, 0, 1, 0), 'glass'),
+    ('Green Glass',     'glass', (0.55, 0.90, 0.62), (0.45, 0.84, 0.55),  0.04, True,  (0, 0, 0, 0), 'glass'),
+    ('Amber Glass',     'glass', (1.00, 0.82, 0.42), (0.96, 0.74, 0.32),  0.04, True,  (0, 0, 0, 0), 'glass'),
+    ('Violet Glass',    'glass', (0.72, 0.52, 0.96), (0.62, 0.42, 0.90),  0.04, True,  (0, 0, 0, 0), 'glass'),
+    ('Stone Slab',      'slab', (0.80, 0.78, 0.72),  (0.74, 0.71, 0.66),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Cobble Slab',     'slab', (0.62, 0.60, 0.56),  (0.56, 0.54, 0.50),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Planks Slab',     'slab', (0.86, 0.68, 0.48),  (0.78, 0.60, 0.42),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Cedar Planks Slab','slab', (0.64, 0.40, 0.28), (0.56, 0.34, 0.24),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Pale Planks Slab','slab', (0.92, 0.86, 0.70),  (0.86, 0.78, 0.62),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Dark Planks Slab','slab', (0.48, 0.32, 0.24),  (0.40, 0.26, 0.20),   0.0, True,  (0, 0, 0, 1), 'wood'),
+    ('Bricks Slab',     'slab', (0.82, 0.46, 0.40),  (0.74, 0.40, 0.36),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Stone Bricks Slab','slab', (0.76, 0.74, 0.68), (0.68, 0.66, 0.60),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Sandstone Slab',  'slab', (0.86, 0.72, 0.48),  (0.78, 0.64, 0.42),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Slate Slab',      'slab', (0.40, 0.44, 0.50),  (0.34, 0.38, 0.44),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Thatch Slab',     'slab', (0.82, 0.68, 0.36),  (0.72, 0.58, 0.28),   0.0, True,  (0, 0, 0, 1), 'leaf'),
+    ('Shingles Slab',   'slab', (0.70, 0.38, 0.32),  (0.62, 0.32, 0.28),   0.0, True,  (1, 0, 0, 0), 'stone'),
+    ('Polished Stone Slab','slab', (0.90, 0.88, 0.84), (0.80, 0.78, 0.74), 0.0, True, (1, 0, 0, 0), 'stone'),
 ]
+
 
 NAMES = [m[0] for m in _M]
 ID = {m[0].lower().replace(' ', '_'): i for i, m in enumerate(_M)}
@@ -77,6 +150,7 @@ OPAQUE = np.array([k == 'full' for k in KIND], dtype=bool)      # hides neighbou
 IS_GLASS = np.array([k == 'glass' for k in KIND], dtype=bool)
 IS_WATER = np.array([k == 'water' for k in KIND], dtype=bool)
 IS_DECO = np.array([k == 'deco' for k in KIND], dtype=bool)
+IS_SLAB = np.array([k == 'slab' for k in KIND], dtype=bool)
 GATHERABLE = np.array([k != 'air' and m[0] not in ('Dormant Spire', 'Awake Spire') for k, m in zip(KIND, _M)])
 
 # shapes of the small cells: list of (radius scale, y0, y1, use_top_colour)
@@ -109,8 +183,15 @@ LIGHTS = {
     ID['emberite_ore']: ((1.0, 0.50, 0.25), 3.0),
     ID['lumen_lamp']: ((1.0, 0.86, 0.60), 13.0),
     ID['kiln']: ((1.0, 0.55, 0.30), 4.0),
+    ID['ember_lamp']: ((1.0, 0.50, 0.22), 13.0),
+    ID['aether_lamp']: ((0.72, 0.48, 1.0), 13.0),
+    ID['verdigris_lamp']: ((0.35, 0.90, 0.75), 13.0),
+    ID['starstone']: ((0.50, 0.40, 0.90), 4.0),
+    ID['polished_starstone']: ((0.55, 0.45, 0.95), 5.0),
+    ID['starstone_tiles']: ((0.50, 0.40, 0.90), 4.0),
 }
 ORES = [ID['emberite_ore'], ID['verdigris_ore'], ID['silverine_ore'], ID['aetherite_ore']]
+WOODS = {ID['heartwood'], ID['cedar_heartwood'], ID['pale_heartwood'], ID['dark_heartwood']}
 
 # ---- realms (biomes) -----------------------------------------------------------
 REALMS = ['Meadow Isles', 'Amberwood', 'Rose Mesas', 'Frostglass', 'Basalt Steps', 'Mossfen', 'Duneglass',
@@ -145,3 +226,115 @@ def is_blocking(world, q, r, y):
     if m == ID['door']:
         return (world.get_meta(q, r, y) & 8) == 0
     return bool(SOLID[m])
+
+
+def _tex_style(name, kind):
+    """Procedural atlas style for a material, inferred from its name."""
+    n = name.lower()
+    if kind == 'glass' or n.endswith(' glass') or n == 'glass':
+        return 'glass'
+    if 'lamp' in n:
+        return 'lamp'
+    if 'heartwood' in n:
+        return 'wood'
+    if 'planks' in n:
+        return 'planks'
+    if 'bricks' in n or n == 'bricks':
+        return 'bricks'
+    if 'tiles' in n or n == 'shingles' or n.endswith(' shingles'):
+        return 'tiles' if 'tiles' in n else 'shingles'
+    if n.startswith('polished') or 'polished' in n:
+        return 'polished'
+    if n == 'cobble' or n.startswith('cobble '):
+        return 'cobble'
+    if n == 'slate' or n.startswith('slate '):
+        return 'slate'
+    if n == 'chalk' or n.startswith('chalk '):
+        return 'chalk'
+    if n == 'sandstone' or n.startswith('sandstone '):
+        return 'sandstone'
+    if n == 'cinder' or n.startswith('cinder '):
+        return 'cinder'
+    if 'starstone' in n:
+        return 'starstone'
+    if n.startswith('salt'):
+        return 'salt'
+    if 'pale stone' in n:
+        return 'palestone'
+    if n == 'thatch' or n.startswith('thatch '):
+        return 'thatch'
+    if n == 'carved stone':
+        return 'carved'
+    if n == 'mosaic':
+        return 'mosaic'
+    if n == 'packed earth':
+        return 'earth'
+    if n == 'wattle':
+        return 'wattle'
+    if 'cloth' in n or n == 'linen':
+        return 'cloth'
+    if n == 'heather':
+        return 'heather'
+    if kind == 'slab':
+        return _tex_style(name[:-5] if name.lower().endswith(' slab') else name, 'full')
+    return ''
+
+
+TEX_STYLE = [_tex_style(m[0], m[1]) for m in _M]
+
+
+def layer_span(m, ly, layer):
+    """World-space [bottom, top] of a solid cell, or None."""
+    if m <= 0 or m >= N or not SOLID[m]:
+        return None
+    y0 = ly * layer
+    return y0, y0 + (0.5 if IS_SLAB[m] else 1.0) * layer
+
+
+def overlaps_solid(world, q, r, y0, y1, layer):
+    """True if any blocking cell in this column overlaps the world-space interval [y0, y1)."""
+    import math
+    ly0 = int(math.floor(y0 / layer))
+    ly1 = int(math.floor((y1 - 1e-9) / layer))
+    for ly in range(ly0, ly1 + 1):
+        m = world.get(q, r, ly)
+        if m <= 0:
+            continue
+        if m == ID['door'] and not is_blocking(world, q, r, ly):
+            continue
+        if m == ID['door'] or (m < N and SOLID[m] and not IS_SLAB[m] and KIND[m] != 'full' and KIND[m] != 'glass' and KIND[m] != 'slab'):
+            # closed door / other solid non-full (shouldn't happen often): full layer
+            if is_blocking(world, q, r, ly) and ly * layer < y1 and (ly + 1) * layer > y0:
+                return True
+            continue
+        if not is_blocking(world, q, r, ly) and not (m < N and SOLID[m]):
+            continue
+        span = layer_span(m, ly, layer)
+        if span and span[0] < y1 and span[1] > y0:
+            return True
+    return False
+
+
+def support_top(world, q, r, y, layer):
+    """Highest solid top at or below world y in this column, or None."""
+    import math
+    ly = int(math.floor((y - 1e-6) / layer))
+    best = None
+    for k in range(ly, max(-1, ly - 4), -1):
+        m = world.get(q, r, k)
+        if m <= 0:
+            continue
+        if m == ID['door'] and not is_blocking(world, q, r, k):
+            continue
+        if not (m < N and SOLID[m]) and not is_blocking(world, q, r, k):
+            continue
+        span = layer_span(m, k, layer)
+        if span is None:
+            if is_blocking(world, q, r, k):
+                span = (k * layer, (k + 1) * layer)
+            else:
+                continue
+        if span[1] <= y + 0.02 or (span[0] < y <= span[1] + 0.001):
+            best = span[1] if best is None else max(best, span[1])
+            break
+    return best

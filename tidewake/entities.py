@@ -10,7 +10,7 @@ import random
 import numpy as np
 
 from .config import LAYER, CLOUD_SEA
-from .materials import is_blocking
+from .materials import is_blocking, overlaps_solid, support_top
 from .hexgrid import cell_at, center
 from . import materials as MT
 from . import items as I
@@ -30,7 +30,7 @@ SCALE = {'brute': 1.7}
 
 def solid_at(world, x, y, z):
     q, r = cell_at(x, z)
-    return is_blocking(world, q, r, math.floor(y / LAYER))
+    return overlaps_solid(world, q, r, y, y + 0.02, LAYER)
 
 
 class Mob:
@@ -183,14 +183,18 @@ class Drop:
             self.x, self.z = nx, nz
         ny = self.y + self.vy * dt
         if self.vy < 0 and solid_at(world, self.x, ny, self.z):
-            self.y = math.floor(ny / LAYER + 1) * LAYER
+            q, r = cell_at(self.x, self.z)
+            top = support_top(world, q, r, ny + LAYER * 0.55, LAYER)
+            self.y = (top + 0.001) if top is not None else math.floor(ny / LAYER + 1) * LAYER
             self.vy = 0
             self.vx *= 0.5
             self.vz *= 0.5
         else:
             self.y = ny
         if solid_at(world, self.x, self.y + 0.05, self.z):
-            self.y += LAYER
+            q, r = cell_at(self.x, self.z)
+            top = support_top(world, q, r, self.y + LAYER * 0.55, LAYER)
+            self.y = (top + 0.001) if top is not None else self.y + LAYER
 
     def model(self, cam):
         v = MD.cached_item(self.iid)

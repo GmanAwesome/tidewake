@@ -4,7 +4,7 @@ import math
 
 from . import config as C
 from .config import LAYER, RADIUS, HEIGHT
-from .materials import is_blocking
+from .materials import is_blocking, overlaps_solid, support_top, layer_span
 from .hexgrid import cell_at, center, DIRS, hex_sdf
 from . import materials as MT
 
@@ -55,12 +55,11 @@ class Player:
         return C.CROUCH_HEIGHT if self.crouching else HEIGHT
 
     def collides(self, world, x, y, z):
-        ly0 = math.floor((y + 0.002) / LAYER)
-        ly1 = math.floor((y + self.body_height() - 0.002) / LAYER)
+        y0 = y + 0.002
+        y1 = y + self.body_height() - 0.002
         for q, r in self._columns(x, z):
-            for ly in range(ly0, ly1 + 1):
-                if self._solid(world, q, r, ly):
-                    return True
+            if overlaps_solid(world, q, r, y0, y1, LAYER):
+                return True
         return False
 
     def touching(self, world, mat):
@@ -187,14 +186,25 @@ class Player:
                             continue
                     self.x, self.z = nx, nz
                     continue
-                # gently step up one layer if there's room
+                # gently step up one layer (or a slab) if there's room
                 if (was_ground or self.in_water or self.climbing) and not self.drifting:
-                    up = (math.floor(self.y / LAYER + 0.01) + 1) * LAYER
-                    if up - self.y <= LAYER + 0.01 and not self.collides(world, nx, up + 0.001, nz) \
-                            and not self.collides(world, self.x, up + 0.001, self.z):
-                        self.eye_offset -= (up - self.y)
+                    obs = None
+                    y0, y1 = self.y + 0.02, self.y + self.body_height() - 0.002
+                    for q, r in self._columns(nx, nz):
+                        ly0 = math.floor(y0 / LAYER)
+                        for k in range(ly0, ly0 + 3):
+                            m = world.get(q, r, k)
+                            span = layer_span(m, k, LAYER) if m > 0 else None
+                            if span is None and self._solid(world, q, r, k):
+                                span = (k * LAYER, (k + 1) * LAYER)
+                            if span and span[0] < y1 and span[1] > y0:
+                                obs = span[1] if obs is None else max(obs, span[1])
+                    if obs is not None and 0 < obs - self.y <= LAYER + 0.01 \
+                            and not self.collides(world, nx, obs + 0.001, nz) \
+                            and not self.collides(world, self.x, obs + 0.001, self.z):
+                        self.eye_offset -= (obs - self.y)
                         self.eye_offset = max(self.eye_offset, -LAYER)
-                        self.y = up + 0.001
+                        self.y = obs + 0.001
                         self.x, self.z = nx, nz
                         continue
                 if axis == 0:
@@ -206,9 +216,20 @@ class Player:
                 self.y = ny
             else:
                 if self.vy < 0:
-                    self.y = math.floor((ny + 0.002) / LAYER + 1) * LAYER
+                    top = None
+                    for q, r in self._columns(self.x, self.z):
+                        ttop = support_top(world, q, r, ny + LAYER * 0.55, LAYER)
+                        if ttop is not None:
+                            top = ttop if top is None else max(top, ttop)
+                    self.y = (top + 0.001) if top is not None else math.floor((ny + 0.002) / LAYER + 1) * LAYER
                     if self.collides(world, self.x, self.y, self.z):
-                        self.y = math.floor(self.y / LAYER + 1) * LAYER
+                        bumped = None
+                        for q, r in self._columns(self.x, self.z):
+                            ttop = support_top(world, q, r, self.y + LAYER * 0.55, LAYER)
+                            if ttop is not None:
+                                bumped = ttop if bumped is None else max(bumped, ttop)
+                        if bumped is not None:
+                            self.y = bumped + 0.001
                     landing = self.vy
                     self.on_ground = True
                     self.vy = 0

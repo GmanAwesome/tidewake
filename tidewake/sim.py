@@ -14,7 +14,7 @@ M = MT.ID
 SOLID = MT.SOLID
 LIVING = {M['water'], M['vine'], M['crystal'], M['bloom'], M['mossrock'], M['sprout']}
 STONY = {M['stone'], M['basalt'], M['rosestone']}
-GROUND = {M['turf'], M['loam'], M['mossrock'], M['sand'], M['snow'], M['clay']}
+GROUND = {M['turf'], M['loam'], M['mossrock'], M['sand'], M['snow'], M['clay'], M['heather'], M['packed_earth']}
 
 
 class Simulation:
@@ -53,7 +53,7 @@ class Simulation:
         stack = [(q, r, y, 0)]
         while stack:
             cq, cr, cy, d = stack.pop()
-            if w.get(cq, cr, cy) == M['heartwood']:
+            if w.get(cq, cr, cy) in MT.WOODS:
                 return True
             if d >= reach:
                 continue
@@ -65,7 +65,7 @@ class Simulation:
                     if n in seen:
                         continue
                     m = w.get(*n)
-                    if m in (M['canopy'], M['heartwood']):
+                    if m == M['canopy'] or m in MT.WOODS:
                         seen.add(n)
                         stack.append((*n, d + 1))
         return False
@@ -215,7 +215,17 @@ class Simulation:
 def grow_tree(world, q, r, top, realm, rng):
     """A young tree grown from a sprout (written straight into the world)."""
     wood, leaf = M['heartwood'], M['canopy']
-    hgt = rng.randint(4, 6)
+    if realm == 9:          # Cedar Highlands
+        wood = M['cedar_heartwood']
+        hgt = rng.randint(7, 9)
+    elif realm in (8, 12, 14):  # Saltwind, Chalk, Cloudstep
+        wood = M['pale_heartwood']
+        hgt = rng.randint(3, 5)
+    elif realm in (1, 15):      # Amberwood, Verdigris
+        wood = M['dark_heartwood']
+        hgt = rng.randint(5, 7)
+    else:
+        hgt = rng.randint(4, 6)
 
     def put(a, b, y, mat):
         if world.get(a, b, y) in (0, M['petals'], M['sprout']):

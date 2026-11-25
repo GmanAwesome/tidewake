@@ -32,3 +32,70 @@ def test_v1_unchanged_can_still_arch():
     assert solid > 100
     # just a sanity bound — v1 should not be empty land
     assert rate < 0.6
+
+
+def test_new_block_roster():
+    from tidewake import materials as MT
+    from tidewake import items as I
+    # appended after door/ladder, never reshuffled
+    assert MT.NAMES[43] == 'Door' and MT.NAMES[44] == 'Ladder'
+    assert MT.N >= 100
+    assert MT.IS_SLAB[MT.ID['stone_slab']] and MT.KIND[MT.ID['stone_slab']] == 'slab'
+    for name in ('cedar_planks', 'chalk', 'sandstone', 'cinder', 'starstone', 'heather',
+                 'ember_lamp', 'green_glass', 'thatch', 'stone_bricks', 'violet_glass'):
+        assert name in MT.ID, name
+        assert MT.ID[name] in I.ITEMS
+
+
+def test_new_recipes():
+    from tidewake import materials as MT
+    from tidewake import items as I
+    results = {r[1][0] for r in I.RECIPES}
+    for name in ('cedar_planks', 'stone_bricks', 'ember_lamp', 'green_glass', 'stone_slab', 'thatch'):
+        assert MT.ID[name] in results, name
+
+
+def test_slab_collision():
+    from tidewake import materials as MT
+    from tidewake.player import Player
+    from tidewake.config import LAYER
+
+    class W:
+        def __init__(self):
+            self.c = {}
+        def get(self, q, r, y):
+            return self.c.get((q, r, y), 0)
+
+    w = W()
+    w.c[(0, 0, 10)] = MT.ID['stone_slab']
+    p = Player(0.0, 10 * LAYER, 0.0)
+    assert p.collides(w, 0.0, 10 * LAYER + 0.01, 0.0)
+    assert not p.collides(w, 0.0, 10.5 * LAYER + 0.001, 0.0)
+    w.c[(0, 0, 10)] = MT.ID['stone']
+    assert p.collides(w, 0.0, 10.6 * LAYER, 0.0)
+    assert not p.collides(w, 0.0, 11 * LAYER + 0.001, 0.0)
+
+
+def test_new_biome_blocks():
+    import numpy as np
+    from tidewake import materials as MT
+    from tidewake.generator import Generator
+    seen = set()
+    want = {MT.ID[k] for k in ('chalk', 'sandstone', 'cinder', 'starstone', 'heather',
+                               'cedar_heartwood', 'pale_heartwood', 'salt_block')}
+    for seed in (7, 21, 42):
+        g = Generator(seed, {})
+        for cq in range(-20, 21, 5):
+            for cr in range(-20, 21, 5):
+                cells, _, _ = g.generate(cq, cr)
+                seen.update(int(x) for x in np.unique(cells))
+                if want <= seen:
+                    return
+    missing = [MT.NAMES[i] for i in want if i not in seen]
+    raise AssertionError(f'missing biome blocks: {missing}')
+
+
+def test_tinted_glass_is_glass():
+    from tidewake import materials as MT
+    for name in ('glass', 'green_glass', 'amber_glass', 'violet_glass'):
+        assert MT.IS_GLASS[MT.ID[name]]

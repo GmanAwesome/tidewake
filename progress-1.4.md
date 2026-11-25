@@ -110,3 +110,8 @@ Older skies still use the previous generator. Brand-new skies get the new land, 
 
 Arches and cave mouths no longer punch holes just under the grass. New skies keep a solid five-layer roof over both, and arches themselves are rarer, so you can walk a meadow without dropping into a pocket every few steps. Caves still open up once you dig down. Older skies are unchanged.
 
+
+## November 25, 2026, 3:10 PM EST — New blocks
+
+The block list is much bigger now: cedar, pale and dark woods (and their planks), a stone family (cobble, slate, chalk, sandstone, cinder, starstone, salt, pale stone) with polished, brick and tile versions in many colours, plus thatch, shingles, carved stone, mosaic, wattle, cloth, heather, coloured lamps, tinted glass, and slabs you can actually stand on. Everything is still drawn with our own procedural textures — the inspiration folder was only a style reference, no pixels were copied. Each new block has a crafting recipe, and the new biomes now use their own stone and wood (chalk, sandstone, cinder, starstone, cedar and pale logs, heather, salt). Glass — clear and tinted — is nearly see-through from every angle, with just a faint rim.
+

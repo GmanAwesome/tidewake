@@ -237,6 +237,19 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
                          show_top, show_bot, sides, ao, mat=mf, front=facing)
         out_o += _extras(mf, facing, cx[f], cz[f], y1, show_top, SKY[q_, u_, r_])
 
+    # ---- slabs (half-height prisms; not opaque, so neighbours keep their faces)
+    sl = MT.IS_SLAB[mat]
+    if sl.any():
+        q_, y_, r_ = pq[sl], ly[sl], pr[sl]
+        u_, d_ = up[sl], dn[sl]
+        show_top = ~occ[q_, u_, r_]
+        show_bot = ~occ[q_, d_, r_] | (y_ == 0)
+        sides = np.stack([~occ[q_ + dq, y_, r_ + dr] for dq, dr in DIRS], 1)
+        y0 = y_ * LAYER
+        y1 = y0 + LAYER * 0.5
+        out_o += _prisms(cx[sl], cz[sl], y0, y1, np.ones(sl.sum()), top[sl], side_top[sl], side[sl],
+                         pack(emit[sl], SKY[q_, y_, r_]), show_top, show_bot, sides, None, mat=mat[sl])
+
     # ---- water
     w = MT.IS_WATER[mat]
     if w.any():
@@ -303,12 +316,14 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
         if m_id in MT.LIGHTS:
             lights.append(np.stack([cx[s], (ly[s] + 0.6) * LAYER, cz[s], np.full(n, m_id)], 1))
     out_o += _fittings(mat, Pm, cx, cz, ly, pq, pr, SKY)
-    sp = mat == _ID['awake_spire']
-    if sp.any():
-        lights.append(np.stack([cx[sp], (ly[sp] + 0.5) * LAYER, cz[sp], np.full(sp.sum(), _ID['awake_spire'])], 1))
-    cl = mat == _ID['cloudstuff']
-    if cl.any():
-        lights.append(np.stack([cx[cl], (ly[cl] + 0.5) * LAYER, cz[cl], np.full(cl.sum(), _ID['cloudstuff'])], 1))
+    # point lights for solid glowing blocks (lamps, ores, starstone, and the specials above)
+    already = set(MT.PARTS)  # deco lights already recorded
+    for mid in MT.LIGHTS:
+        if mid in already:
+            continue
+        s = mat == mid
+        if s.any():
+            lights.append(np.stack([cx[s], (ly[s] + 0.5) * LAYER, cz[s], np.full(s.sum(), mid)], 1))
     L = np.concatenate(lights).astype(np.float32) if lights else np.zeros((0, 4), np.float32)
     if len(L) > 40:
         L = L[np.linspace(0, len(L) - 1, 40).astype(int)]
@@ -401,7 +416,7 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0, step=2):
     No caves, plants or lights. -> VERT array, positions offset by (dx, dz)."""
     c = cells
     can = c == _ID['canopy']
-    wood = c == _ID['heartwood']
+    wood = np.isin(c, list(MT.WOODS))
     terr = (OPAQUE[c] | MT.IS_WATER[c]) & ~can & ~wood
     has = terr.any(1)
     if not has.any() and not can.any():

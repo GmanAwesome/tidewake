@@ -106,6 +106,8 @@ flat in int v_front;
 in float v_u;
 uniform float u_alpha;
 uniform float u_nmat;
+uniform int u_n_glass;
+uniform int u_glasses[8];
 uniform vec2 u_cam_mod;
 uniform sampler2D u_atlas;
 uniform sampler2D u_noise2;
@@ -144,8 +146,21 @@ void main() {
         }
     }
     vec3 c = shade(albedo, n, v_pos, emit, v_sky);
+    bool is_glass = false;
+    for (int i = 0; i < u_n_glass; i++) {
+        if (v_mat == u_glasses[i]) is_glass = true;
+    }
     float a = u_alpha;
-    if (u_alpha < 0.99) {
+    if (is_glass) {
+        vec3 v = normalize(-v_pos);
+        vec3 r = reflect(-v, n);
+        float spec = pow(max(dot(r, u_sun_dir), 0.0), 60.0);
+        c += u_sun_col * spec * 0.18;
+        float fres = pow(1.0 - max(dot(v, n), 0.0), 4.0);
+        // nearly fully transparent from every angle; only a faint rim
+        a = mix(0.10, 0.28, fres);
+        c = mix(c, u_fog_col, fres * 0.10);
+    } else if (u_alpha < 0.99) {
         vec2 wp = v_pos.xz + u_cam_mod;
         float wave = sin(wp.x * 0.9 + u_time * 1.3) * sin(wp.y * 0.8 - u_time * 1.1);
         vec3 v = normalize(-v_pos);

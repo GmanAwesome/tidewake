@@ -25,6 +25,18 @@ HARD = {
     'canopy': (0.35, None, 0), 'crystal': (0.8, 'pick', 0), 'lumen_shard': (0.8, 'pick', 0),
 }
 DEFAULT_HARD = (0.15, None, 0)          # small things snap off instantly
+
+_SOUND_HARD = {
+    'stone': (3.2, 'pick', 1), 'wood': (2.0, 'axe', 0), 'soft': (0.9, 'spade', 0),
+    'sand': (0.7, 'spade', 0), 'glass': (0.5, None, 0), 'puff': (0.6, None, 0), 'leaf': (0.3, None, 0),
+}
+for _i in range(1, MT.N):
+    _key = MT.NAMES[_i].lower().replace(' ', '_')
+    if _key not in HARD and MT.SOUND[_i] in _SOUND_HARD:
+        HARD[_key] = _SOUND_HARD[MT.SOUND[_i]]
+    if 'slab' in _key and _key in HARD:
+        s, tool, tier = HARD[_key]
+        HARD[_key] = (s * 0.6, tool, tier)
 UNBREAKABLE = {M['dormant_spire'], M['awake_spire'], M['water']}
 
 TIERS = ['Wooden', 'Stone', 'Verdigris', 'Silverine', 'Aetherite']
@@ -66,12 +78,14 @@ BLOCK_DESC = {
     'chest': 'right-click to store things', 'bedroll': 'right-click to rest: sets your waking spot, skips the dusk',
     'glowstick': 'a little light', 'lumen_lamp': 'a bright lamp', 'mossrock': 'slowly greens stone around it',
     'door': 'right-click to open or close; two blocks tall', 'ladder': 'climb it; place it on a wall',
+    'ember_lamp': 'a warm lamp', 'aether_lamp': 'a dusky lamp', 'verdigris_lamp': 'a teal lamp',
+    'heather': 'lavender downs packing; a soft purple block',
 }
 for i in range(1, MT.N):
     key = MT.NAMES[i].lower().replace(' ', '_')
     if MT.NAMES[i] in ('Dormant Spire', 'Awake Spire'):
         continue
-    model = 'block' if MT.KIND[i] in ('full', 'glass', 'water') else 'deco'
+    model = 'block' if MT.KIND[i] in ('full', 'glass', 'water', 'slab') else 'deco'
     _add(Item(i, MT.NAMES[i], 'block', block=i, color=tuple(MT.TOP[i]), color2=tuple(MT.SIDE[i]), model=model,
               desc=BLOCK_DESC.get(key, '')))
 
@@ -172,7 +186,11 @@ def drops_for(mat, rng=random):
 
 # ------------------------------------------------------------------ crafting
 STONES = 'stoneish'
-GROUPS = {STONES: {M['stone'], M['basalt'], M['rosestone'], M['plinth'], M['polished_stone']}}
+_STONEISH = ['stone', 'basalt', 'rosestone', 'plinth', 'polished_stone',
+            'cobble', 'slate', 'chalk', 'sandstone', 'cinder', 'starstone', 'salt_block', 'pale_stone',
+            'polished_basalt', 'polished_rosestone', 'polished_slate', 'polished_chalk',
+            'polished_sandstone', 'polished_starstone', 'polished_pale_stone']
+GROUPS = {STONES: {M[k] for k in _STONEISH if k in M}}
 
 
 def _ingr(x):
@@ -218,6 +236,70 @@ for t, m in enumerate(mats):
     recipe([[m], [m], [S]], TOOLS[('blade', t)].id)
 recipe([[P, P], [P, P], [P, P]], M['door'], 3)
 recipe([[S, None, S], [S, S, S], [S, None, S]], M['ladder'], 3)
+
+# ---- 1.4 phase 2b: new woods, stone families, bricks, tiles, lamps, slabs, glass
+for _log, _plank in ((M['cedar_heartwood'], M['cedar_planks']),
+                     (M['pale_heartwood'], M['pale_planks']),
+                     (M['dark_heartwood'], M['dark_planks'])):
+    recipe([[_log]], _plank, 4)
+recipe([[M['stone'], M['stone']], [M['stone'], M['stone']]], M['cobble'], 4)
+for _src, _dst in (
+    (M['basalt'], M['polished_basalt']), (M['rosestone'], M['polished_rosestone']),
+    (M['slate'], M['polished_slate']), (M['chalk'], M['polished_chalk']),
+    (M['sandstone'], M['polished_sandstone']), (M['starstone'], M['polished_starstone']),
+    (M['pale_stone'], M['polished_pale_stone']),
+):
+    recipe([[_src, _src], [_src, _src]], _dst, 4)
+for _src, _dst in (
+    (M['stone'], M['stone_bricks']), (M['basalt'], M['basalt_bricks']),
+    (M['rosestone'], M['rosestone_bricks']), (M['slate'], M['slate_bricks']),
+    (M['sandstone'], M['sandstone_bricks']), (M['chalk'], M['chalk_bricks']),
+    (M['cinder'], M['cinder_bricks']), (M['snow'], M['snow_bricks']),
+    (M['polished_stone'], M['stone_tiles']), (M['polished_basalt'], M['basalt_tiles']),
+    (M['polished_rosestone'], M['rosestone_tiles']), (M['polished_slate'], M['slate_tiles']),
+    (M['polished_sandstone'], M['sandstone_tiles']), (M['polished_chalk'], M['chalk_tiles']),
+    (M['polished_starstone'], M['starstone_tiles']), (M['bricks'], M['clay_tiles']),
+    (M['verdigris_bricks'], M['verdigris_tiles']), (M['lavender_bricks'], M['lavender_tiles']),
+):
+    recipe([[_src, _src], [_src, _src]], _dst, 4)
+recipe([[M['bricks'], M['snow']]], M['snow_bricks'], 1, shapeless=True)
+recipe([[M['bricks'], M['lumen_shard']]], M['dusk_bricks'], 1, shapeless=True)
+recipe([[M['bricks'], M['petals']]], M['lavender_bricks'], 1, shapeless=True)
+recipe([[M['bricks'], M['mossrock']]], M['verdigris_bricks'], 1, shapeless=True)
+recipe([[M['sand'], M['sand']], [M['sand'], M['stone']]], M['sandstone'], 4)
+recipe([[M['cloudstuff'], M['stone']]], M['pale_stone'], 2, shapeless=True)
+recipe([[M['canopy'], STICK.id], [STICK.id, M['canopy']]], M['thatch'], 4)
+recipe([[M['thatch'], M['thatch']], [M['thatch'], M['thatch']]], M['shingles'], 4)
+recipe([[M['polished_stone'], M['polished_stone']], [M['polished_stone'], M['polished_stone']]], M['carved_stone'], 4)
+recipe([[M['stone_tiles'], M['glass']]], M['mosaic'], 4, shapeless=True)
+recipe([[M['loam'], M['loam']], [M['loam'], M['loam']]], M['packed_earth'], 4)
+recipe([[M['planks'], M['canopy']], [M['canopy'], M['planks']]], M['wattle'], 4)
+recipe([[FLUFF.id, FLUFF.id], [M['canopy'], FLUFF.id]], M['linen'], 4)
+recipe([[M['linen'], M['bloom']]], M['crimson_cloth'], 1, shapeless=True)
+recipe([[M['linen'], M['lumen_shard']]], M['dusk_cloth'], 1, shapeless=True)
+recipe([[M['petals'], M['turf']]], M['heather'], 2, shapeless=True)
+recipe([[M['sand'], M['snow']]], M['salt_block'], 2, shapeless=True)
+recipe([[M['basalt'], M['emberite_ore']]], M['cinder'], 2, shapeless=True)
+recipe([[M['stone'], M['lumen_shard']]], M['starstone'], 2, shapeless=True)
+# lamps
+recipe([[M['glass'], E], [G_, M['glass']]], M['ember_lamp'])
+recipe([[M['glass'], AETHERITE.id], [G_, M['glass']]], M['aether_lamp'])
+recipe([[M['glass'], VERDIGRIS.id], [G_, M['glass']]], M['verdigris_lamp'])
+# tinted glass
+recipe([[M['glass'], M['glowcap']]], M['green_glass'], 1, shapeless=True)
+recipe([[M['glass'], M['bloom']]], M['amber_glass'], 1, shapeless=True)
+recipe([[M['glass'], M['lumen_shard']]], M['violet_glass'], 1, shapeless=True)
+# slabs: three in a row -> six slabs
+for _full, _slab in (
+    (M['stone'], M['stone_slab']), (M['cobble'], M['cobble_slab']),
+    (M['planks'], M['planks_slab']), (M['cedar_planks'], M['cedar_planks_slab']),
+    (M['pale_planks'], M['pale_planks_slab']), (M['dark_planks'], M['dark_planks_slab']),
+    (M['bricks'], M['bricks_slab']), (M['stone_bricks'], M['stone_bricks_slab']),
+    (M['sandstone'], M['sandstone_slab']), (M['slate'], M['slate_slab']),
+    (M['thatch'], M['thatch_slab']), (M['shingles'], M['shingles_slab']),
+    (M['polished_stone'], M['polished_stone_slab']),
+):
+    recipe([[_full, _full, _full]], _slab, 6)
 
 
 def _match_cell(want, have):
@@ -307,5 +389,8 @@ SMELT = {
     M['verdigris_ore']: VERDIGRIS.id, M['silverine_ore']: SILVERINE.id, M['sand']: M['glass'],
     M['clay']: BRICK.id, HOPMEAT.id: ROAST.id, M['stone']: M['polished_stone'], M['heartwood']: EMBERITE.id,
 }
-FUEL = {EMBERITE.id: 16.0, M['heartwood']: 6.0, M['planks']: 3.0, STICK.id: 1.0, GLOOM.id: 8.0}
+FUEL = {EMBERITE.id: 16.0, M['heartwood']: 6.0, M['planks']: 3.0, STICK.id: 1.0, GLOOM.id: 8.0,
+        M['cedar_heartwood']: 6.0, M['pale_heartwood']: 6.0, M['dark_heartwood']: 6.0,
+        M['cedar_planks']: 3.0, M['pale_planks']: 3.0, M['dark_planks']: 3.0,
+        M['thatch']: 2.0}
 SMELT_TIME = 4.0

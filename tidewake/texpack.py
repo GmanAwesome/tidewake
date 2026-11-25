@@ -231,6 +231,96 @@ def tile(mat, side):
         stile = (np.abs(X - 0.18) < 0.07) | (np.abs(X - 0.82) < 0.07)
         rung = (np.abs((Y * 4) % 1 - 0.5) < 0.12) & (X > 0.12) & (X < 0.88)
         return np.where(stile | rung, boards(rng, 5, vertical=True) * 1.05, 0.35)
+    # 1.4 phase 2b: style-driven tiles for the expanded roster (procedural, never copied)
+    from .materials import TEX_STYLE
+    style = TEX_STYLE[mat] if mat < len(TEX_STYLE) else ''
+    if style == 'wood':
+        if side:
+            bark = 1 + 0.16 * np.sin((X * 7 + vnoise(rng, 3) * 0.5) * np.pi * 2) * (0.6 + 0.4 * vnoise(rng, 2))
+            return bark * n(8, 2, 0.06)
+        r = np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
+        return 1 + 0.08 * np.sin((r * 9 + vnoise(rng, 3) * 0.3) * np.pi * 2)
+    if style == 'planks':
+        return boards(rng, 4)
+    if style == 'bricks':
+        return bricks(rng, 4, 2)
+    if style == 'tiles':
+        # larger floor tiles with a grout grid (not the same as bricks)
+        rows, cols, mortar = 3, 3, 0.045
+        fy = Y * rows - np.floor(Y * rows)
+        fx = X * cols - np.floor(X * cols)
+        grout = (fy < mortar * rows) | (fx < mortar * cols)
+        tone = 1 + 0.05 * np.sin(np.floor(Y * rows) * 2.7 + np.floor(X * cols) * 4.1)
+        return np.where(grout, 0.72, tone * (1 + 0.03 * vnoise(rng, 6))) * (bevel(0.04) if side else 1.0)
+    if style == 'polished':
+        vein = 1 + 0.06 * np.sin((X * 3 + Y * 5 + vnoise(rng, 3) * 0.8) * np.pi * 2)
+        return (bevel(0.07) if side else cracks(rng, 4, 0.005, 0.9)) * vein * n(3, 2, 0.025)
+    if style == 'cobble':
+        d1, edge, idx = voronoi(rng, 14)
+        tone = 0.88 + 0.2 * (idx * 0.618 % 1)
+        return tone * np.where(edge < 0.03, 0.7, 1.0) * n(4, 2, 0.04)
+    if style == 'slate':
+        return strata(rng, 10, 0.08) * n(4, 2, 0.04) * (cracks(rng, 5, 0.008, 0.85) if not side else 1)
+    if style == 'chalk':
+        return speck(rng, 0.14, 0.88, 1.12, 2) * n(5, 2, 0.05)
+    if style == 'sandstone':
+        return strata(rng, 7, 0.05) * speck(rng, 0.08, 0.9, 1.1) * n(4, 2, 0.04)
+    if style == 'cinder':
+        holes = np.where(vnoise(rng, 8, 2) > 0.38, 0.55, 1.0)
+        return holes * speck(rng, 0.1, 0.8, 1.15) * n(5, 2, 0.08)
+    if style == 'starstone':
+        fleck = np.where(vnoise(rng, 10, 2) > 0.45, 1.55, 0.85)
+        glow = np.where(fleck > 1.2, 0.8, 0.15)
+        return fleck * n(4, 2, 0.06), glow
+    if style == 'salt':
+        d1, edge, _ = voronoi(rng, 18)
+        return (0.92 + 0.16 * np.clip(1 - d1 * 6, 0, 1)) * np.where(edge < 0.015, 1.15, 1.0)
+    if style == 'palestone':
+        return n(4, 2, 0.04) * (bevel(0.05) if side else cracks(rng, 5, 0.007, 0.9))
+    if style == 'thatch':
+        bundle = np.floor(Y * 10)
+        straw = 1 + 0.1 * np.sin((X * 18 + bundle * 0.3 + vnoise(rng, 6) * 0.4) * np.pi * 2)
+        gap = np.where((Y * 10 - bundle) < 0.08, 0.75, 1.0)
+        return straw * gap * (1 + 0.04 * vnoise(rng, 8))
+    if style == 'shingles':
+        row = np.floor(Y * 6)
+        xx = (X + (row % 2) * 0.5)
+        fx, fy = xx - np.floor(xx), Y * 6 - row
+        edge = (fy < 0.08) | (fx < 0.06) | (fx > 0.94)
+        # curved lower lip of each shingle
+        lip = (fy > 0.82) & (((fx - 0.5) ** 2 * 0.6 + (fy - 1.0) ** 2) < 0.08)
+        tone = 1 + 0.08 * np.sin(row * 2.4 + np.floor(xx) * 3.1)
+        return np.where(edge | lip, 0.68, tone) * n(5, 2, 0.04)
+    if style == 'carved':
+        band = np.where((np.abs(Y - 0.5) < 0.05) | (Y < 0.06) | (Y > 0.94), 0.78, 1.0)
+        motif = ((np.abs(X - 0.5) < 0.18) & (np.abs(Y - 0.5) < 0.18)) | ((X - 0.5) ** 2 + (Y - 0.5) ** 2 < 0.04)
+        rosette = motif & ~((np.abs(X - 0.5) < 0.06) & (np.abs(Y - 0.5) < 0.06))
+        return band * np.where(rosette, 0.72, 1.0) * n(5, 2, 0.04) * (bevel(0.06) if side else 1)
+    if style == 'mosaic':
+        cells = 8
+        fx, fy = X * cells - np.floor(X * cells), Y * cells - np.floor(Y * cells)
+        grout = (fx < 0.12) | (fy < 0.12)
+        tone = 0.85 + 0.3 * ((np.floor(X * cells) * 7 + np.floor(Y * cells) * 13) % 5) / 5
+        return np.where(grout, 0.65, tone) * n(3, 2, 0.03)
+    if style == 'earth':
+        return n(5, 2, 0.08) * speck(rng, 0.07, 0.85, 1.1)
+    if style == 'wattle':
+        weave = 1 + 0.1 * np.sin(X * np.pi * 10) * np.sin(Y * np.pi * 8)
+        stick = np.where((np.abs((X * 6) % 1 - 0.5) < 0.08) | (np.abs((Y * 8) % 1 - 0.5) < 0.06), 0.8, 1.0)
+        return weave * stick * n(4, 2, 0.05)
+    if style == 'cloth':
+        weave = 1 + 0.06 * np.sin(X * np.pi * 16) + 0.06 * np.sin(Y * np.pi * 16)
+        return weave * n(3, 2, 0.03)
+    if style == 'heather':
+        return leaves(rng, 36 if side else 50) * speck(rng, 0.08, 0.9, 1.2)
+    if style == 'lamp':
+        fr = (X < 0.12) | (X > 0.88) | (Y < 0.12) | (Y > 0.88)
+        if not side:
+            return n(4, 2, 0.05), np.full((T, T), 0.6)
+        return np.where(fr, 0.55, 1.15) * n(4, 2, 0.05), np.where(fr, 0.0, 0.75)
+    if style == 'glass':
+        streak = 1 + 0.04 * np.sin((X * 2 + Y * 7) * np.pi * 2)
+        return streak * bevel(0.06) * n(3, 2, 0.02)
     return n(6, 2, 0.06)
 
 

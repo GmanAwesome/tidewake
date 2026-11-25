@@ -122,6 +122,18 @@ class Renderer:
         self.chunk_prog['u_noise2'] = 1
         self.chunk_prog['u_atlas_rows'] = float(rows)
         self.chunk_prog['u_nmat'] = float(len(_MT.NAMES))
+        glasses = [int(i) for i in __import__('numpy').where(_MT.IS_GLASS)[0][:8]]
+        self.chunk_prog['u_n_glass'] = len(glasses)
+        # pad the array uniform to the declared length
+        padded = glasses + [0] * (8 - len(glasses))
+        try:
+            self.chunk_prog['u_glasses'].value = tuple(padded)
+        except Exception:
+            for i, g in enumerate(padded):
+                try:
+                    self.chunk_prog[f'u_glasses[{i}]'].value = g
+                except Exception:
+                    pass
         import os as _os
         self.detail = float(_os.environ.get('TIDEWAKE_DETAIL', '1'))
         self.cloud_step = 4.0

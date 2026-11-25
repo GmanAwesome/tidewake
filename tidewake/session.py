@@ -569,7 +569,7 @@ class Session:
         self.world.set(q, r, y, 0, 0, now=True)
         if other and self.world.get(*other) == M['door']:
             self.world.set(*other, 0, 0, now=True)
-        if m in (M['heartwood'], M['canopy']):
+        if m in MT.WOODS or m == M['canopy']:
             self.sim.wake_leaves(q, r, y, 0.35)
         above = self.world.get(q, r, y + 1)
         cx, cz = center(q, r)
