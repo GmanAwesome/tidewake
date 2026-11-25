@@ -208,3 +208,8 @@ Phase 4 is up as a pre-release, so it doesn’t replace 1.3.4 as the usual downl
 
 Skywhales were reading as a stack of chunky hexes. Their body is longer and flatter now, with a tapered head and tail, thin swept-back fins, a small dorsal ridge, and a horizontal fluke instead of a boxy wing. They still drift the same way; they just look more like a whale in the air.
 
+
+## November 25, 2026, 4:43 PM EST — A face when the camera looks at you
+
+The third-person figure used to be a blank head with hair all the way around, so the “looking at you” camera mostly showed the back of a head. Hair now sits further back, and there are simple eyes and a mouth on the front. The lesson-island guides got the same treatment, so people in the world read as faces from the front.
+
