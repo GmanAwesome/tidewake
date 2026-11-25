@@ -193,9 +193,17 @@ class App(pyglet.window.Window):
             world.on_chunk_loaded = sc.apply_chunk
             cam = sc.camera
             x, z = sc.focus()
+            arc = cam.get('arc')
+            if arc and len(arc) >= 2:
+                a0, a1 = float(arc[0]), float(arc[1])
+                ang0 = (a0 + a1) / 2.0
+                arc_t = (a0, a1)
+            else:
+                ang0 = random.uniform(0, 6.28)
+                arc_t = None
             self.backdrop = dict(world=world, x=x, z=z, y=(sc.top + cam.get('height', 13)) * LAYER,
                                  ty=(sc.top + cam.get('target_dy', 5)) * LAYER, rad=cam.get('radius', 30.0),
-                                 speed=cam.get('speed', 0.035), ang=random.uniform(0, 6.28),
+                                 speed=cam.get('speed', 0.035), ang=ang0, ang_t=0.0, arc=arc_t,
                                  phase=cam.get('phase', 0.2), showcase=sc, yaw_off=cam.get('yaw_offset', 0.0),
                                  rotate_in=time.perf_counter() + 24.0)
             if old:
@@ -464,7 +472,13 @@ class App(pyglet.window.Window):
         dusk = 0.3
         if self.mode == 'title' and self.backdrop:
             b = self.backdrop
-            b['ang'] += dt * b.get('speed', 0.05)
+            if b.get('arc'):
+                a0, a1 = b['arc']
+                b['ang_t'] = b.get('ang_t', 0.0) + dt * b.get('speed', 0.05)
+                mid, half = (a0 + a1) / 2.0, (a1 - a0) / 2.0
+                b['ang'] = mid + half * math.sin(b['ang_t'])
+            else:
+                b['ang'] += dt * b.get('speed', 0.05)
             b['world'].update(b['x'], b['z'], 4)
             dusk = TIDE.dusk_amount(b['phase'])
             if time.perf_counter() >= b.get('rotate_in', 1e18) and self.menu and self.menu.__class__.__name__ == 'TitleScreen':
