@@ -106,3 +106,22 @@ def test_third_person_model_only_shows_held_items():
     held = MD.transform(MD.cached_item(I.STICK.id), scale=0.28, offset=(0.3, 0.88, -0.12))
     with_item = MD.cat(empty, held)
     assert len(with_item) > len(empty)
+
+
+def test_sleep_fade_then_dawn():
+    from tidewake.session import Session
+    class T:
+        sleeping = {'stage': 'out', 't': 0.0}
+        phase = 0.5
+        last_tide_name = 'Dusktide'
+        def _tick_sleep(self, dt):
+            return Session._tick_sleep(self, dt)
+        def sleep_fade(self):
+            return Session.sleep_fade(self)
+    t = T()
+    t._tick_sleep(0.5)
+    assert 0.4 < t.sleep_fade() < 0.7
+    t._tick_sleep(0.6)
+    assert t.sleeping['stage'] == 'dawn' and t.sleep_fade() == 1.0
+    t._tick_sleep(2.2)
+    assert t.sleeping is None and t.phase == 0.0

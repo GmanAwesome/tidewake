@@ -212,6 +212,7 @@ class Session:
         self.path_t = 1.0
         self.mob_t = 0.0
         self.dead = False
+        self.sleeping = None
         self.pos1 = self.pos2 = None
         self.undo = []
         self.cursor = None                       # item held on the mouse in menus
@@ -452,9 +453,13 @@ class Session:
         self.time += dt
         self.play_time += dt
         p = self.player
+        if self.sleeping:
+            self._tick_sleep(dt)
+            inp = dict(inp, fwd=0, strafe=0, jump=False, jump_pressed=False)
         speed = 1.0 / C.TIDE_LENGTH * (25.0 if self.tide_rush > 0 else 1.0)
         old = self.phase
-        self.phase = (self.phase + dt * speed) % 1.0
+        if not self.sleeping:
+            self.phase = (self.phase + dt * speed) % 1.0
         if self.tide_rush > 0:
             self.tide_rush -= dt
             if (old < 0.5 <= self.phase) or (old > self.phase):
@@ -946,7 +951,7 @@ class Session:
                 if hostile:
                     self.toast('You can\'t rest now', 'Gloomlings are close by.', 2.5)
                 else:
-                    self.phase = 0.0
+                    self.sleeping = {'stage': 'out', 't': 0.0}
                     self.mobs = [mob for mob in self.mobs if not mob.hostile]
                     self.toast('You rest until the light returns', 'You will wake here from now on.', 4)
                     self.app.audio.play('tide', 0.8)
@@ -955,6 +960,36 @@ class Session:
         return True
 
 
+
+
+    def _tick_sleep(self, dt):
+        """Fade to black, then ease the tide through a dawn into the light."""
+        s = self.sleeping
+        s['t'] += dt
+        if s['stage'] == 'out':
+            if s['t'] >= 1.0:
+                s['stage'] = 'dawn'
+                s['t'] = 0.0
+                self.phase = 0.82
+        elif s['stage'] == 'dawn':
+            # 0.82 -> 1.0 over ~2 seconds (turning to light, then the peak of lighttide)
+            self.phase = min(1.0, 0.82 + 0.18 * min(1.0, s['t'] / 2.0))
+            if self.phase >= 1.0:
+                self.phase = 0.0
+                self.sleeping = None
+                self.last_tide_name = TIDE.name(self.phase)
+
+    def sleep_fade(self):
+        """0..1 black overlay while resting."""
+        s = self.sleeping
+        if not s:
+            return 0.0
+        if s['stage'] == 'out':
+            return min(1.0, s['t'] / 1.0)
+        # hold black briefly, then lift as dawn comes in
+        if s['t'] < 0.25:
+            return 1.0
+        return max(0.0, 1.0 - (s['t'] - 0.25) / 1.75)
 
     def _npc_hit(self, npc, ox, oy, oz, dx, dy, dz, reach):
         cx, cy, cz = npc['x'], npc['y'] + 0.7, npc['z']

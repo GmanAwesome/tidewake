@@ -577,6 +577,11 @@ class App(pyglet.window.Window):
         w, h = fw, fh
         g = self.gui
         g.begin(w, h, self.ui_scale(w, h))
+        if self.mode == 'game' and self.session and getattr(self.session, 'sleeping', None):
+            a = self.session.sleep_fade()
+            if a > 0.01:
+                g.rect(0, 0, w, h, (0.03, 0.03, 0.08, a))
+                g.flush()
         if self.mode == 'game' and self.session and not self.hide_hud and (self.menu is None or isinstance(self.menu, S.WhisperScreen)):
             draw_hud(g, self, self.session, w, h)
             if self.show_debug:

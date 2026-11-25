@@ -179,3 +179,7 @@ Trees got taller, and their leaves start higher up the trunk. You can walk under
 
 F5 now cycles the camera the way it does in many sandbox games: first person, then behind you, then looking at you, then back again. The camera stops short of walls so it does not slip into the ground. In third person you see a simple figure of yourself, and only what you are actually holding — no default tools or worn loot appear just because the camera moved behind you. The admin panel moved to F7 (still needs dev mode).
 
+## November 25, 2026, 4:28 PM EST — Sleeping fades into a dawn
+
+Resting on a bedroll in the dusk no longer snaps the light back in a blink. The world fades to black, then the tide eases through a dawn and the picture comes back with the morning. Gloomlings are still gone when you wake, and this is still where you will wake if you fall.
+
