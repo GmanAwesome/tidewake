@@ -733,7 +733,12 @@ class Session:
             self.app.set_screen(IU.CraftScreen(3))
         elif m == M['chest']:
             if key not in self.chests:
-                self.chests[key] = Inventory(27)
+                inv = Inventory(27)
+                table = (self.world.get_meta(q, r, y) >> 3) & 15
+                if table:
+                    from .structures import fill_chest
+                    fill_chest(inv, table, getattr(self, 'seed', 0), q, r, y)
+                self.chests[key] = inv
             self.app.set_screen(IU.ChestScreen(self.chests[key]))
             self.app.audio.play('step_wood', 0.8)
         elif m == M['kiln']:

@@ -99,3 +99,53 @@ def test_tinted_glass_is_glass():
     from tidewake import materials as MT
     for name in ('glass', 'green_glass', 'amber_glass', 'violet_glass'):
         assert MT.IS_GLASS[MT.ID[name]]
+
+
+def test_structures_v2_and_not_v1():
+    import numpy as np
+    from collections import Counter
+    from tidewake.generator import Generator
+    from tidewake import materials as MT
+    from tidewake import structures as ST
+
+    names = [t['name'] for t in ST.TYPES]
+    assert set(names) >= {'hut', 'village', 'standing_stones', 'temple', 'chamber', 'sky_boat'}
+
+    marks = (MT.ID['door'], MT.ID['chest'], MT.ID['bedroll'], MT.ID['carved_stone'],
+             MT.ID['tinker_bench'], MT.ID['linen'])
+    kinds = Counter()
+    # known-good seed from a full scan
+    g = Generator(21, {})
+    a = g.generate(-13, -2)[0]
+    b = Generator(21, {}).generate(-13, -2)[0]
+    assert np.array_equal(a, b)
+    assert MT.ID['door'] in a and MT.ID['chest'] in a
+
+    # v1 keeps those chunks empty of structures
+    v1 = Generator(21)
+    assert v1.version == 1
+    c = v1.generate(-13, -2)[0]
+    assert MT.ID['door'] not in c and MT.ID['chest'] not in c
+
+    # all three families appear around seed 21
+    want = set()
+    for cq, cr in [(-13, -2), (-5, -1), (-6, 5), (5, -15), (14, -18), (7, 11)]:
+        cells, _, _ = g.generate(cq, cr)
+        u = set(int(x) for x in np.unique(cells))
+        if MT.ID['door'] in u:
+            want.add('settlement')
+        if MT.ID['linen'] in u:
+            want.add('aerial')
+        if MT.ID['carved_stone'] in u or (MT.ID['ladder'] in u and MT.ID['chest'] in u and MT.ID['door'] not in u):
+            want.add('ruin')
+    assert want >= {'settlement', 'ruin', 'aerial'}, want
+
+
+def test_loot_fill_is_deterministic():
+    from tidewake.inventory import Inventory
+    from tidewake import structures as ST
+    a, b = Inventory(27), Inventory(27)
+    ST.fill_chest(a, ST.LOOT_CHAMBER, 7, 1, 2, 3)
+    ST.fill_chest(b, ST.LOOT_CHAMBER, 7, 1, 2, 3)
+    assert a.to_list() == b.to_list()
+    assert any(s for s in a.slots)

@@ -517,6 +517,9 @@ class Generator:
                        hash_ints(self.h, q, r, 9))
         for s in spires:
             self._stamp_spire(cells, meta, s, q0, r0)
+        if self.version == 2:
+            from . import structures as ST
+            ST.place(self, cq, cr, cells, meta, col, sl)
         return cells, meta, realm.astype(np.uint8)
 
     # ------------------------------------------------------------------ features

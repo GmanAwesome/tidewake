@@ -115,3 +115,8 @@ Arches and cave mouths no longer punch holes just under the grass. New skies kee
 
 The block list is much bigger now: cedar, pale and dark woods (and their planks), a stone family (cobble, slate, chalk, sandstone, cinder, starstone, salt, pale stone) with polished, brick and tile versions in many colours, plus thatch, shingles, carved stone, mosaic, wattle, cloth, heather, coloured lamps, tinted glass, and slabs you can actually stand on. Everything is still drawn with our own procedural textures — the inspiration folder was only a style reference, no pixels were copied. Each new block has a crafting recipe, and the new biomes now use their own stone and wood (chalk, sandstone, cinder, starstone, cedar and pale logs, heather, salt). Glass — clear and tinted — is nearly see-through from every angle, with just a faint rim.
 
+
+## November 25, 2026, 3:16 PM EST — Structures
+
+New skies can now grow points of interest that feel like they belong on the islands. A small framework places modular pieces with rules for slope, island thickness, biome and spacing, then weathers them as intact, abandoned, ruined or overgrown (debris, lamps, vines, loot). There are three families to start: settlements (a single hut up to a little village with paths, a well and a shed), ruins (a temple, a ring of standing stones, or a buried chamber with rarer things in the chest), and a sky boat moored at an island edge with a walkway back to land. Each one gives you a reason to stop — a bed, a bench or kiln, or a chest of supplies. Older skies are unchanged.
+
