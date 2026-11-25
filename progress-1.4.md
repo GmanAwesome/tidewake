@@ -153,3 +153,9 @@ The title screen has a Learn to play button. It opens a small hand-built island 
 
 Play-test shots for Phase 3 are in `screenshots-final/v1.4-phase3/`: the title screen with Learn to play, the lesson island from above and along the path (welcome, trees, the bench and kiln, doors and ladders, the fishing dock, the farm, and the Glimmer shrine), plus the Path tree and the Font. A few frames were retaken so the yard, the pool, the tilled beds and the Path all read clearly. The version string is now 1.4-phase3.
 
+## November 25, 2026, 4:09 PM EST — Pre-release posted
+
+Phase 3 is up as a pre-release, so it doesn’t replace 1.3.4 as the usual download. Grab `Tidewake-1.4-phase3-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4-phase3 (about 74 MB). The play-test screenshots are on that page too (title and Learn to play, the lesson island, the Path, and the Font).
+
+Older skies still use the previous generator. Brand-new skies get rarer Glimmer, waystones and the Font, fishing, farming, and the Path. The lesson island is a separate sky, launched from the title screen.
+
