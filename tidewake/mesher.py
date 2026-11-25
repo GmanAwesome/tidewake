@@ -343,8 +343,15 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
         if s.any():
             lights.append(np.stack([cx[s], (ly[s] + 0.5) * LAYER, cz[s], np.full(s.sum(), mid)], 1))
     L = np.concatenate(lights).astype(np.float32) if lights else np.zeros((0, 4), np.float32)
-    if len(L) > 40:
-        L = L[np.linspace(0, len(L) - 1, 40).astype(int)]
+    # keep real lamps first; linspace used to drop a lantern in a cave full of glowcaps
+    if len(L) > 48:
+        rad = np.array([MT.LIGHTS.get(int(m), ((1, 1, 1), 4.0))[1] for m in L[:, 3]])
+        lamps = np.flatnonzero(rad >= 8.0)
+        other = np.flatnonzero(rad < 8.0)
+        keep_l = lamps if len(lamps) <= 32 else lamps[np.linspace(0, len(lamps) - 1, 32).astype(int)]
+        remain = 48 - len(keep_l)
+        keep_o = other if len(other) <= remain else other[np.linspace(0, len(other) - 1, remain).astype(int)]
+        L = L[np.concatenate([keep_l, keep_o])]
     ob = np.concatenate(out_o).tobytes() if out_o else b''
     wb = np.concatenate(out_w).tobytes() if out_w else b''
     return ob, wb, L

@@ -322,15 +322,25 @@ class Renderer:
         else:
             meshes_v = []
 
-        # lights: nearest glowing cells
+        # lights: gather from every mesh (not just the closest 40), prefer real lamps
         lp, lc = [], []
         L = [np.column_stack([m.lights[:, 0] + ox_, m.lights[:, 1] - cy, m.lights[:, 2] + oz_, m.lights[:, 3]])
-             for m, ox_, oz_ in meshes_v[:40] if len(m.lights)]
+             for m, ox_, oz_ in meshes_v if len(m.lights)]
+        # also pull lights from culled-but-nearby chunks so a lamp around a corner still lights the room
+        visible_ids = {id(m) for m, _, _ in meshes_v}
+        for m in meshes:
+            if id(m) in visible_ids or not len(getattr(m, 'lights', ())):
+                continue
+            ox_, oz_ = m.ox - cx, m.oz - cz
+            L.append(np.column_stack([m.lights[:, 0] + ox_, m.lights[:, 1] - cy, m.lights[:, 2] + oz_, m.lights[:, 3]]))
         L += [np.array(e, dtype=np.float64).reshape(-1, 4) for e in extra_lights if len(e)]
         if L:
             A = np.concatenate(L)
             d = np.linalg.norm(A[:, :3], axis=1)
-            sel = np.argsort(d)[:32]
+            rad = np.array([LIGHT_RAD.get(int(m), 6.0) for m in A[:, 3]])
+            # score by distance relative to radius so a lantern is not dropped for a closer glowcap
+            score = d / np.maximum(rad, 1.0)
+            sel = np.argsort(score)[:32]
             for i in sel:
                 mid = int(A[i, 3])
                 lp.append((A[i, 0], A[i, 1], A[i, 2], LIGHT_RAD.get(mid, 6.0)))

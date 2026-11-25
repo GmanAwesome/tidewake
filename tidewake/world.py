@@ -113,6 +113,7 @@ class World:
         if c is None:
             return False
         lq, lr = q % CHUNK, r % CHUNK
+        old = int(c.cells[lq, y, lr])
         c.cells[lq, y, lr] = mat
         c.meta[lq, y, lr] = meta
         c.modified = True
@@ -123,12 +124,30 @@ class World:
         if lr == CHUNK - 1: keys.add((key[0], key[1] + 1))
         if lq == 0 and lr == CHUNK - 1: keys.add((key[0] - 1, key[1] + 1))
         if lq == CHUNK - 1 and lr == 0: keys.add((key[0] + 1, key[1] - 1))
+        # a lamp must remesh every chunk its light can reach, not just a border neighbour
+        rad = 0.0
+        if old in MT.LIGHTS:
+            rad = max(rad, MT.LIGHTS[old][1])
+        if mat in MT.LIGHTS:
+            rad = max(rad, MT.LIGHTS[mat][1])
+        if rad > 0:
+            keys |= self._chunks_within(q, r, rad)
         if now:
             for k in keys:
                 self._remesh_now(k)
         else:
             self.dirty |= keys
         return True
+
+    def _chunks_within(self, q, r, radius):
+        """Chunk keys whose columns can sit inside a world-space radius of (q, r)."""
+        from .hexgrid import HEX, SQ3
+        reach = int(max(1, radius / max(0.1, HEX) + 2))
+        keys = set()
+        for dq in range(-reach, reach + 1):
+            for dr in range(-reach, reach + 1):
+                keys.add(((q + dq) // CHUNK, (r + dr) // CHUNK))
+        return keys
 
     def set_meta(self, q, r, y, meta):
         c = self.chunks.get((q // CHUNK, r // CHUNK))

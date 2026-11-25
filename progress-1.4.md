@@ -285,3 +285,8 @@ The title screen always used to open on the same showcase (the Lighthouse Cottag
 
 Creatures were shaking up and down even on flat ground. Two things were stacking: they snapped to a layer-grid line instead of the real top of the block they were standing on (which could throw them up a whole layer), and then each frame they were treated as off the ground because their feet were already clear of the floor, so gravity pulled them in and the snap threw them back up. They now settle to the actual floor top and a short probe under the feet keeps them there. A frame-by-frame y-trace on still and walking woolhops, at a few frame rates, stays flat after landing.
 
+
+## November 25, 2026, 5:14 PM EST — Lanterns and lamps light their surroundings
+
+Lamps were working in some rooms and not others. The light itself was only collected from the nearest forty chunks, and in a cave full of glowcaps a lantern could be dropped from the short list the shader uses. A lamp placed just inside a chunk also failed to remesh anything but the border neighbour. Lights are now gathered from every loaded chunk, real lamps are kept first, the shader prefers a lantern over a closer glowcap, and placing or breaking a lamp dirties every chunk its light can reach.
+

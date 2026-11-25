@@ -112,6 +112,50 @@ def test_mob_y_trace_does_not_shake():
     traces['walk'] = ys
     return traces
 
+
+def test_lamps_are_kept_among_many_glowcaps():
+    import numpy as np
+    from tidewake.config import CHUNK, LAYERS
+    from tidewake import materials as MT
+    from tidewake.mesher import mesh_chunk
+    from tidewake.renderer import LIGHT_RAD
+    from tidewake.world import World
+
+    P = np.zeros((CHUNK + 2, LAYERS, CHUNK + 2), np.uint8)
+    # a stone room with a roof, packed with glowcaps, and one lumen lamp in the corner
+    P[:, 10, :] = MT.ID['stone']
+    P[:, 14, :] = MT.ID['stone']
+    P[:, 11:14, :] = 0
+    n = 0
+    for a in range(1, CHUNK + 1):
+        for b in range(1, CHUNK + 1):
+            if n < 60 and (a + b) % 2 == 0:
+                P[a, 11, b] = MT.ID['glowcap']
+                n += 1
+    P[2, 12, 2] = MT.ID['lumen_lamp']
+    realm = np.zeros((CHUNK, CHUNK), np.int32)
+    _o, _w, L = mesh_chunk(P, realm, 0, 0)
+    mids = [int(m) for m in L[:, 3]]
+    assert MT.ID['lumen_lamp'] in mids, ('lamp dropped from the chunk light list', mids[:10], len(mids))
+
+    # shader picker: a lantern a little farther than a crowd of glowcaps must still be selected
+    lamp = MT.ID['lantern']
+    cap = MT.ID['glowcap']
+    A = []
+    for i in range(40):
+        A.append((0.4 + i * 0.05, 0, 0, cap))
+    A.append((3.2, 0, 0, lamp))  # farther than the glowcaps, but a real lamp
+    A = np.array(A, dtype=np.float64)
+    d = np.linalg.norm(A[:, :3], axis=1)
+    rad = np.array([LIGHT_RAD.get(int(m), 6.0) for m in A[:, 3]])
+    score = d / np.maximum(rad, 1.0)
+    sel = np.argsort(score)[:32]
+    assert lamp in A[sel, 3], ('lantern lost to glowcaps', A[sel, 3][:8], score[-1], score[0])
+
+    # placing a lamp dirties every chunk its light can reach
+    keys = World._chunks_within(None, 2, 2, 13.0)
+    assert (0, 0) in keys and len(keys) >= 4
+
 if __name__ == '__main__':
     test_tutorial_dialog_only_after_talk()
     print('ok tutorial dialog only after right-click')
@@ -119,4 +163,6 @@ if __name__ == '__main__':
     print('ok title showcase shuffles at launch')
     test_mob_y_trace_does_not_shake()
     print('ok mob y-trace is stable on the ground')
+    test_lamps_are_kept_among_many_glowcaps()
+    print('ok lamps stay in the light list')
     print('ALL 1.4.1 UNIT TESTS PASSED')
