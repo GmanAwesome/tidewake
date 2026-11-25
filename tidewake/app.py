@@ -394,6 +394,8 @@ class App(pyglet.window.Window):
                 self.gui.mouse_down = True
             elif button == mouse.RIGHT:
                 self.gui.clicks.append((self.gui.mx, self.gui.my, 4))
+            elif button == mouse.MIDDLE:
+                self.gui.clicks.append((self.gui.mx, self.gui.my, 2))
             return
         if not self.captured:
             self.set_capture(True)
@@ -401,6 +403,9 @@ class App(pyglet.window.Window):
         self.buttons.add(button)
         if self.session:
             self.session.cooldown = 0
+            if button == mouse.MIDDLE and self.session.remove_inv_slot():
+                self.audio.play('click', 0.4)
+                self.session.toast('That item is gone', 'Middle-click removes things in Dreamer mode.', 2.2)
 
     def on_mouse_release(self, x, y, button, modifiers):
         if button == mouse.LEFT:

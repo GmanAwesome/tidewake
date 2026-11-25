@@ -125,3 +125,29 @@ def test_sleep_fade_then_dawn():
     assert t.sleeping['stage'] == 'dawn' and t.sleep_fade() == 1.0
     t._tick_sleep(2.2)
     assert t.sleeping is None and t.phase == 0.0
+
+
+def test_dreamer_middle_click_removes_item():
+    from tidewake.session import Session
+    from tidewake.inventory import Inventory
+    from tidewake import items as I
+
+    class T:
+        mode = 'dreamer'
+        dev = True
+        hot = 0
+        inv = Inventory(9)
+        def can_dreamer_remove(self):
+            return Session.can_dreamer_remove(self)
+        def remove_inv_slot(self, slots=None, i=None):
+            return Session.remove_inv_slot(self, slots, i)
+
+    t = T()
+    t.inv.add(I.STICK.id, 4)
+    assert t.inv.slots[0]
+    assert t.remove_inv_slot() is True
+    assert t.inv.slots[0] is None
+    t.mode, t.dev = 'wanderer', False
+    t.inv.add(I.STICK.id, 1)
+    assert t.remove_inv_slot() is False
+    assert t.inv.slots[0]

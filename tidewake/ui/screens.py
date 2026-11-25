@@ -503,6 +503,7 @@ class JournalScreen(Screen):
                     ('J', 'journal'), ('P', 'the Path (goals and how-to)'),
                     ('T', 'tidecall (once learned)'),
                     ('Enter or /', 'type a command (/help)'), ('F1 · F2 · F3', 'hide HUD · snapshot · details'),
+                    ('Middle click', 'in Dreamer mode, remove the item you click (or the one in your hand)'),
                     ('F4', 'dev mode on / off'), ('F5', 'cycle first / third person'), ('F7', 'admin panel (dev mode)'),
                     ('F · N · [ ]', 'dev: fly · noclip · fly speed'), ('Esc', 'rest (pause)')]
             for i, (k, d) in enumerate(rows):

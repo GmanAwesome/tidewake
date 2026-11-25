@@ -85,9 +85,13 @@ class SlotScreen(Screen):
             it = I.get(slots[i][0])
             extra = f'  ({slots[i][2]}/{it.uses} uses left)' if it.kind == 'tool' else ''
             self.tip = (it.name + extra, it.desc)
-        for b in (1, 4):
+        for b in (1, 4, 2):
             if gui.clicked(x, y, size, size, b):
                 gui.consume_click()
+                if b == 2:
+                    if ses.remove_inv_slot(slots, i):
+                        app.audio.play('click', 0.3)
+                    return True
                 if on_click:
                     on_click(b == 4)
                     return True

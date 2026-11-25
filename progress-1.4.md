@@ -183,3 +183,7 @@ F5 now cycles the camera the way it does in many sandbox games: first person, th
 
 Resting on a bedroll in the dusk no longer snaps the light back in a blink. The world fades to black, then the tide eases through a dawn and the picture comes back with the morning. Gloomlings are still gone when you wake, and this is still where you will wake if you fall.
 
+## November 25, 2026, 4:28 PM EST — Dreamer middle-click lets go of an item
+
+In Dreamer mode (and while dev mode is on), a middle-click takes an item out of your inventory. Click a slot in the backpack to clear it, or middle-click in the world to let go of whatever you are holding. Wanderer mode is unchanged.
+

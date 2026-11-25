@@ -218,7 +218,7 @@ class Session:
         self.cursor = None                       # item held on the mouse in menus
         if self.new_sky:
             if self.dev:
-                self.toast('Welcome to ' + self.name, 'Dreamer sky: you can fly (F) and build freely. F5 cycles the camera. F7 opens the admin panel.')
+                self.toast('Welcome to ' + self.name, 'Dreamer sky: you can fly (F) and build freely. Middle-click removes an item. F5 cycles the camera. F7 opens the admin panel.')
             else:
                 self.toast('Welcome to ' + self.name, 'Hold left click on a tree to gather wood. Press E for your backpack.')
         self.save()
@@ -353,6 +353,20 @@ class Session:
         self.hot = i % 9
         self.mining = None
         self.app.audio.play('chord', 0.35)
+
+    def can_dreamer_remove(self):
+        return self.mode == 'dreamer' or self.dev
+
+    def remove_inv_slot(self, slots=None, i=None):
+        """Dreamer (and dev): take an item out of a slot. Returns True if something was removed."""
+        if not self.can_dreamer_remove():
+            return False
+        if slots is None:
+            slots, i = self.inv.slots, self.hot if i is None else i
+        if i is None or i < 0 or i >= len(slots) or not slots[i]:
+            return False
+        slots[i] = None
+        return True
 
     def cycle_hot(self, d):
         self.select(self.hot + d)
