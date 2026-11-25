@@ -69,3 +69,9 @@ Screenshot: `screenshots-final/v1.4-phase1/06_leaves_before.png` and `07_leaves_
 Phase 1 is up as a pre-release so you can play it on Windows without it replacing 1.3.4 as the usual download. Grab `Tidewake-1.4-phase1-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4-phase1 (about 76.6 MB). The play-test screenshots are attached on that page too.
 
 Known leftover: the first launch still takes about a minute to compose the music (same as 1.3.3+). That's not new, and you can play while it works.
+
+## November 25, 2026, 2:57 PM EST — Terrain variety
+
+New skies no longer feel like the same rolling bump repeated. Each region now leans toward plains, rolling hills, cut valleys, or a mountain range — and the mountains themselves come in a few styles (sharp ridges, broader alpine slopes, or stepped plateaus). Older skies keep their original generator so already-explored land doesn’t change.
+
+Screenshot: `screenshots-final/v1.4-phase2a/07_cloudstep_isles.png` (high, broken ranges over the cloud sea).

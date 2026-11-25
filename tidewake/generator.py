@@ -14,11 +14,13 @@ import random
 import numpy as np
 
 from .config import CHUNK, LAYERS, CLOUD_SEA, HEX, SQ3
-from .materials import ID
+from .materials import ID, N_REALMS
 from .noise import Noise, splitmix64, hash2, rand01, hash_ints
+from . import gensettings as GS
 
 M = ID
 MEADOW, AMBER, ROSE, FROST, BASALT, FEN, DUNE, LUMEN = range(8)
+SALTWIND, CEDAR, LAVENDER, CINDER, CHALK, STARFALL, CLOUDSTEP, VERDIGRIS = range(8, 16)
 TOP_MAX = LAYERS - 18
 TOP_MIN = CLOUD_SEA + 12
 SPIRE_REGION = 88                      # cells; at most one spire per region
@@ -31,8 +33,11 @@ def smoothstep(a, b, x):
 
 
 class Generator:
-    def __init__(self, seed):
+    def __init__(self, seed, settings=None):
         self.seed = seed
+        # v1: skies saved before 1.4-phase2a (no sliders). v2: new worlds, sliders saved with the sky.
+        self.settings = GS.normalize(settings) if settings is not None else None
+        self.version = 2 if self.settings is not None else 1
         rng = random.Random(splitmix64(seed & ((1 << 64) - 1)))
         k = lambda i: splitmix64((seed + 0x51ED * (i + 1)) & ((1 << 64) - 1))
         self.n_island, self.n_warp1, self.n_warp2, self.n_alt, self.n_hill = (Noise(k(i)) for i in range(5))
@@ -41,7 +46,9 @@ class Generator:
         self.n_mount, self.n_cave, self.n_ore = Noise(k(14)), Noise(k(15)), Noise(k(16))
         self.n_cliff, self.n_terrace, self.n_arch = Noise(k(17)), Noise(k(18)), Noise(k(19))
         self.h = k(20)
-        # the seed's temperament
+        self.n_form, self.n_mass, self.n_spice, self.n_room = (Noise(k(i)) for i in range(21, 25))
+        self.n_hw, self.n_fiss, self.n_style = Noise(k(25)), Noise(k(26)), Noise(k(27))
+        # the seed's temperament (v1 uses these raw; v2 uses them as a slight personality around the sliders)
         self.island_scale = rng.uniform(120, 300)
         self.coverage = rng.uniform(-0.04, 0.16)
         self.warp = rng.uniform(20, 110)
@@ -60,10 +67,37 @@ class Generator:
         self._spires = {}
         self.cliff_amp = rng.uniform(5, 11)       # 1.3: cliffs, terraces, arches
         self.arches = rng.uniform(0.40, 0.52)
+        if self.version == 2:
+            s = self.settings
+            # personality jitter stays, sliders do the heavy lifting
+            self.island_scale = self.island_scale * GS.scale(s, 'island_size', 0.55, 1.0, 1.65)
+            self.coverage = self.coverage - (s['sky_density'] - 50) / 50.0 * 0.14
+            self.realm_scale = self.realm_scale * GS.scale(s, 'biome_size', 0.5, 1.0, 1.8)
+            self.hill_amp = self.hill_amp * GS.scale(s, 'terrain_roughness', 0.45, 1.05, 1.8)
+            self.mount_amp = self.mount_amp * GS.scale(s, 'mountain_height', 0.35, 1.15, 1.9)
+            self.depth_amp = (self.depth_amp + 10) * GS.scale(s, 'island_thickness', 0.42, 1.0, 2.15)
+            self.caves = self.caves * GS.scale(s, 'cave_amount', 0.35, 1.25, 2.1)
+            self.tree_mul = GS.scale(s, 'tree_density', 0.15, 1.0, 2.2)
+            self.water_mul = GS.scale(s, 'water', 0.15, 1.0, 2.0)
+            self.flatness = s['flatness'] / 100.0
+            self.cave_size = GS.scale(s, 'cave_size', 0.55, 1.0, 1.85)
+            self.glimmer_mul = GS.scale(s, 'glimmer_rarity', 2.1, 1.0, 0.28)
+        else:
+            self.tree_mul = 1.0
+            self.water_mul = 1.0
+            self.flatness = 0.35
+            self.cave_size = 1.0
+            self.glimmer_mul = 1.0
 
     # ------------------------------------------------------------------ columns
     def columns(self, Q, R):
         """Island shape for arrays of axial columns (any shape). Returns a dict of arrays."""
+        if self.version == 1:
+            return self._columns_v1(Q, R)
+        return self._columns_v2(Q, R)
+
+    def _columns_v1(self, Q, R):
+        """Pre-1.4-phase2a terrain, kept so old skies keep generating matching new chunks."""
         Q = np.asarray(Q, dtype=np.int64)
         R = np.asarray(R, dtype=np.int64)
         X = HEX * SQ3 * (Q.astype(np.float64) + R.astype(np.float64) * 0.5)
@@ -129,6 +163,136 @@ class Generator:
             np.isin(realm, (MEADOW, AMBER, FEN, BASALT, LUMEN))
         return {'e': e, 'land': land, 'top': top, 'bottom': bottom, 'realm': realm, 'pool': pool, 'fall': fall,
                 'skerry': sk, 'inner': inner, 'rand': col_rand, 'peak': top > self.alt_base + 30}
+    def _columns_v2(self, Q, R):
+        """Richer landforms: plains, hills, valleys and mixed mountain ranges, thicker islands, wider altitude bands."""
+        Q = np.asarray(Q, dtype=np.int64)
+        R = np.asarray(R, dtype=np.int64)
+        X = HEX * SQ3 * (Q.astype(np.float64) + R.astype(np.float64) * 0.5)
+        Z = HEX * 1.5 * R.astype(np.float64)
+        s1 = self.island_scale
+        wx = X + self.warp * self.n_warp1.fbm2(X / (s1 * 0.9), Z / (s1 * 0.9), 3)
+        wz = Z + self.warp * self.n_warp2.fbm2(X / (s1 * 0.9) + 17.3, Z / (s1 * 0.9) - 4.1, 3)
+        e = self.n_island.fbm2(wx / s1, wz / s1, 5) - self.coverage
+        ei = self.n_islet.fbm2(wx / 38.0, wz / 38.0, 3) - (0.62 - self.islet_rate)
+
+        # each island gets its own vertical center of mass (some low over the clouds, some high)
+        shelf = 48.0 + 28.0 * self.n_alt.fbm2(X / 1800.0, Z / 1800.0, 3)
+        mass = self.n_mass.fbm2(wx / s1, wz / s1, 2)
+        com = shelf + 22.0 * mass + (self.alt_base - 59.0)  # seed personality still nudges the band
+        # thicker worlds sit a little higher so the undersides have room
+        com = com + 0.22 * (self.depth_amp - 40.0)
+        com = np.clip(com, CLOUD_SEA + 16, TOP_MAX - 28)
+
+        heat = self.n_heat.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.heat_bias
+        wet = self.n_wet.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.wet_bias
+        lum = self.n_lumen.fbm2(X / (self.realm_scale * 0.7), Z / (self.realm_scale * 0.7), 2)
+        sp = self.n_spice.fbm2(X / (self.realm_scale * 0.85), Z / (self.realm_scale * 0.85), 3)
+        realm = np.full(Q.shape, MEADOW, dtype=np.int64)
+        realm[heat > 0.05] = AMBER
+        realm[(heat > 0.30) & (wet >= -0.05)] = ROSE
+        realm[(heat > 0.30) & (wet < -0.05)] = DUNE
+        realm[(wet > 0.28) & (heat <= 0.30)] = FEN
+        realm[(wet < -0.30) & (heat <= 0.30)] = BASALT
+        realm[heat < -0.28] = FROST
+        realm[lum > 0.40] = LUMEN
+        # eight new landscapes, occupying niches so the original eight still appear
+        realm[(wet > 0.02) & (e > 0) & (e < 0.13) & (heat > -0.16) & (heat < 0.36) & (lum <= 0.40)] = SALTWIND
+        realm[(heat < 0.02) & (heat > -0.30) & (wet > 0.00) & (sp < 0.22) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, FEN, AMBER, CEDAR))] = CEDAR
+        realm[(np.abs(heat) < 0.26) & (wet > -0.16) & (wet < 0.28) & (sp > 0.10) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, AMBER, ROSE, LAVENDER))] = LAVENDER
+        realm[(heat > 0.14) & (wet < 0.10) & (sp > 0.04) & (lum <= 0.40)
+              & np.isin(realm, (AMBER, ROSE, DUNE, CINDER))] = CINDER
+        realm[(wet < -0.02) & (heat > -0.14) & (heat < 0.32) & (sp < 0.18) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, BASALT, DUNE, AMBER, CHALK))] = CHALK
+        realm[(sp > 0.20) & (heat < 0.28) & (lum > -0.02) & (lum <= 0.40)] = STARFALL
+        realm[(mass > 0.08) & (shelf > 50) & (lum <= 0.40)] = CLOUDSTEP
+        realm[(wet > 0.04) & (heat > -0.16) & (heat < 0.36) & (sp > 0.00) & (sp < 0.36) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, FEN, BASALT, AMBER, VERDIGRIS, SALTWIND))] = VERDIGRIS
+        # lumen still wins at the heart of a grove
+        realm[lum > 0.40] = LUMEN
+
+        # landform mix: plains, rolling hills, valleys, mixed mountain styles (fairly even shares)
+        form = 0.5 + 0.5 * self.n_form.fbm2(X / 640.0, Z / 640.0, 3)
+        plains = smoothstep(0.38, 0.18, form)
+        hills_w = np.clip(1.0 - np.abs(form - 0.44) / 0.26, 0, 1)
+        valleys = smoothstep(0.46, 0.56, form) * smoothstep(0.82, 0.68, form)
+        mounts = smoothstep(0.55, 0.70, form)
+        style = self.n_style.fbm2(X / 900.0, Z / 900.0, 2)
+        hills = self.n_hill.fbm2(wx / 70.0, wz / 70.0, 4)
+        ridge = 1.0 - np.abs(self.n_detail.fbm2(wx / 45.0, wz / 45.0, 3)) * 2
+        inner = smoothstep(0.0, 0.18, e)
+        flat = self.flatness
+        rough = max(0.35, self.hill_amp / 10.0)
+
+        h = com.copy()
+        # plains: very gentle roll, almost gone when Flatness is high
+        h = h + (3.0 + 6.0 * rough) * hills * plains * inner * (1.0 - 0.85 * flat)
+        # rolling hills
+        h = h + (8.0 + self.hill_amp) * (hills * 0.9 + 0.25) * hills_w * inner * (1.0 - 0.80 * flat)
+        # valleys cut between ridges
+        h = h - (14.0 + 22.0 * rough) * valleys * inner * np.clip(1.15 - ridge, 0, 1) * (1.0 - 0.7 * flat)
+        # mountain styles: sharp ridges, broader alpine, or stepped plateaus
+        mount = mounts * smoothstep(0.03, 0.22, e)
+        peak = (18.0 + self.mount_amp) * mount * (0.65 + 0.80 * np.clip(ridge, 0, 1))
+        alpine = (16.0 + self.mount_amp) * mount * (0.75 + 0.45 * hills)
+        plateau = com + (14.0 + self.mount_amp) * 0.85 * mount
+        plateau = np.floor(plateau / 5.0) * 5.0 + 0.4
+        h = h + np.where(style > 0.10, np.where(style > 0.38, peak, alpine), 0) * (1.0 - 0.85 * flat)
+        h = np.where((style <= 0.10) & (mount > 0.12),
+                     com + (plateau - com) * (1.0 - 0.75 * flat), h)
+        # realm flavour
+        h = h + np.where(realm == FROST, ridge * 8 * inner * (1.0 - 0.5 * flat), 0)
+        h = h + np.where(realm == DUNE, np.sin(wx / 9.0 + hills * 4) * 2.2 * inner, 0)
+        h = h + np.where(realm == CINDER, self.cliff_amp * 0.8 * inner, 0)
+        h = np.where(realm == FEN, com + (h - com) * (0.55 - 0.25 * flat), h)
+        h = np.where(realm == SALTWIND, com + (h - com) * (0.30 - 0.15 * flat), h)
+        h = np.where(realm == CHALK, com + (h - com) * 0.55, h)
+        h = np.where(realm == LAVENDER, com + (h - com) * (0.65 - 0.2 * flat), h)
+        cl = smoothstep(-0.035, 0.035, self.n_cliff.fbm2(wx / 110.0, wz / 110.0, 2))
+        h = h + self.cliff_amp * cl * smoothstep(0.08, 0.25, e) * np.where(
+            np.isin(realm, (FEN, DUNE, SALTWIND, LAVENDER)), 0.25, 1.0)
+        terr_on = (self.n_terrace.fbm2(X / 220.0, Z / 220.0, 2) > 0.18) & np.isin(
+            realm, (MEADOW, AMBER, FROST, CEDAR, CHALK, CLOUDSTEP))
+        h = np.where(terr_on, np.floor(h / 3.0) * 3.0 + 0.5, h)
+        top = np.floor(h)
+        terr = np.floor(h / 4.0) * 4.0 + np.where(hills > 0.25, 1, 0)
+        top = np.where(realm == ROSE, terr, top)
+        col_rand = rand01(Q, R, self.h)
+        top = np.where(np.isin(realm, (BASALT, VERDIGRIS, CINDER)), top + np.floor(col_rand * 3.0 * inner), top)
+
+        # substantially thicker in most places, still clearly varied
+        thick = self.depth_amp * (0.85 + 0.50 * self.n_depth.fbm2(X / 36.0, Z / 36.0, 3))
+        thick = thick * (1.0 + 0.28 * mounts + 0.06 * plains)
+        depth = 10 + (0.20 + np.sqrt(np.clip(e, 0, None))) * thick
+        depth = depth + (rand01(Q, R, self.h + 1) ** 6) * 14 * inner
+        # saltwind and chalk run a little shallower; mountains and cloudstep run deeper
+        depth = depth * np.where(np.isin(realm, (SALTWIND, CHALK, LAVENDER)), 0.78, 1.0)
+        depth = depth * np.where(np.isin(realm, (CLOUDSTEP, CINDER, FROST)), 1.18, 1.0)
+        bottom = top - np.floor(depth)
+        # clip into the cloud sea if needed, but do not lift per-column (that flattened the terrain)
+
+        sk = (ei > 0) & (e <= 0)
+        sk_alt = np.floor(com + 8 + 16 * self.n_islet_alt.fbm2(X / 300.0, Z / 300.0, 2) + ei * 25)
+        top = np.where(sk, sk_alt, top)
+        bottom = np.where(sk, sk_alt - np.floor(3 + np.sqrt(np.clip(ei, 0, None)) * 36), bottom)
+        land = (e > 0) | sk
+        # thick low islands may hang down into the cloud sea; don't clip thickness away
+        top = np.clip(top, TOP_MIN, TOP_MAX).astype(np.int64)
+        bottom = np.clip(bottom, 2, None).astype(np.int64)
+        bottom = np.minimum(bottom, top - 2)
+
+        pooln = self.n_pool.fbm2(X / 26.0, Z / 26.0, 2)
+        wmul = self.water_mul
+        pool_t = np.where(np.isin(realm, (FEN, SALTWIND, VERDIGRIS)), 0.14 - 0.10 * wmul,
+                          np.where(np.isin(realm, (BASALT, MEADOW, LAVENDER, CEDAR)), 0.50 - 0.16 * wmul, 9.0))
+        pool_t = np.where(np.isin(realm, (CINDER, DUNE, CHALK)), 0.75 - 0.10 * wmul, pool_t)
+        pool = land & ~sk & (e > 0.04) & (pooln > pool_t) & (wmul > 0.2)
+        fall = land & ~sk & (e > 0.0) & (e < 0.03) & (rand01(Q, R, self.h + 2) < (0.012 * wmul)) & \
+            np.isin(realm, (MEADOW, AMBER, FEN, BASALT, LUMEN, CEDAR, VERDIGRIS, CLOUDSTEP, LAVENDER))
+        return {'e': e, 'land': land, 'top': top, 'bottom': bottom, 'realm': realm, 'pool': pool, 'fall': fall,
+                'skerry': sk, 'inner': inner, 'rand': col_rand, 'peak': top > (com + 24), 'com': com}
+
 
     # ------------------------------------------------------------------ spires
     def spire(self, rq, rr):
@@ -186,23 +350,37 @@ class Generator:
         cells = np.zeros((CHUNK, LAYERS, CHUNK), np.uint8)
         body = np.full(Rm.shape, M['stone'], np.uint8)
         body = np.where(Rm == ROSE, M['rosestone'], body)
-        body = np.where(Rm == BASALT, M['basalt'], body)
-        mid = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN)), M['loam'], body)
-        mid = np.where(Rm == DUNE, M['sand'], mid)
-        mid = np.where(Rm == FROST, M['snow'], mid)
-        surf = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN)), M['turf'], body)
-        surf = np.where(Rm == DUNE, M['sand'], surf)
+        body = np.where(np.isin(Rm, (BASALT, CINDER)), M['basalt'], body)
+        body = np.where(Rm == VERDIGRIS, M['mossrock'], body)
+        mid = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS)), M['loam'], body)
+        mid = np.where(np.isin(Rm, (DUNE, SALTWIND, CHALK)), M['sand'], mid)
+        mid = np.where(np.isin(Rm, (FROST, CLOUDSTEP)), M['snow'], mid)
+        mid = np.where(Rm == STARFALL, M['stone'], mid)
+        surf = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS, STARFALL, CLOUDSTEP)), M['turf'], body)
+        surf = np.where(np.isin(Rm, (DUNE, CHALK, SALTWIND)), M['sand'], surf)
         surf = np.where(Rm == FROST, M['snow'], surf)
+        surf = np.where(Rm == CINDER, M['basalt'], surf)
         det = self.n_detail.fbm2(Q[sl] / 7.0, R[sl] / 7.0, 2)[:, None, :]
         surf = np.where((Rm == BASALT) & (det > 0.1), M['turf'], surf)
         surf = np.where((Rm == ROSE) & (det > 0.15), M['turf'], surf)
         surf = np.where((Rm == FROST) & (det > 0.35), M['ice'], surf)
         surf = np.where((Rm == FEN) & (det < -0.32), M['clay'], surf)
-        peak = col['peak'][sl][:, None, :] & ~np.isin(Rm, (DUNE, LUMEN))
+        surf = np.where((Rm == SALTWIND) & (det < 0.05), M['clay'], surf)
+        surf = np.where((Rm == CEDAR) & (det < -0.2), M['mossrock'], surf)
+        surf = np.where((Rm == CHALK) & (det > 0.25), M['stone'], surf)
+        surf = np.where((Rm == CLOUDSTEP) & (det > 0.2), M['snow'], surf)
+        surf = np.where((Rm == VERDIGRIS) & (det > 0.15), M['mossrock'], surf)
+        surf = np.where((Rm == CINDER) & (det > 0.35), M['stone'], surf)
+        peak = col['peak'][sl][:, None, :] & ~np.isin(Rm, (DUNE, LUMEN, SALTWIND, CINDER, CHALK))
         surf = np.where(peak, M['snow'], surf)
+        # cloudstep undersides fade into cloudstuff
         cells = np.where(solid, body, 0).astype(np.uint8)
         cells = np.where(solid & (d <= 3) & (d >= 1), mid, cells)
         cells = np.where(solid & (d == 0), surf, cells)
+        # Cloudstep Isles: the lowest third of the island is cloudstuff
+        from_bot = ys - B
+        thick = np.maximum(1, T - B)
+        cells = np.where(solid & (Rm == CLOUDSTEP) & (from_bot <= thick * 0.34) & (d >= 2), M['cloudstuff'], cells)
         # ores in the stone body, in veins, rarer the deeper you go
         body_mask = solid & (d >= 3)
         if body_mask.any():
@@ -217,18 +395,37 @@ class Generator:
                 n = self.n_ore.noise3(xx / sc + 37.1 * k, yy / sc - 11.3 * k, zz / sc + 5.7 * k)
                 hit = (dd >= mind) & (n > thr)
                 cells[idx[0][hit], idx[1][hit], idx[2][hit]] = ore
-            # caves: winding worm tunnels plus a few big caverns
+            # caves: winding worms, linking highways, rooms of mixed scale, fissures, arches
             deep = (dd >= 3) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 3)
-            n1 = self.n_cave.noise3(xx / 16.0, yy / 7.0, zz / 16.0)
-            n2 = self.n_cave.noise3(xx / 16.0 + 31.7, yy / 7.0 - 3.3, zz / 16.0 + 11.9)
-            worm = (np.abs(n1) < self.caves) & (np.abs(n2) < self.caves * 1.7)
-            big = self.n_tunnel.noise3(xx / 34.0, yy / 14.0, zz / 34.0) > 0.42
-            hole = deep & (worm | big)
+            if self.version == 2:
+                cs = self.cave_size
+                amt = self.caves
+                n1 = self.n_cave.noise3(xx / (16.0 * cs), yy / (7.0 * cs), zz / (16.0 * cs))
+                n2 = self.n_cave.noise3(xx / (16.0 * cs) + 31.7, yy / (7.0 * cs) - 3.3, zz / (16.0 * cs) + 11.9)
+                worm = (np.abs(n1) < amt * 1.15) & (np.abs(n2) < amt * 2.0)
+                # larger "highway" worms that stitch chambers together
+                h1 = self.n_hw.noise3(xx / (42.0 * cs), yy / (16.0 * cs), zz / (42.0 * cs))
+                h2 = self.n_hw.noise3(xx / (42.0 * cs) + 8.1, yy / (16.0 * cs) - 5.4, zz / (42.0 * cs) + 19.2)
+                highway = (np.abs(h1) < amt * 0.85) & (np.abs(h2) < amt * 1.3)
+                # rooms: a few sizes of open cavern
+                small = self.n_room.noise3(xx / (18.0 * cs), yy / (10.0 * cs), zz / (18.0 * cs)) > (0.52 - amt * 0.6)
+                midc = self.n_tunnel.noise3(xx / (34.0 * cs), yy / (16.0 * cs), zz / (34.0 * cs)) > (0.46 - amt * 0.5)
+                huge = self.n_room.noise3(xx / (70.0 * cs) + 4.4, yy / (28.0 * cs), zz / (70.0 * cs)) > (0.62 - amt * 0.25)
+                # tall fissures and wide squash chambers
+                fiss = (np.abs(self.n_fiss.noise3(xx / 9.0, yy / 22.0, zz / 9.0)) < 0.07 * (0.7 + amt)) & (
+                    np.abs(self.n_fiss.noise3(xx / 22.0 + 3, yy / 9.0, zz / 22.0)) < 0.22)
+                hole = deep & (worm | highway | small | midc | huge | fiss)
+            else:
+                n1 = self.n_cave.noise3(xx / 16.0, yy / 7.0, zz / 16.0)
+                n2 = self.n_cave.noise3(xx / 16.0 + 31.7, yy / 7.0 - 3.3, zz / 16.0 + 11.9)
+                worm = (np.abs(n1) < self.caves) & (np.abs(n2) < self.caves * 1.7)
+                big = self.n_tunnel.noise3(xx / 34.0, yy / 14.0, zz / 34.0) > 0.42
+                hole = deep & (worm | big)
             # arches and overhangs: carve near the surface, under a 2-layer roof
             band = (dd >= 2) & (dd <= 9) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 4)
             if band.any():
                 na = self.n_arch.noise3(xx / 11.0, yy / 4.5, zz / 11.0)
-                hole |= band & (na > self.arches)
+                hole |= band & (na > (self.arches - (0.04 if self.version == 2 else 0.0)))
             cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
             # glowcaps and crystals on cave floors
             fl = hole & (rand01(qq.astype(np.int64), rr.astype(np.int64) * 7 + idx[1], self.h + 31) < 0.04)
@@ -256,15 +453,19 @@ class Generator:
         free = land & ~pool & ~fall & (top + 1 < LAYERS)
         surf_top = cells[np.arange(CHUNK)[:, None], top, np.arange(CHUNK)[None, :]]
         on_turf = free & ((surf_top == M['turf']) | (surf_top == M['snow']) | (surf_top == M['sand']))
-        deco_rate = np.choose(realm, [0.07, 0.03, 0.02, 0.012, 0.03, 0.04, 0.012, 0.10])
-        deco = np.choose(realm, [M['petals'], M['petals'], M['petals'], M['crystal'], M['petals'], M['petals'],
-                                 M['crystal'], M['glowcap']])
+        deco_rate = np.take([0.07, 0.03, 0.02, 0.012, 0.03, 0.04, 0.012, 0.10,
+                            0.03, 0.04, 0.11, 0.02, 0.015, 0.08, 0.03, 0.05], np.clip(realm, 0, 15))
+        deco = np.take([M['petals'], M['petals'], M['petals'], M['crystal'], M['petals'], M['petals'],
+                         M['crystal'], M['glowcap'],
+                         M['petals'], M['petals'], M['petals'], M['crystal'], M['petals'], M['crystal'],
+                         M['glowcap'], M['vine']], np.clip(realm, 0, 15))
         place = on_turf & (rnd < deco_rate)
         ii, kk = np.nonzero(place)
         for i, k in zip(ii, kk):
             if cells[i, top[i, k], k] != 0:
                 cells[i, top[i, k] + 1, k] = deco[i, k]
-        bush = on_turf & ~place & (rnd2 > 1 - np.choose(realm, [0.012, 0.02, 0.004, 0.0, 0.006, 0.02, 0.0, 0.004]))
+        bush = on_turf & ~place & (rnd2 > 1 - np.take([0.012, 0.02, 0.004, 0.0, 0.006, 0.02, 0.0, 0.004,
+                                                     0.008, 0.025, 0.016, 0.0, 0.004, 0.006, 0.005, 0.014], np.clip(realm, 0, 15)))
         ii, kk = np.nonzero(bush)
         for i, k in zip(ii, kk):
             if cells[i, top[i, k], k] != 0:
@@ -283,7 +484,9 @@ class Generator:
 
         # trees
         trnd = rand01(Q, R, self.h + 7)
-        tree_rate = np.choose(col['realm'], [0.016, 0.05, 0.006, 0.02, 0.004, 0.022, 0.002, 0.03])
+        tree_rate = np.take([0.016, 0.05, 0.006, 0.02, 0.004, 0.022, 0.002, 0.03,
+                             0.004, 0.045, 0.012, 0.003, 0.005, 0.018, 0.008, 0.024], np.clip(col['realm'], 0, 15))
+        tree_rate = tree_rate * getattr(self, 'tree_mul', 1.0)
         tmask = col['land'] & ~col['pool'] & ~col['fall'] & (trnd < tree_rate) & (col['e'] > 0.035) & ~col['skerry']
         ii, kk = np.nonzero(tmask)
         for i, k in zip(ii, kk):
@@ -330,18 +533,41 @@ class Generator:
                 rad = max(0, 2 - i // 2)
                 self._disk(cells, lq, lr, y, rad, leaf)
             return
-        if realm == DUNE:
+        if realm == DUNE or realm == CINDER:
             for y in range(top + 1, top + rng.randint(3, 5)):
-                self._put(cells, lq, y, lr, M['crystal'])
+                self._put(cells, lq, y, lr, M['crystal'] if realm == DUNE else M['basalt'])
+            if realm == CINDER:
+                self._put(cells, lq, top + rng.randint(2, 4), lr, M['crystal'])
             return
-        hgt = rng.randint(4, 6) + (2 if realm == AMBER else 0)
+        if realm == STARFALL:
+            hgt = rng.randint(4, 7)
+            for y in range(top + 1, top + hgt):
+                self._put(cells, lq, y, lr, M['crystal'] if y > top + hgt - 3 else wood)
+            self._disk(cells, lq, lr, top + hgt, 2, leaf)
+            self._put(cells, lq, top + hgt + 1, lr, M['lumen_shard'])
+            return
+        if realm == CEDAR or realm == CLOUDSTEP:
+            hgt = rng.randint(7, 10) if realm == CEDAR else rng.randint(4, 6)
+            for y in range(top + 1, top + hgt):
+                self._put(cells, lq, y, lr, wood)
+            for i, y in enumerate(range(top + (3 if realm == CEDAR else 2), top + hgt + 1)):
+                rad = max(0, (2 if realm == CEDAR else 1) - i // 2)
+                self._disk(cells, lq, lr, y, rad, leaf)
+            return
+        if realm == CHALK or realm == SALTWIND:
+            hgt = rng.randint(3, 5)
+            for y in range(top + 1, top + hgt):
+                self._put(cells, lq, y, lr, wood)
+            self._disk(cells, lq, lr, top + hgt, 1, leaf)
+            return
+        hgt = rng.randint(4, 6) + (2 if realm in (AMBER, VERDIGRIS) else 0)
         for y in range(top + 1, top + hgt + 1):
             self._put(cells, lq, y, lr, wood)
         rad = 2 if realm != ROSE else 1
         self._disk(cells, lq, lr, top + hgt - 1, rad, leaf)
         self._disk(cells, lq, lr, top + hgt, rad, leaf)
         self._disk(cells, lq, lr, top + hgt + 1, max(1, rad - 1), leaf)
-        if realm == FEN:                        # weeping vines from the canopy edge
+        if realm in (FEN, VERDIGRIS):          # weeping vines from the canopy edge
             for (dq, dr) in ((2, 0), (-2, 0), (0, 2), (0, -2), (2, -2), (-2, 2)):
                 for y in range(top + hgt - 2 - rng.randint(0, 2), top + hgt - 1):
                     self._put(cells, lq + dq, y, lr + dr, M['vine'])
