@@ -164,6 +164,20 @@ def test_old_worlds_still_generate():
     assert not (a == c).all()
 
 
+
+
+def test_generation_is_reasonably_fast():
+    import time
+    from tidewake.generator import Generator
+    g = Generator(11, {})
+    g.generate(0, 0)  # warmup (numba, first-call noise)
+    t0 = time.perf_counter()
+    for cq, cr in ((1, 0), (-1, 1), (2, -1), (0, 3), (3, 2)):
+        g.generate(cq, cr)
+    elapsed = time.perf_counter() - t0
+    assert elapsed < 6.0, f'5 chunks took {elapsed:.2f}s'
+
+
 if __name__ == '__main__':
     test_skywhale_is_longer_than_it_is_chunky()
     print('ok skywhale silhouette is long and flat')
@@ -177,4 +191,6 @@ if __name__ == '__main__':
     print('ok glimmer, food and fishing balance')
     test_old_worlds_still_generate()
     print('ok old worlds still generate')
+    test_generation_is_reasonably_fast()
+    print('ok generation pace')
     print('ALL PHASE5 UNIT TESTS PASSED')

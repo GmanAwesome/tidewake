@@ -4,7 +4,7 @@ import random
 
 import numpy as np
 
-from .config import LAYER
+from .config import LAYER, CHUNK
 from .hexgrid import center, cell_at, ring
 from .noise import seed_from_text
 from . import materials as MT
@@ -1744,3 +1744,274 @@ def phase4_fix(app, log, shot, look_at, settled, arg):
     yield 0.7
     yield shot('10_third_person_front')
     log('phase4_fix finished')
+
+
+def _find_under_canopy(ses, origin=None, reach=64):
+    """A walkable ground cell beside a trunk, with canopy at least 3 layers overhead."""
+    WOOD = {M['heartwood'], M['cedar_heartwood'], M['pale_heartwood'], M['dark_heartwood']}
+    LEAF = {M['canopy']}
+    pq, pr = origin or cell_at(ses.player.x, ses.player.z)
+    for rad in range(0, reach + 1):
+        cells = [(pq, pr)] if rad == 0 else list(ring(pq, pr, rad))
+        for aq, ar in cells:
+            top = ses.world.column_top(aq, ar)
+            if top is None:
+                continue
+            trunk_y = None
+            leaf_y = None
+            for y in range(top, max(0, top - 18), -1):
+                mat = ses.world.get(aq, ar, y)
+                if mat in LEAF and leaf_y is None:
+                    leaf_y = y
+                if mat in WOOD:
+                    trunk_y = y
+                    break
+            if trunk_y is None or leaf_y is None:
+                continue
+            for dq, dr in list(DIRS) + [(0, 0)]:
+                nq, nr = aq + dq, ar + dr
+                gt = ses.world.column_top(nq, nr)
+                if gt is None:
+                    continue
+                cap = ses.world.get(nq, nr, gt)
+                if cap in WOOD or cap in LEAF:
+                    continue
+                overhead = None
+                for y in range(gt + 3, gt + 12):
+                    if ses.world.get(nq, nr, y) in LEAF or ses.world.get(aq, ar, y) in LEAF:
+                        overhead = y
+                        break
+                if overhead is not None:
+                    return nq, nr, gt, aq, ar, overhead
+    return None
+
+
+def _find_chamber(ses):
+    """A buried lumen lamp well below the surface, from the loaded chunks."""
+    for ch in list(ses.world.chunks.values()):
+        hits = np.argwhere(ch.cells == M['lumen_lamp'])
+        for a, y, b in hits:
+            q = ch.cq * CHUNK + int(a)
+            r = ch.cr * CHUNK + int(b)
+            top = ses.world.column_top(q, r)
+            if top is not None and int(top) - int(y) >= 5:
+                return q, r, int(y)
+    return None
+
+
+def phase5(app, log, shot, look_at, settled, arg):
+    """Playtest and cohesion: title, lesson, under-canopy, whales, face, lit chamber, a legacy sky."""
+    import json
+    import os
+    import time as _t
+    from . import tutorial as TUT
+    from . import showcase as SC
+    from .entities import Mob
+    from . import items as I
+    from .generator import Generator
+    from .session import find_spawn
+    from .storage import SkyStorage
+    from .structures import Stamp, build_chamber, INTACT
+
+    app.started = _t.perf_counter() - 60
+    yield 1.2
+    yield lambda: app.backdrop is not None and app.backdrop['world'].busy() == 0
+    yield 1.4
+    yield shot('00_title')
+
+    SC._index = 1
+    app.start_backdrop()
+    yield 1.0
+    yield lambda: app.backdrop['world'].busy() == 0
+    yield 1.6
+    yield shot('01_title_seed')
+    keep = app.menu
+    app.menu = None
+    app.backdrop['speed'] = 0
+    yield 1.1
+    yield shot('02_hero_sky')
+    app.menu = keep
+
+    app.start_tutorial()
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    app.started = _t.perf_counter() - 60
+    p.update = lambda *a, **k: None
+    if any(m.kind in ('woolhop', 'skywhale', 'fairy') for m in ses.mobs):
+        log('WARN tutorial still has creatures', [m.kind for m in ses.mobs])
+    ses.mobs = []
+
+    tx, tz = center(9, 2)
+    p.x, p.z = tx - 1.0, tz + 7.0
+    p.y = (TUT.SURF + 3.8) * LAYER
+    look_at(p, tx + 1.2, (TUT.SURF + 1.6) * LAYER, tz - 0.4)
+    yield 0.8
+    yield shot('03_lesson_huts')
+
+    tx, tz = center(13, -1)
+    p.x, p.z = tx - 3.4, tz + 2.6
+    p.y = (TUT.SURF + 3.4) * LAYER
+    look_at(p, tx + 0.3, (TUT.SURF + 2.0) * LAYER, tz)
+    yield 0.8
+    yield shot('04_practice_door')
+
+    # a new generated sky — stand under a real canopy before flying off
+    app.set_screen(None)
+    app.create_sky('Phase 5', 1729, '1729', 'dreamer')
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = True
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    app.cam_view = 0
+    app.started = _t.perf_counter() - 60
+    p.update = lambda *a, **k: None
+    ses.phase = 0.12
+
+    found = _find_under_canopy(ses, cell_at(p.x, p.z), 72)
+    if found:
+        nq, nr, gt, aq, ar, overhead = found
+        tx, tz = center(aq, ar)
+        gx, gz = center(nq, nr)
+        p.x, p.z = gx + (gx - tx) * 0.15, gz + (gz - tz) * 0.15
+        p.y = (gt + 1) * LAYER + 0.05
+        look_at(p, tx, (overhead + 0.2) * LAYER, tz)
+        log('under_canopy', found)
+        yield settled()
+        yield 1.0
+        yield shot('05_under_canopy')
+    else:
+        log('no tree found')
+
+    # skywhales in profile so the long silhouette reads
+    q, r = cell_at(p.x, p.z)
+    top = ses.world.column_top(q, r) or 50
+    p.x, p.z = p.x, p.z
+    p.y = (top + 16) * LAYER
+    tx, tz = p.x + 16, p.z - 2
+    ses.mobs = [Mob('skywhale', tx, p.y - 1.0, tz), Mob('skywhale', tx + 12, p.y + 2.2, tz - 7)]
+    ses.mobs[0].yaw = 270
+    ses.mobs[1].yaw = 250
+    look_at(p, tx + 5, p.y, tz - 3)
+    yield settled()
+    yield 1.0
+    yield shot('06_skywhales')
+
+    # third person and a clear front face
+    ses.mobs = []
+    # stand on solid ground near spawn island
+    found = _find_under_canopy(ses, cell_at(p.x, p.z), 80)
+    if found:
+        nq, nr, gt, *_ = found
+        p.x, p.z = center(nq, nr)
+        p.y = (gt + 1) * LAYER + 0.05
+    else:
+        q, r = cell_at(p.x, p.z)
+        gt = ses.world.column_top(q, r) or int(p.y / LAYER)
+        p.y = (gt + 1) * LAYER + 0.05
+    ses.inv.clear()
+    ses.inv.add(I.TOOLS[('pick', 2)].id, 1)
+    ses.hot = 0
+    p.yaw = 200
+    p.pitch = -8
+    app.cam_view = 1
+    app.hide_hud = False
+    ses.toasts = []
+    app.started = _t.perf_counter() - 60
+    yield 0.9
+    yield shot('07_third_person')
+    app.cam_view = 2
+    yield 0.8
+    yield shot('08_looking_at_you')
+    app.cam_view = 0
+    app.hide_hud = True
+
+    # lit buried chamber — find one, or stamp a demo under thick land
+    ch = _find_chamber(ses)
+    if ch is None:
+        pq, pr = cell_at(p.x, p.z)
+        for rad in range(2, 40):
+            for aq, ar in ring(pq, pr, rad):
+                gt = ses.world.column_top(aq, ar)
+                bot = None
+                if gt is None:
+                    continue
+                for y in range(gt, max(0, gt - 24), -1):
+                    if ses.world.get(aq, ar, y) == 0 and y < gt - 8:
+                        break
+                    bot = y
+                if gt is not None and bot is not None and gt - bot >= 14:
+                    pal = dict(brick=M['stone_bricks'], tile=M['stone_tiles'], stone=M['stone'],
+                               lamp=M['ember_lamp'], planks=M['planks'], log=M['heartwood'],
+                               cloth=M['linen'], cobble=M['cobble'])
+                    st = Stamp(None, None, None, None, None, None, 0, 0,
+                               random.Random(1), INTACT, pal, world=ses.world)
+                    build_chamber(st, aq, ar, gt)
+                    ses.world.mark_dirty(aq, ar) if hasattr(ses.world, 'mark_dirty') else None
+                    ch = (aq, ar, gt - 8)
+                    log('stamped chamber', ch)
+                    break
+            if ch:
+                break
+    if ch:
+        cq, cr, cy = ch
+        tx, tz = center(cq, cr)
+        p.x, p.z = tx + 1.6, tz + 2.2
+        p.y = (cy + 1.2) * LAYER
+        look_at(p, tx, (cy + 1.4) * LAYER, tz)
+        log('chamber', ch)
+        yield settled()
+        yield 1.0
+        yield shot('09_chamber')
+    else:
+        log('no chamber found')
+
+    # a 1.3-style sky with no gen settings still loads
+    g = Generator(7)
+    q, r, top, sp = find_spawn(g)
+    x, z = center(q, r)
+    folder = SkyStorage.unique_folder(app.skies_dir, 'Legacy Sky')
+    st = SkyStorage(app.skies_dir, folder)
+    os.makedirs(st.path, exist_ok=True)
+    st.save({
+        'name': 'Legacy Sky', 'seed': 7, 'seed_text': 'legacy-7', 'mode': 'wanderer',
+        'gen': None,
+        'player': {'x': x, 'y': (top + 1) * LAYER + 0.001, 'z': z, 'yaw': 20, 'pitch': 4},
+    })
+    app.set_screen(None)
+    if app.session:
+        app.session.close()
+        app.session = None
+    app.open_sky(folder)
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    log('legacy', 'version', ses.gen.version, 'pos', p.x, p.y, p.z)
+    if ses.gen.version != 1:
+        log('WARN legacy gen version', ses.gen.version)
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    p.y = p.y + 10 * LAYER
+    p.pitch = -18
+    yield settled()
+    yield 1.0
+    yield shot('10_legacy_sky')
+    log('phase5 finished')

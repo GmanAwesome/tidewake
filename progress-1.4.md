@@ -233,3 +233,8 @@ Turning cave amount and cave size all the way up used to Swiss-cheese the island
 
 Glimmer at the usual mid setting was quietly disappearing in the daytime, because the target count was rounded down to zero. Mid-rarity skies now keep a light daytime trickle, and dusk still feels like the richer time to gather. Fishing bites stay open a little longer, so a fair hook is easier to catch. Food was already in a sensible place: a full bar lasts around half an hour of walking, and a handful of berries or a roast is a real meal, so that was left alone.
 
+
+## November 25, 2026, 4:47 PM EST — A playtest pass
+
+A scripted play-through now walks the title, the lesson island, a freshly generated sky, and an older 1.3-style sky. It looks for a real tree you can stand under in a generated world (not just the lesson grove), checks that the lesson island stays free of woolhops, and visits a lit buried chamber. Generation of a handful of chunks stays comfortably quick.
+
