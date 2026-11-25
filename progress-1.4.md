@@ -99,3 +99,9 @@ Screenshots: `screenshots-final/v1.4-phase2a/01_lavender_downs.png` through `08_
 Dreaming a new sky now opens a proper setup screen with twelve labeled sliders: island size, island thickness, sky density, terrain roughness, mountain height, flatness, cave amount, cave size, water, biome size, tree density and Glimmer rarity. 50 is the usual mid setting, Reset puts them all back, and the values are saved with the sky so they come back the next time you play it.
 
 Screenshot: `screenshots-final/v1.4-phase2a/00_sliders.png`.
+
+## November 25, 2026, 2:59 PM EST — Pre-release posted
+
+Phase 2a is up as a pre-release, so it doesn’t replace 1.3.4 as the usual download. Grab `Tidewake-1.4-phase2a-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4-phase2a (about 76.6 MB). The play-test screenshots are on that page too.
+
+Older skies still use the previous generator. Brand-new skies get the new land, caves, biomes and sliders. First launch still spends about a minute composing the music, same as before.

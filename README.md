@@ -34,7 +34,7 @@
 - 💾 Your skies, settings and snapshots are saved next to the exe (`skies/`, `settings.json`, `snapshots/`).
 
 > [!NOTE]
-> A **1.4 Phase 1 pre-release** is up if you'd like to try the foundation work early (taller blocks, crouch, doors, ladders, leaf decay, and a handful of fixes). It is [here](../../releases/tag/v1.4-phase1) — 1.3.4 stays the recommended download until 1.4 is finished. Your 1.3 skies still load.
+> A **1.4 Phase 2a pre-release** is up if you'd like to try the new world generation early (varied terrain, thicker islands, roomier caves, eight new landscapes, and a world-creation slider screen). It is [here](../../releases/tag/v1.4-phase2a) — 1.3.4 stays the recommended download until 1.4 is finished. Your 1.3 skies still load and keep their old terrain. (The earlier [Phase 1 pre-release](../../releases/tag/v1.4-phase1) is still there too.)
 
 
 ---
