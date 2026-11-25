@@ -159,8 +159,10 @@ def draw_hud(gui, app, ses, w, h):
         else:
             soft_text(gui, 'no sleeping spire nearby: wander on', w / 2, wy - 12 * s, 9.5, (1, 1, 1, 0.8), 'center', 'center')
 
-    # toasts
-    ty = h - 110 * s
+    # toasts sit under the top chrome, not over the mid-screen figure or the tide dial
+    ty = h - 78 * s
+    if ses.mode == 'awaken':
+        ty = min(ty, wy - 28 * s)
     for text, sub, left in reversed(ses.toasts):
         a = min(1.0, left / 0.6)
         tw = max(gui.text_width(text, 13, 'bold'), gui.text_width(sub, 9.5) if sub else 0) + 48 * s
@@ -175,9 +177,10 @@ def draw_hud(gui, app, ses, w, h):
     if ses.carry > 0:
         a = 1 - abs(ses.carry - 0.8) / 0.8
         gui.rect(0, 0, w, h, (1, 0.98, 0.98, max(0, min(1, a * 1.3))))
+    # first-session hint lives above the hotbar, not over the tide dial or toasts
     if time.perf_counter() - app.started < 40 and not app.show_debug:
         soft_text(gui, 'Hold left click: mine  ·  Right click: place / use  ·  E backpack  ·  J journal  ·  F4 dev mode',
-                  14 * s, h - 92 * s, 9, (1, 1, 1, 0.8))
+                  14 * s, 108 * s, 9, (1, 1, 1, 0.8))
 
 
 def _spire_for(ses, cell):

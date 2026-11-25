@@ -213,3 +213,8 @@ Skywhales were reading as a stack of chunky hexes. Their body is longer and flat
 
 The third-person figure used to be a blank head with hair all the way around, so the “looking at you” camera mostly showed the back of a head. Hair now sits further back, and there are simple eyes and a mouth on the front. The lesson-island guides got the same treatment, so people in the world read as faces from the front.
 
+
+## November 25, 2026, 4:43 PM EST — Third-person toasts no longer sit on the figure
+
+The first-session controls hint was drawn near the top of the screen, right over the tide dial, the wayfinder, and any toast that appeared — and in third person those toasts also fought with the “looking at you” figure. The hint now sits just above the hotbar, and toasts tuck under the top chrome instead of covering the middle of the view.
+
