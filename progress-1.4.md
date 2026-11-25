@@ -321,3 +321,8 @@ The lesson island is larger, with a wide packed-earth path and signposts from st
 ## November 25, 2026, 5:40 PM EST — Version string is 1.4.1-test
 
 The title and the in-game version line now say 1.4.1-test, ready for a pre-release the player can try before the real 1.4.1.
+
+
+## November 25, 2026, 5:42 PM EST — 1.4.1-test is up as a pre-release
+
+The play-test build is at https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.1-test (not Latest; 1.4 stays the recommended download). The Windows zip is `Tidewake-1.4.1-test-Windows.zip`, about 73 MB, with the Common Controls v6 manifest and icon checked by pefile. After screenshots are in `screenshots-final/v1.4.1/` and also attached to the release.
