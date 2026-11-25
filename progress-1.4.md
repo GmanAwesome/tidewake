@@ -75,3 +75,9 @@ Known leftover: the first launch still takes about a minute to compose the music
 New skies no longer feel like the same rolling bump repeated. Each region now leans toward plains, rolling hills, cut valleys, or a mountain range — and the mountains themselves come in a few styles (sharp ridges, broader alpine slopes, or stepped plateaus). Older skies keep their original generator so already-explored land doesn’t change.
 
 Screenshot: `screenshots-final/v1.4-phase2a/07_cloudstep_isles.png` (high, broken ranges over the cloud sea).
+
+## November 25, 2026, 2:57 PM EST — Thicker islands
+
+Islands are much thicker in most places — about three times the old depth on a typical new sky — and the thickness clearly varies from the rim to the heart of an island. Each island also sits at its own height: some hang lower over the clouds, some much higher. You can push this further with the Island thickness slider (thin about 28 layers, thick about 62).
+
+Screenshot: `screenshots-final/v1.4-phase2a/10_thick_island.png` (a cut through the inside of a thick island).
