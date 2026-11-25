@@ -187,3 +187,7 @@ Resting on a bedroll in the dusk no longer snaps the light back in a blink. The 
 
 In Dreamer mode (and while dev mode is on), a middle-click takes an item out of your inventory. Click a slot in the backpack to clear it, or middle-click in the world to let go of whatever you are holding. Wanderer mode is unchanged.
 
+## November 25, 2026, 4:30 PM EST — A rotating title sky
+
+The main menu no longer shows just the lighthouse cottage. It now takes turns through that build and a handful of strong seeds run on the current generator — Bright Arch, Saltwind Bay, Windward Isle, Ember Croft, Sky 4096 and Hardy 1729. Each one orbits for a little while, then the next sky fades into place.
+

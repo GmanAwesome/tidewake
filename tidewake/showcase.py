@@ -4,7 +4,8 @@ Each build lives in assets/showcase/<name>.json:
     {name, author, seed_text, site{q, r, top}, camera{...}, flatten{radius, blend, clear_up},
      blocks: [[dq, dr, dy, material, meta], ...]}      (dy = 0 is the ground surface)
 The edits are applied to chunks in memory as they load into a storage-less World, so the
-showcase never touches any saved sky. Add more JSON files and one is picked at random.
+showcase never touches any saved sky. Hand-made JSON builds and strong-seed skies (using
+the current generator) take turns on the title screen.
 """
 import glob
 import json
@@ -28,9 +29,50 @@ def list_builds():
     return sorted(glob.glob(os.path.join(_dir(), '*.json')))
 
 
-def pick(rng=random):
-    files = list_builds()
-    return Showcase.load(rng.choice(files)) if files else None
+# Strong v2 skies, scored for a nearby spire, land, and a mix of realms.
+# site is the spawn we found for that seed so the camera has a place to stand.
+SEED_SHOWS = [
+    dict(name='Bright Arch', seed_text='bright-arch', site={'q': -63, 'r': 22, 'top': 48},
+         camera={'radius': 48.0, 'height': 22.0, 'target_dy': 4.0, 'yaw_offset': -16.0, 'speed': 0.032, 'phase': 0.12}),
+    dict(name='Saltwind Bay', seed_text='salt-wind-bay', site={'q': 33, 'r': 43, 'top': 56},
+         camera={'radius': 46.0, 'height': 20.0, 'target_dy': 3.0, 'yaw_offset': 18.0, 'speed': 0.03, 'phase': 0.28}),
+    dict(name='Windward Isle', seed_text='windward-isle', site={'q': 141, 'r': -28, 'top': 48},
+         camera={'radius': 50.0, 'height': 24.0, 'target_dy': 5.0, 'yaw_offset': -28.0, 'speed': 0.034, 'phase': 0.08}),
+    dict(name='Ember Croft', seed_text='ember-croft', site={'q': 26, 'r': -24, 'top': 58},
+         camera={'radius': 44.0, 'height': 18.0, 'target_dy': 3.0, 'yaw_offset': 12.0, 'speed': 0.036, 'phase': 0.36}),
+    dict(name='Sky 4096', seed_text='4096', site={'q': -46, 'r': -135, 'top': 60},
+         camera={'radius': 42.0, 'height': 21.0, 'target_dy': 4.0, 'yaw_offset': -8.0, 'speed': 0.03, 'phase': 0.18}),
+    dict(name='Hardy 1729', seed_text='1729', site={'q': 21, 'r': 76, 'top': 73},
+         camera={'radius': 52.0, 'height': 26.0, 'target_dy': 6.0, 'yaw_offset': 24.0, 'speed': 0.028, 'phase': 0.22}),
+]
+
+_index = 0
+
+
+def catalog():
+    """JSON builds first, then the strong-seed skies, in a stable order for rotation."""
+    items = [('json', path) for path in list_builds()]
+    items.extend(('seed', spec) for spec in SEED_SHOWS)
+    return items
+
+
+def pick(advance=True):
+    global _index
+    items = catalog()
+    if not items:
+        return None
+    kind, payload = items[_index % len(items)]
+    if advance:
+        _index += 1
+    if kind == 'json':
+        return Showcase.load(payload)
+    data = dict(payload)
+    data.setdefault('kind', 'seed')
+    data.setdefault('blocks', [])
+    if data.get('gen') is None:
+        from . import gensettings as GS
+        data['gen'] = GS.normalize({})
+    return Showcase(data)
 
 
 _GROUND = np.array([MT.OPAQUE[i] and MT.NAMES[i] not in ('Canopy', 'Heartwood') for i in range(MT.N)])
@@ -42,6 +84,8 @@ _TURF, _LOAM, _STONE = MT.ID['turf'], MT.ID['loam'], MT.ID['stone']
 class Showcase:
     def __init__(self, data):
         self.data = data
+        self.kind = data.get('kind', 'json')
+        self.gen = data.get('gen')
         self.name = data.get('name', 'A little build')
         self.seed_text = data['seed_text']
         s = data['site']
@@ -51,7 +95,7 @@ class Showcase:
         self.flat_r, self.blend, self.clear_up = int(fl.get('radius', 0)), int(fl.get('blend', 0)), int(fl.get('clear_up', 24))
         # group block edits by column so each chunk only looks at its own cells
         self.cols = {}
-        for dq, dr, dy, mat, meta in data['blocks']:
+        for dq, dr, dy, mat, meta in data.get('blocks') or ():
             key = (self.q + dq, self.r + dr)
             self.cols.setdefault(key, []).append((self.top + dy, MT.ID[mat], int(meta)))
         self.reach = self.flat_r + self.blend
@@ -60,10 +104,12 @@ class Showcase:
         self.applied = set()
 
     def focus(self):
-        """World (x, z) the camera orbits: the middle of the build."""
+        """World (x, z) the camera orbits: the middle of the build, or the seed's spawn."""
         from .hexgrid import center
-        pts = [center(q, r) for q, r in self.cols]
-        return sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+        if self.cols:
+            pts = [center(q, r) for q, r in self.cols]
+            return sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+        return center(self.q, self.r)
 
     @classmethod
     def load(cls, path):

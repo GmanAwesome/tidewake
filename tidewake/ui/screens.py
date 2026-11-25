@@ -90,7 +90,9 @@ class TitleScreen(Screen):
         gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
         sc = app.backdrop.get('showcase') if app.backdrop else None
         if sc is not None:
-            gui.text(f'Built in Tidewake  ·  {sc.name}', w - 14 * s, 28 * s, 10, (1, 1, 1, 0.85), 'right')
+            label = ('A sky from the new generator  ·  ' if getattr(sc, 'kind', '') == 'seed'
+                     else 'Built in Tidewake  ·  ')
+            gui.text(label + sc.name, w - 14 * s, 28 * s, 10, (1, 1, 1, 0.85), 'right')
 
     def escape(self, app):
         pass

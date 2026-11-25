@@ -180,27 +180,42 @@ class App(pyglet.window.Window):
         except Exception as e:
             print('showcase unavailable:', e)
             sc = None
+        old = self.backdrop
         if sc is not None:
-            # a player-made build in a fixed sky, applied in memory only (World has no storage)
+            # JSON builds keep their original sky; seed showcases use the current generator.
             world = World(seed_from_text(sc.seed_text), None, self.renderer, self.pool, min(self.settings['view_distance'], 6),
-                          far_distance=10)
+                          far_distance=10, gen_settings=getattr(sc, 'gen', None))
             world.on_chunk_loaded = sc.apply_chunk
             cam = sc.camera
             x, z = sc.focus()
             self.backdrop = dict(world=world, x=x, z=z, y=(sc.top + cam.get('height', 13)) * LAYER,
                                  ty=(sc.top + cam.get('target_dy', 5)) * LAYER, rad=cam.get('radius', 30.0),
                                  speed=cam.get('speed', 0.035), ang=random.uniform(0, 6.28),
-                                 phase=cam.get('phase', 0.2), showcase=sc, yaw_off=cam.get('yaw_offset', 0.0))
+                                 phase=cam.get('phase', 0.2), showcase=sc, yaw_off=cam.get('yaw_offset', 0.0),
+                                 rotate_in=time.perf_counter() + 24.0)
+            if old:
+                try:
+                    old['world'].close()
+                except Exception:
+                    pass
             return
         seed = random_seed()
-        gen = Generator(seed)
+        from . import gensettings as GS
+        gen = Generator(seed, GS.normalize({}))
         q, r, top, sp = find_spawn(gen)
         if sp:
             q, r, top = sp['q'], sp['r'], sp['top']
         x, z = center(q, r)
-        world = World(seed, None, self.renderer, self.pool, min(self.settings['view_distance'], 5))
+        world = World(seed, None, self.renderer, self.pool, min(self.settings['view_distance'], 5),
+                      gen_settings=GS.normalize({}))
         self.backdrop = dict(world=world, x=x, z=z, y=(top + 26) * LAYER, ty=(top + 6) * LAYER,
-                             ang=random.uniform(0, 6.28), phase=random.choice([0.06, 0.16, 0.27, 0.33, 0.72]))
+                             ang=random.uniform(0, 6.28), phase=random.choice([0.06, 0.16, 0.27, 0.33, 0.72]),
+                             rotate_in=time.perf_counter() + 24.0)
+        if old:
+            try:
+                old['world'].close()
+            except Exception:
+                pass
 
     def stop_backdrop(self):
         if self.backdrop:
@@ -447,6 +462,8 @@ class App(pyglet.window.Window):
             b['ang'] += dt * b.get('speed', 0.05)
             b['world'].update(b['x'], b['z'], 4)
             dusk = TIDE.dusk_amount(b['phase'])
+            if time.perf_counter() >= b.get('rotate_in', 1e18) and self.menu and self.menu.__class__.__name__ == 'TitleScreen':
+                self.start_backdrop()
         elif self.mode == 'loading' and self.session:
             prog = self.session.load_progress()
             if isinstance(self.menu, S.LoadingScreen):

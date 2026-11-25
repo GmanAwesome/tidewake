@@ -151,3 +151,18 @@ def test_dreamer_middle_click_removes_item():
     t.inv.add(I.STICK.id, 1)
     assert t.remove_inv_slot() is False
     assert t.inv.slots[0]
+
+
+def test_showcase_catalog_rotates():
+    from tidewake import showcase
+    n = len(showcase.catalog())
+    assert n >= 7
+    kinds = []
+    for _ in range(n):
+        sc = showcase.pick()
+        kinds.append(sc.kind)
+        x, z = sc.focus()
+        assert isinstance(x, float) and isinstance(z, float)
+    assert 'json' in kinds and kinds.count('seed') >= 5
+    seedish = [showcase.pick() for _ in range(n)]
+    assert any(getattr(s, 'gen', None) is not None for s in seedish)
