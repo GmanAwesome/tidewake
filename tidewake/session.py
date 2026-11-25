@@ -46,25 +46,54 @@ def find_spawn(gen):
         from . import tutorial as TUT
         q, r, top = TUT.SPAWN
         return q, r, top, None
-    sp = None
-    for radius in (1, 2, 4):
-        cands = [s for s in gen.spires_near(0, 0, radius)]
-        if cands:
-            sp = min(cands, key=lambda s: s['q'] ** 2 + s['r'] ** 2 + s['q'] * s['r'])
-            break
-    if sp:
+    def _near(cands):
+        return min(cands, key=lambda s: s['q'] ** 2 + s['r'] ** 2 + s['q'] * s['r'])
+
+    def _around_spire(sp, mid_only=True):
         cq, cr = sp['q'], sp['r']
-        for rad in range(16, 40):
+        for rad in range(16, 48):
             pts = ring(cq, cr, rad)
             Q = np.array([p[0] for p in pts])
             R = np.array([p[1] for p in pts])
             c = gen.columns(Q, R)
-            ok = np.nonzero(c['land'] & ~c['skerry'] & ~c['pool'] & ~c['fall'] & (c['e'] > 0.05) &
-                            (np.abs(c['top'] - sp['top']) < 6))[0]
-            if len(ok):
-                open_ = [i for i in ok if c['realm'][i] in (0, 2, 3, 4, 6)]
-                i = open_[len(open_) // 2] if open_ else ok[len(ok) // 2]
+            ok = c['land'] & ~c['skerry'] & ~c['pool'] & ~c['fall'] & (c['e'] > 0.05) & (
+                np.abs(c['top'] - sp['top']) < 8)
+            if mid_only:
+                ok = ok & (c['top'] >= 36) & (c['top'] <= 88)
+            idx = np.nonzero(ok)[0]
+            if len(idx):
+                open_ = [i for i in idx if c['realm'][i] in (0, 2, 3, 4, 6)]
+                i = open_[len(open_) // 2] if open_ else idx[len(idx) // 2]
                 return int(Q[i]), int(R[i]), int(c['top'][i]), sp
+        return None
+
+    mid_spires, any_spires = [], []
+    for radius in (1, 2, 4, 6):
+        cands = list(gen.spires_near(0, 0, radius))
+        any_spires.extend(cands)
+        mid_spires.extend(s for s in cands if 36 <= s['top'] <= 88)
+        if mid_spires:
+            break
+    if mid_spires:
+        found = _around_spire(_near(mid_spires), mid_only=True)
+        if found:
+            return found
+    mid = 60
+    for rad in range(0, 400, 3):
+        pts = ring(0, 0, rad)
+        Q = np.array([p[0] for p in pts])
+        R = np.array([p[1] for p in pts])
+        c = gen.columns(Q, R)
+        mid_ok = np.nonzero(c['land'] & ~c['skerry'] & ~c['pool'] & (c['e'] > 0.08) &
+                            (np.abs(c['top'] - mid) <= 18))[0]
+        if len(mid_ok):
+            i = mid_ok[0]
+            return int(Q[i]), int(R[i]), int(c['top'][i]), None
+    # last resort: the nearest spire, even if it sits very high or low
+    if any_spires:
+        found = _around_spire(_near(any_spires), mid_only=False)
+        if found:
+            return found
     for rad in range(0, 400, 3):
         pts = ring(0, 0, rad)
         Q = np.array([p[0] for p in pts])

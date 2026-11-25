@@ -68,7 +68,9 @@ def test_buried_chamber_is_lit():
 def _cave_stats(settings, seed=7, n=5):
     import numpy as np
     from tidewake.generator import Generator
+    from tidewake import materials as MT
     gen = Generator(seed, settings)
+    canopy = MT.ID['canopy']
     chunks = [(-20, -11), (8, -3), (0, 4), (-14, 6), (4, 0)]
     surface_gaps = solid_cols = mouths = cave_cells = body_cells = 0
     for cq, cr in chunks[:n]:
@@ -77,20 +79,25 @@ def _cave_stats(settings, seed=7, n=5):
         for a in range(A):
             for b in range(B):
                 col = cells[a, :, b]
-                ys = np.where(col > 0)[0]
+                # tree canopy hangs above the ground; it is not the walking surface
+                ground = col.copy()
+                ground[col == canopy] = 0
+                ys = np.where(ground > 0)[0]
                 if len(ys) == 0:
                     continue
                 top = int(ys.max())
+                bot = int(ys.min())
                 solid_cols += 1
-                if (cells[a, max(0, top - 3):top, b] == 0).any():
+                # only air inside the column counts as a surface punch (not open air under a thin lip)
+                if (cells[a, max(bot, top - 3):top, b] == 0).any():
                     surface_gaps += 1
-                # body cells below a 5-layer roof
-                body = col[max(0, top - 20):max(0, top - 5)]
-                body_cells += int((body > 0).sum() + (body == 0).sum())
+                # body cells below a 5-layer roof, still inside the island
+                lo, hi = max(bot, top - 20), max(bot, top - 5)
+                body = col[lo:hi]
+                body_cells += int(len(body))
                 cave_cells += int((body == 0).sum())
-                # cliff mouth: an air cell under the roof that has a neighbor column
-                # with no solid at that height and no solid above it (open sky beside)
-                for y in range(max(1, top - 14), max(1, top - 4)):
+                # cliff mouth: a hole inside the column that opens onto the sky
+                for y in range(max(bot + 1, top - 14), max(bot + 1, top - 4)):
                     if col[y] != 0:
                         continue
                     for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):

@@ -296,6 +296,97 @@ def test_doors_are_a_mid_hex_double_leaf():
     assert not overlaps_solid(w, 1, 1, 8 * LAYER + 0.1, 8 * LAYER + 1.2, LAYER)
 
 
+
+def test_v2_islands_have_wide_altitude_bands_and_teardrop_hulls():
+    import numpy as np
+    from tidewake.generator import Generator, CLOUD_SEA, TOP_MAX
+    Q, R = np.mgrid[-120:120:3, -120:120:3]
+    c = Generator(7, {}).columns(Q, R)
+    land = c['land'] & ~c['skerry']
+    com = c['com'][land]
+    assert com.max() - com.min() > 40, (com.min(), com.max())
+    # within a long view, at least some seeds show more than one altitude band
+    Q2, R2 = np.mgrid[-90:90:3, -90:90:3]
+    spans = []
+    for seed in (7, 11, 29, 41, 100):
+        c2 = Generator(seed, {}).columns(Q2, R2)
+        land2 = c2['land'] & ~c2['skerry']
+        if land2.any():
+            com2 = c2['com'][land2]
+            spans.append(float(com2.max() - com2.min()))
+    assert spans and max(spans) > 30 and sorted(spans)[len(spans)//2] > 12, spans
+    e, top, bot = c['e'][land], c['top'][land], c['bottom'][land]
+    depth = top - bot
+    rim = depth[e < 0.05]
+    core = depth[e > 0.18]
+    assert len(rim) and len(core), (len(rim), len(core))
+    assert core.mean() > rim.mean() * 1.8, (rim.mean(), core.mean())
+    assert rim.mean() < 16, rim.mean()
+    # spawn stays in a sensible mid band
+    from tidewake.session import find_spawn
+    for seed in (7, 11, 29, 100):
+        q, r, top, _sp = find_spawn(Generator(seed, {}))
+        assert 32 <= top <= 92, (seed, q, r, top)
+
+
+def test_v2_caves_only_open_at_framed_mouths():
+    import numpy as np
+    from tidewake.generator import Generator, CHUNK
+    from tidewake import materials as MT
+    gen = Generator(7, {'cave_amount': 80, 'cave_size': 80})
+    cobble = MT.ID['cobble']
+    canopy = MT.ID['canopy']
+    breaches = mouths = cols = surface = 0
+    HEX_N = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1))
+    for cq, cr in ((8, -3), (0, 4), (-14, 6), (4, 0)):
+        cells, _, _ = gen.generate(cq, cr)
+        A, Y, B = cells.shape
+        for a in range(A):
+            for b in range(B):
+                ground = cells[a, :, b].copy()
+                ground[ground == canopy] = 0
+                ys = np.where(ground > 0)[0]
+                if len(ys) == 0:
+                    continue
+                top, bot = int(ys.max()), int(ys.min())
+                cols += 1
+                if (ground[max(bot, top - 3):top] == 0).any():
+                    surface += 1
+                for y in range(bot + 2, top - 4):
+                    if cells[a, y, b] != 0:
+                        continue
+                    # a framed mouth sits next to its cobble jamb or lintel
+                    framed = cells[a, y, b] == cobble
+                    for dy in (-1, 0, 1, 2):
+                        ny = y + dy
+                        if ny < 0 or ny >= Y:
+                            continue
+                        if cells[a, ny, b] == cobble:
+                            framed = True
+                        for da, db in HEX_N:
+                            na, nb = a + da, b + db
+                            if 0 <= na < A and 0 <= nb < B and cells[na, ny, nb] == cobble:
+                                framed = True
+                    if framed:
+                        mouths += 1
+                        continue
+                    # unframed breach: the hole opens onto a column that is empty to the sky
+                    opens = False
+                    for da, db in HEX_N:
+                        na, nb = a + da, b + db
+                        if not (0 <= na < A and 0 <= nb < B):
+                            continue
+                        if (cells[na, y:, nb] == 0).all():
+                            opens = True
+                            break
+                    if opens:
+                        breaches += 1
+    assert cols > 80
+    assert surface / cols < 0.02, ('walking surface still opens into caves', surface, cols)
+    assert breaches / cols < 0.08, ('unframed cave breaches on the flanks', breaches, mouths, cols)
+    assert mouths > 0, ('no framed mouths were placed', mouths, breaches, cols)
+
+
 if __name__ == '__main__':
     test_tutorial_dialog_only_after_talk()
     print('ok tutorial dialog only after right-click')
@@ -313,4 +404,8 @@ if __name__ == '__main__':
     print('ok heartwood rings are centred on the hex')
     test_doors_are_a_mid_hex_double_leaf()
     print('ok doors are a mid-hex double leaf')
+    test_v2_islands_have_wide_altitude_bands_and_teardrop_hulls()
+    print('ok island altitude and teardrop hulls')
+    test_v2_caves_only_open_at_framed_mouths()
+    print('ok caves open only at framed mouths')
     print('ALL 1.4.1 UNIT TESTS PASSED')

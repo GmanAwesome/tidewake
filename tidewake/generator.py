@@ -32,6 +32,20 @@ def smoothstep(a, b, x):
     return t * t * (3 - 2 * t)
 
 
+def _dilate_hex(mask):
+    """One step of 6-neighbour hex dilation plus up and down."""
+    out = mask.copy()
+    out[1:] |= mask[:-1]
+    out[:-1] |= mask[1:]
+    out[:, :, 1:] |= mask[:, :, :-1]
+    out[:, :, :-1] |= mask[:, :, 1:]
+    out[1:, :, :-1] |= mask[:-1, :, 1:]
+    out[:-1, :, 1:] |= mask[1:, :, :-1]
+    out[:, 1:] |= mask[:, :-1]
+    out[:, :-1] |= mask[:, 1:]
+    return out
+
+
 class Generator:
     def __init__(self, seed, settings=None):
         self.seed = seed
@@ -178,13 +192,31 @@ class Generator:
         e = self.n_island.fbm2(wx / s1, wz / s1, 5) - self.coverage
         ei = self.n_islet.fbm2(wx / 38.0, wz / 38.0, 3) - (0.62 - self.islet_rate)
 
-        # each island gets its own vertical center of mass (some low over the clouds, some high)
-        shelf = 48.0 + 28.0 * self.n_alt.fbm2(X / 1800.0, Z / 1800.0, 3)
+        # each island sits in a Worley altitude band so neighbours can hang far above or far below,
+        # while a single island stays on one shelf (the cell is a little larger than a typical island)
         mass = self.n_mass.fbm2(wx / s1, wz / s1, 2)
-        com = shelf + 22.0 * mass + (self.alt_base - 59.0)  # seed personality still nudges the band
-        # thicker worlds sit a little higher so the undersides have room
-        com = com + 0.22 * (self.depth_amp - 40.0)
-        com = np.clip(com, CLOUD_SEA + 16, TOP_MAX - 28)
+        period = max(float(s1) * 1.05, 220.0)
+        fx, fz = X / period, Z / period
+        best_d = np.full(Q.shape, 1e9, np.float64)
+        best_band = np.zeros(Q.shape, np.float64)
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                cx = np.floor(fx) + di
+                cz = np.floor(fz) + dj
+                jx = rand01(cx.astype(np.int64), cz.astype(np.int64), self.h + 3)
+                jz = rand01(cx.astype(np.int64), cz.astype(np.int64), self.h + 4)
+                px = cx + 0.5 + (jx - 0.5) * 0.8
+                pz = cz + 0.5 + (jz - 0.5) * 0.8
+                d2 = (fx - px) ** 2 + (fz - pz) ** 2
+                band = (hash2(cx.astype(np.int64), cz.astype(np.int64), self.h + 5) % np.uint64(7)).astype(np.float64)
+                closer = d2 < best_d
+                best_band = np.where(closer, band, best_band)
+                best_d = np.minimum(best_d, d2)
+        lo_alt, hi_alt = float(CLOUD_SEA + 18), float(TOP_MAX - 14)
+        com = lo_alt + (best_band + 0.30 * mass) / 6.0 * (hi_alt - lo_alt) + (self.alt_base - 59.0)
+        com = com + 0.10 * (self.depth_amp - 40.0)
+        com = np.clip(com, CLOUD_SEA + 16, TOP_MAX - 14)
+        shelf = com
 
         heat = self.n_heat.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.heat_bias
         wet = self.n_wet.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.wet_bias
@@ -264,21 +296,28 @@ class Generator:
         col_rand = rand01(Q, R, self.h)
         top = np.where(np.isin(realm, (BASALT, VERDIGRIS, CINDER)), top + np.floor(col_rand * 3.0 * inner), top)
 
-        # substantially thicker in most places, still clearly varied
+        # inverted-dome / teardrop underside: thin rounded lip at the rim, a belly under the core
         thick = self.depth_amp * (0.85 + 0.50 * self.n_depth.fbm2(X / 36.0, Z / 36.0, 3))
         thick = thick * (1.0 + 0.28 * mounts + 0.06 * plains)
-        depth = 10 + (0.20 + np.sqrt(np.clip(e, 0, None))) * thick
-        depth = depth + (rand01(Q, R, self.h + 1) ** 6) * 14 * inner
+        hull = smoothstep(0.0, 0.32, np.clip(e, 0, None))
+        rho = 1.0 - hull
+        dome = np.sqrt(np.clip(1.0 - rho * rho, 0, 1))
+        depth = 4.0 + thick * (0.88 * dome + 0.22 * (hull ** 2))
+        # a few stalactite drips hanging from the belly
+        depth = depth + (rand01(Q, R, self.h + 1) ** 7) * 18 * hull
         # saltwind and chalk run a little shallower; mountains and cloudstep run deeper
         depth = depth * np.where(np.isin(realm, (SALTWIND, CHALK, LAVENDER)), 0.78, 1.0)
         depth = depth * np.where(np.isin(realm, (CLOUDSTEP, CINDER, FROST)), 1.18, 1.0)
+        # rounded lip: shave the top a little at the rim so the edge isn't a flat slab
+        top = top - np.floor((1.0 - hull) ** 2 * 2.4)
         bottom = top - np.floor(depth)
-        # clip into the cloud sea if needed, but do not lift per-column (that flattened the terrain)
 
         sk = (ei > 0) & (e <= 0)
         sk_alt = np.floor(com + 8 + 16 * self.n_islet_alt.fbm2(X / 300.0, Z / 300.0, 2) + ei * 25)
         top = np.where(sk, sk_alt, top)
-        bottom = np.where(sk, sk_alt - np.floor(3 + np.sqrt(np.clip(ei, 0, None)) * 36), bottom)
+        sk_hull = smoothstep(0.0, 0.28, np.clip(ei, 0, None))
+        sk_dome = np.sqrt(np.clip(1.0 - (1.0 - sk_hull) ** 2, 0, 1))
+        bottom = np.where(sk, sk_alt - np.floor(2 + sk_dome * 28 + (1.0 - sk_hull) * 0), bottom)
         land = (e > 0) | sk
         # thick low islands may hang down into the cloud sea; don't clip thickness away
         top = np.clip(top, TOP_MIN, TOP_MAX).astype(np.int64)
@@ -418,6 +457,7 @@ class Generator:
                 cells[idx[0][hit], idx[1][hit], idx[2][hit]] = ore
             # caves: winding worms, linking highways, rooms of mixed scale, fissures, arches
             # v2 keeps a thicker roof so caves don't pock the walking surface
+            original = cells.copy()
             roof_d = 5 if self.version == 2 else 3
             deep = (dd >= roof_d) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 3)
             if self.version == 2:
@@ -452,26 +492,104 @@ class Generator:
                 na = self.n_arch.noise3(xx / 11.0, yy / 4.5, zz / 11.0)
                 thr = self.arches + (0.14 if self.version == 2 else 0.0)
                 hole |= band & (na > thr)
-            # v2: keep a shell around the island so max cave sliders don't lace the cliffs
-            if self.version == 2 and hole.any():
-                solid_now = cells != 0
-                ia, iy, ib = idx[0][hole], idx[1][hole], idx[2][hole]
-                nbs = np.zeros(ia.shape[0], dtype=np.int16)
-                H, _, W = solid_now.shape
-                for da, db in ((1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)):
-                    aa, bb = ia + da, ib + db
-                    inside = (aa >= 0) & (aa < H) & (bb >= 0) & (bb < W)
-                    # treat chunk-edge neighbors as solid so seams don't over-heal
-                    nbs += np.where(inside, solid_now[np.clip(aa, 0, H - 1), iy, np.clip(bb, 0, W - 1)], 1)
-                keep = nbs >= 4
-                dropped = np.flatnonzero(hole)[~keep]
-                hole[dropped] = False
             cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
+            # v2: fill any cave that opens onto the outside, then cut a few framed mouths
+            if self.version == 2:
+                cave = solid & (cells == 0)
+                near = ~solid
+                for _ in range(2):
+                    near = _dilate_hex(near)
+                heal = cave & near
+                # always keep a solid roof (the walking surface and the lip under it)
+                yy = np.arange(LAYERS, dtype=np.int64)[None, :, None]
+                heal = heal | (cave & ((T - yy) < 5))
+                cells[heal] = original[heal]
+                # a mouth is a healed flank cell with open sky beside it, well under the roof
+                ext = ~solid
+                has_ext = np.zeros(cells.shape, bool)
+                for da, db in ((1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)):
+                    a0, a1 = max(0, da), CHUNK + min(0, da)
+                    b0, b1 = max(0, db), CHUNK + min(0, db)
+                    has_ext[a0:a1, :, b0:b1] |= ext[a0 - da:a1 - da, :, b0 - db:b1 - db]
+                HEX_N = ((1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1))
+                interior = solid & (cells == 0)
+                reach = interior.copy()
+                for _ in range(4):
+                    reach = _dilate_hex(reach)
+                # start the tunnel on the shell, where a remaining cave is a short walk inside
+                cand = reach & has_ext & solid & ((T - yy) >= 6) & ((yy - B) >= 3) & ((T - yy) <= 18)
+                col_hit = cand.any(1)
+                roll = rand01(Q[sl], R[sl], self.h + 91)
+                pick = col_hit & (roll < 0.07)
+                if not pick.any() and col_hit.any():
+                    # at least one mouth in the chunk if a cave is waiting just inside
+                    ia0, ib0 = np.nonzero(col_hit)
+                    k = int(np.argmin(roll[col_hit]))
+                    pick = np.zeros_like(col_hit)
+                    pick[ia0[k], ib0[k]] = True
+                ia, ib = np.nonzero(pick)
+                if len(ia) > 2:
+                    # keep the two with the lowest roll so a chunk does not look like Swiss cheese
+                    order = np.argsort(roll[pick])
+                    keep = set(zip(ia[order[:2]], ib[order[:2]]))
+                    ia, ib = zip(*keep) if keep else ((), ())
+                    ia, ib = list(ia), list(ib)
+                frame = M['cobble']
+                for a, b in zip(ia, ib):
+                    ys = np.flatnonzero(cand[a, :, b])
+                    if len(ys) == 0:
+                        continue
+                    y = int(ys[len(ys) // 2])
+                    y2 = y + 1 if y + 1 < LAYERS else y
+                    # tunnel a couple of cells inward until we reach the remaining cave
+                    path = [(a, b)]
+                    ca, cb = a, b
+                    for _ in range(5):
+                        nxt = None
+                        for da, db in HEX_N:
+                            na, nb = ca + da, cb + db
+                            if not (0 <= na < CHUNK and 0 <= nb < CHUNK):
+                                continue
+                            if not solid[na, y, nb] or has_ext[na, y, nb]:
+                                continue
+                            if (na, nb) in path:
+                                continue
+                            nxt = (na, nb)
+                            if interior[na, y, nb] or interior[na, min(y2, LAYERS - 1), nb]:
+                                break
+                        if nxt is None:
+                            break
+                        path.append(nxt)
+                        if interior[nxt[0], y, nxt[1]] or interior[nxt[0], min(y2, LAYERS - 1), nxt[1]]:
+                            break
+                        ca, cb = nxt
+                    for pa, pb in path:
+                        cells[pa, y, pb] = 0
+                        cells[pa, y2, pb] = 0
+                    for dy in (-1, 0, 1, 2):
+                        ny = y + dy
+                        if ny < 0 or ny >= LAYERS:
+                            continue
+                        if (T[a, 0, b] - ny) < 2:
+                            continue
+                        for da, db in HEX_N:
+                            na, nb = a + da, b + db
+                            if not (0 <= na < CHUNK and 0 <= nb < CHUNK):
+                                continue
+                            if cells[na, ny, nb] != 0 and (na, ny, nb) not in (
+                                (p[0], y, p[1]) for p in path) and (na, ny, nb) not in (
+                                (p[0], y2, p[1]) for p in path):
+                                cells[na, ny, nb] = frame
+                        if dy in (-1, 2) and cells[a, ny, b] != 0:
+                            cells[a, ny, b] = frame
             # glowcaps and crystals on cave floors
-            fl = hole & (rand01(qq.astype(np.int64), rr.astype(np.int64) * 7 + idx[1], self.h + 31) < 0.04)
-            for a, y, b in zip(idx[0][fl], idx[1][fl], idx[2][fl]):
-                if y > 0 and cells[a, y - 1, b] not in (0, M['water']) and cells[a, y, b] == 0:
-                    cells[a, y, b] = M['glowcap'] if (a + b + y) % 3 else M['crystal']
+            cave_now = (cells == 0) & solid
+            if cave_now.any():
+                ca, cy, cb = np.nonzero(cave_now)
+                flg = rand01(Q[sl][ca, cb].astype(np.int64), R[sl][ca, cb].astype(np.int64) * 7 + cy, self.h + 31) < 0.04
+                for a, y, b in zip(ca[flg], cy[flg], cb[flg]):
+                    if y > 0 and cells[a, y - 1, b] not in (0, M['water']) and cells[a, y, b] == 0:
+                        cells[a, y, b] = M['glowcap'] if (a + b + y) % 3 else M['crystal']
         meta = np.zeros_like(cells)
 
         # pools and waterfalls

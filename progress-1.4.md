@@ -300,3 +300,12 @@ The seams on block tops and sides were not a painted line in most tiles. Tops we
 ## November 25, 2026, 5:20 PM EST — Doors are a thin double leaf through the hex
 
 A door used to be a short, offset hexagonal pillar that rotated to one side when opened, so a wall with a doorway did not read as a solid face. It is now a thin plane through the middle of the hex, lined up with neighbouring wall blocks, made of two halves. Opening it swings the halves apart and back, leaving a walkable path. Closed doors still block the cell; open doors are passable. Right-click still opens and closes both halves together.
+
+
+## November 25, 2026, 5:31 PM EST — Islands hang at many heights, with teardrop undersides and sealed caves
+
+New skies now spread islands across a much wider range of altitudes, from just over the cloud sea to near the top of the world, so looking up can show islands far above and looking down can show them far below. Each island stays on one shelf, and you still spawn on a mid-height island, a short walk from a spire when one is nearby.
+
+The islands themselves are no longer flat slabs. The rim is a short rounded lip, and the underside is an inverted dome that tapers to a teardrop, with the odd stalactite drip. Old skies are unchanged.
+
+Caves no longer punch through hillside faces or leave black gashes on the flanks. Any cave that opens onto the outside is filled back in, the walking surface keeps a solid roof, and a few cobble-framed mouths are cut so the caves can still be entered.
