@@ -2,577 +2,69 @@
   "name": "Cliffside Tavern",
   "author": "a fen-side stop for wanderers",
   "seed_text": "tavern-cliff",
-  "gen": {},
+  "gen": {
+    "island_size": 50,
+    "island_thickness": 50,
+    "sky_density": 50,
+    "terrain_roughness": 50,
+    "mountain_height": 50,
+    "flatness": 50,
+    "cave_amount": 50,
+    "cave_size": 50,
+    "water": 50,
+    "biome_size": 50,
+    "tree_density": 50,
+    "glimmer_rarity": 50,
+    "generator_version": 3
+  },
   "site": {
-    "q": 115,
-    "r": -2,
-    "top": 71,
-    "dock_dir": 0
+    "q": 126,
+    "r": -3,
+    "top": 109,
+    "dock_dir": 3
   },
   "camera": {
-    "radius": 44.0,
-    "height": 20.0,
+    "radius": 46.0,
+    "height": 22.0,
     "target_dy": 3.0,
     "yaw_offset": 16.0,
     "speed": 0.032,
-    "phase": 0.26,
-    "center": [
-      -8,
-      0
-    ]
+    "phase": 0.26
   },
   "flatten": {
     "radius": 8,
     "blend": 5,
     "clear_up": 24,
-    "clear_trees": 14,
+    "clear_trees": 18,
     "flowers": 12
   },
   "blocks": [
     [
-      -11,
-      10,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -11,
-      11,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -11,
-      12,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -11,
-      13,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -10,
-      9,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -10,
-      10,
-      1,
-      "heartwood",
-      0
-    ],
-    [
-      -10,
-      10,
-      2,
-      "heartwood",
-      0
-    ],
-    [
-      -10,
-      10,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -10,
-      10,
+      -7,
       5,
-      "shingles",
-      0
-    ],
-    [
-      -10,
-      11,
       1,
-      "planks",
+      "planks_slab",
       0
     ],
     [
-      -10,
-      11,
-      2,
-      "planks",
-      0
-    ],
-    [
-      -10,
-      11,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -10,
-      11,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -10,
-      12,
-      1,
-      "heartwood",
-      0
-    ],
-    [
-      -10,
-      12,
-      2,
-      "glass",
-      0
-    ],
-    [
-      -10,
-      12,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -10,
-      12,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -10,
-      13,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -9,
-      8,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -9,
-      9,
-      1,
-      "planks",
-      0
-    ],
-    [
-      -9,
-      9,
-      2,
-      "planks",
-      0
-    ],
-    [
-      -9,
-      9,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -9,
-      9,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -9,
-      10,
-      0,
-      "polished_stone",
-      0
-    ],
-    [
-      -9,
-      10,
-      1,
-      "bedroll",
-      0
-    ],
-    [
-      -9,
-      10,
+      -7,
       6,
-      "shingles",
-      0
-    ],
-    [
-      -9,
-      11,
       0,
-      "polished_stone",
+      "packed_earth",
       0
     ],
     [
-      -9,
-      11,
+      -7,
+      6,
+      1,
+      "planks_slab",
+      0
+    ],
+    [
+      -7,
+      7,
       1,
       "lantern",
-      0
-    ],
-    [
-      -9,
-      11,
-      6,
-      "shingles",
-      0
-    ],
-    [
-      -9,
-      12,
-      1,
-      "planks",
-      0
-    ],
-    [
-      -9,
-      12,
-      2,
-      "planks",
-      0
-    ],
-    [
-      -9,
-      12,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -9,
-      12,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -9,
-      13,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -8,
-      7,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -8,
-      8,
-      1,
-      "heartwood",
-      0
-    ],
-    [
-      -8,
-      8,
-      2,
-      "glass",
-      0
-    ],
-    [
-      -8,
-      8,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -8,
-      8,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -8,
-      9,
-      0,
-      "polished_stone",
-      0
-    ],
-    [
-      -8,
-      9,
-      6,
-      "shingles",
-      0
-    ],
-    [
-      -8,
-      10,
-      0,
-      "polished_stone",
-      0
-    ],
-    [
-      -8,
-      10,
-      7,
-      "mossy_bricks",
-      0
-    ],
-    [
-      -8,
-      11,
-      0,
-      "polished_stone",
-      0
-    ],
-    [
-      -8,
-      11,
-      6,
-      "shingles",
-      0
-    ],
-    [
-      -8,
-      12,
-      1,
-      "heartwood",
-      0
-    ],
-    [
-      -8,
-      12,
-      2,
-      "glass",
-      0
-    ],
-    [
-      -8,
-      12,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -8,
-      12,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -8,
-      13,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -7,
-      7,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -7,
-      8,
-      1,
-      "planks",
-      0
-    ],
-    [
-      -7,
-      8,
-      2,
-      "planks",
-      0
-    ],
-    [
-      -7,
-      8,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -7,
-      8,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -7,
-      9,
-      0,
-      "polished_stone",
-      0
-    ],
-    [
-      -7,
-      9,
-      6,
-      "shingles",
-      0
-    ],
-    [
-      -7,
-      10,
-      0,
-      "polished_stone",
-      0
-    ],
-    [
-      -7,
-      10,
-      6,
-      "shingles",
-      0
-    ],
-    [
-      -7,
-      11,
-      1,
-      "planks",
-      0
-    ],
-    [
-      -7,
-      11,
-      2,
-      "planks",
-      0
-    ],
-    [
-      -7,
-      11,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -7,
-      11,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -7,
-      12,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -6,
-      7,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -6,
-      8,
-      1,
-      "heartwood",
-      0
-    ],
-    [
-      -6,
-      8,
-      2,
-      "glass",
-      0
-    ],
-    [
-      -6,
-      8,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -6,
-      8,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -6,
-      9,
-      1,
-      "planks",
-      0
-    ],
-    [
-      -6,
-      9,
-      2,
-      "planks",
-      0
-    ],
-    [
-      -6,
-      9,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -6,
-      9,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -6,
-      10,
-      1,
-      "door",
-      0
-    ],
-    [
-      -6,
-      10,
-      2,
-      "door",
-      16
-    ],
-    [
-      -6,
-      10,
-      3,
-      "heartwood",
-      0
-    ],
-    [
-      -6,
-      10,
-      5,
-      "shingles",
-      0
-    ],
-    [
-      -6,
-      11,
-      4,
-      "shingles",
       0
     ],
     [
@@ -587,34 +79,6 @@
       4,
       1,
       "bloom",
-      0
-    ],
-    [
-      -5,
-      7,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -5,
-      8,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -5,
-      9,
-      4,
-      "shingles",
-      0
-    ],
-    [
-      -5,
-      10,
-      4,
-      "shingles",
       0
     ],
     [
@@ -662,6 +126,13 @@
     [
       -3,
       -1,
+      0,
+      "dark_planks",
+      0
+    ],
+    [
+      -3,
+      -1,
       6,
       "thatch",
       0
@@ -669,16 +140,23 @@
     [
       -3,
       0,
+      0,
+      "dark_planks",
+      0
+    ],
+    [
+      -3,
+      0,
       1,
-      "dark_heartwood",
+      "lantern",
       0
     ],
     [
       -3,
       0,
       2,
-      "dark_heartwood",
-      0
+      "door",
+      27
     ],
     [
       -3,
@@ -691,7 +169,7 @@
       -3,
       0,
       4,
-      "dark_heartwood",
+      "wattle",
       0
     ],
     [
@@ -711,8 +189,15 @@
     [
       -3,
       1,
+      0,
+      "dark_planks",
+      0
+    ],
+    [
+      -3,
       1,
-      "wattle",
+      1,
+      "planks_slab",
       0
     ],
     [
@@ -858,8 +343,15 @@
     [
       -2,
       -1,
+      0,
+      "dark_planks",
+      0
+    ],
+    [
+      -2,
+      -1,
       1,
-      "wattle",
+      "planks_slab",
       0
     ],
     [
@@ -901,49 +393,21 @@
       -2,
       0,
       0,
-      "packed_earth",
-      0
-    ],
-    [
-      -2,
-      0,
-      6,
-      "bricks",
-      0
-    ],
-    [
-      -2,
-      0,
-      7,
-      "bricks",
+      "dark_planks",
       0
     ],
     [
       -2,
       0,
       8,
-      "bricks",
-      0
-    ],
-    [
-      -2,
-      0,
-      9,
-      "bricks",
-      0
-    ],
-    [
-      -2,
-      0,
-      10,
-      "ember_lamp",
+      "thatch",
       0
     ],
     [
       -2,
       1,
       0,
-      "packed_earth",
+      "dark_planks",
       0
     ],
     [
@@ -1069,7 +533,7 @@
       -1,
       -1,
       0,
-      "packed_earth",
+      "dark_planks_slab",
       0
     ],
     [
@@ -1083,14 +547,7 @@
       -1,
       0,
       0,
-      "packed_earth",
-      0
-    ],
-    [
-      -1,
-      0,
-      1,
-      "bedroll",
+      "dark_planks",
       0
     ],
     [
@@ -1104,14 +561,7 @@
       -1,
       1,
       0,
-      "packed_earth",
-      0
-    ],
-    [
-      -1,
-      1,
-      1,
-      "lantern",
+      "dark_planks_slab",
       0
     ],
     [
@@ -1186,16 +636,9 @@
     ],
     [
       0,
-      -6,
-      1,
-      "glowstick",
-      0
-    ],
-    [
-      0,
       -5,
       1,
-      "berry_bush",
+      "heather",
       0
     ],
     [
@@ -1272,8 +715,22 @@
       0,
       -1,
       1,
-      "chest",
-      0
+      "ladder",
+      1
+    ],
+    [
+      0,
+      -1,
+      2,
+      "ladder",
+      1
+    ],
+    [
+      0,
+      -1,
+      3,
+      "ladder",
+      1
     ],
     [
       0,
@@ -1314,22 +771,8 @@
       0,
       1,
       1,
-      "ladder",
-      4
-    ],
-    [
-      0,
-      1,
-      2,
-      "ladder",
-      4
-    ],
-    [
-      0,
-      1,
-      3,
-      "ladder",
-      4
+      "chest",
+      3
     ],
     [
       0,
@@ -1405,7 +848,14 @@
       0,
       5,
       1,
-      "bloom",
+      "berry_bush",
+      0
+    ],
+    [
+      0,
+      6,
+      1,
+      "glowstick",
       0
     ],
     [
@@ -1475,7 +925,14 @@
       1,
       -1,
       0,
-      "dark_planks_slab",
+      "packed_earth",
+      0
+    ],
+    [
+      1,
+      -1,
+      1,
+      "lantern",
       0
     ],
     [
@@ -1489,7 +946,14 @@
       1,
       0,
       0,
-      "dark_planks",
+      "packed_earth",
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      "bedroll",
       0
     ],
     [
@@ -1503,7 +967,7 @@
       1,
       1,
       0,
-      "dark_planks_slab",
+      "packed_earth",
       0
     ],
     [
@@ -1629,7 +1093,7 @@
       2,
       -1,
       0,
-      "dark_planks",
+      "packed_earth",
       0
     ],
     [
@@ -1643,28 +1107,49 @@
       2,
       0,
       0,
-      "dark_planks",
+      "packed_earth",
+      0
+    ],
+    [
+      2,
+      0,
+      6,
+      "bricks",
+      0
+    ],
+    [
+      2,
+      0,
+      7,
+      "bricks",
       0
     ],
     [
       2,
       0,
       8,
-      "thatch",
+      "bricks",
       0
     ],
     [
       2,
-      1,
       0,
-      "dark_planks",
+      9,
+      "bricks",
+      0
+    ],
+    [
+      2,
+      0,
+      10,
+      "ember_lamp",
       0
     ],
     [
       2,
       1,
       1,
-      "planks_slab",
+      "wattle",
       0
     ],
     [
@@ -1810,15 +1295,8 @@
     [
       3,
       -1,
-      0,
-      "dark_planks",
-      0
-    ],
-    [
-      3,
-      -1,
       1,
-      "planks_slab",
+      "wattle",
       0
     ],
     [
@@ -1859,23 +1337,16 @@
     [
       3,
       0,
-      0,
-      "dark_planks",
-      0
-    ],
-    [
-      3,
-      0,
       1,
-      "lantern",
+      "dark_heartwood",
       0
     ],
     [
       3,
       0,
       2,
-      "door",
-      24
+      "dark_heartwood",
+      0
     ],
     [
       3,
@@ -1888,7 +1359,7 @@
       3,
       0,
       4,
-      "wattle",
+      "dark_heartwood",
       0
     ],
     [
@@ -1903,13 +1374,6 @@
       0,
       7,
       "thatch",
-      0
-    ],
-    [
-      3,
-      1,
-      0,
-      "dark_planks",
       0
     ],
     [
@@ -1963,6 +1427,34 @@
     ],
     [
       5,
+      -10,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      5,
+      -9,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      5,
+      -8,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      5,
+      -7,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      5,
       -4,
       1,
       "heather",
@@ -1973,34 +1465,552 @@
       -1,
       1,
       "bloom",
+      0
+    ],
+    [
+      6,
+      -11,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      6,
+      -10,
+      1,
+      "door",
+      3
+    ],
+    [
+      6,
+      -10,
+      2,
+      "door",
+      19
+    ],
+    [
+      6,
+      -10,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      6,
+      -10,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      6,
+      -9,
+      1,
+      "planks",
+      0
+    ],
+    [
+      6,
+      -9,
+      2,
+      "planks",
+      0
+    ],
+    [
+      6,
+      -9,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      6,
+      -9,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      6,
+      -8,
+      1,
+      "heartwood",
+      0
+    ],
+    [
+      6,
+      -8,
+      2,
+      "glass",
+      0
+    ],
+    [
+      6,
+      -8,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      6,
+      -8,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      6,
+      -7,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      7,
+      -12,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      7,
+      -11,
+      1,
+      "planks",
+      0
+    ],
+    [
+      7,
+      -11,
+      2,
+      "planks",
+      0
+    ],
+    [
+      7,
+      -11,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      7,
+      -11,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      7,
+      -10,
+      0,
+      "polished_stone",
+      0
+    ],
+    [
+      7,
+      -10,
+      6,
+      "shingles",
+      0
+    ],
+    [
+      7,
+      -9,
+      0,
+      "polished_stone",
+      0
+    ],
+    [
+      7,
+      -9,
+      6,
+      "shingles",
+      0
+    ],
+    [
+      7,
+      -8,
+      1,
+      "planks",
+      0
+    ],
+    [
+      7,
+      -8,
+      2,
+      "planks",
+      0
+    ],
+    [
+      7,
+      -8,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      7,
+      -8,
+      5,
+      "shingles",
       0
     ],
     [
       7,
       -7,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      8,
+      -13,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      8,
+      -12,
+      1,
+      "heartwood",
+      0
+    ],
+    [
+      8,
+      -12,
+      2,
+      "glass",
+      0
+    ],
+    [
+      8,
+      -12,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      8,
+      -12,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      8,
+      -11,
+      0,
+      "polished_stone",
+      0
+    ],
+    [
+      8,
+      -11,
+      6,
+      "shingles",
+      0
+    ],
+    [
+      8,
+      -10,
+      0,
+      "polished_stone",
+      0
+    ],
+    [
+      8,
+      -10,
+      7,
+      "mossy_bricks",
+      0
+    ],
+    [
+      8,
+      -9,
+      0,
+      "polished_stone",
+      0
+    ],
+    [
+      8,
+      -9,
+      6,
+      "shingles",
+      0
+    ],
+    [
+      8,
+      -8,
+      1,
+      "heartwood",
+      0
+    ],
+    [
+      8,
+      -8,
+      2,
+      "glass",
+      0
+    ],
+    [
+      8,
+      -8,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      8,
+      -8,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      8,
+      -7,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      9,
+      -13,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      9,
+      -12,
+      1,
+      "planks",
+      0
+    ],
+    [
+      9,
+      -12,
+      2,
+      "planks",
+      0
+    ],
+    [
+      9,
+      -12,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      9,
+      -12,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      9,
+      -11,
+      0,
+      "polished_stone",
+      0
+    ],
+    [
+      9,
+      -11,
       1,
       "lantern",
       0
     ],
     [
-      7,
-      -6,
+      9,
+      -11,
+      6,
+      "shingles",
+      0
+    ],
+    [
+      9,
+      -10,
       0,
-      "packed_earth",
+      "polished_stone",
       0
     ],
     [
-      7,
-      -6,
+      9,
+      -10,
       1,
-      "planks_slab",
+      "bedroll",
       0
     ],
     [
-      7,
-      -5,
+      9,
+      -10,
+      6,
+      "shingles",
+      0
+    ],
+    [
+      9,
+      -9,
       1,
-      "planks_slab",
+      "planks",
+      0
+    ],
+    [
+      9,
+      -9,
+      2,
+      "planks",
+      0
+    ],
+    [
+      9,
+      -9,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      9,
+      -9,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      9,
+      -8,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      10,
+      -13,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      10,
+      -12,
+      1,
+      "heartwood",
+      0
+    ],
+    [
+      10,
+      -12,
+      2,
+      "glass",
+      0
+    ],
+    [
+      10,
+      -12,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      10,
+      -12,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      10,
+      -11,
+      1,
+      "planks",
+      0
+    ],
+    [
+      10,
+      -11,
+      2,
+      "planks",
+      0
+    ],
+    [
+      10,
+      -11,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      10,
+      -11,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      10,
+      -10,
+      1,
+      "heartwood",
+      0
+    ],
+    [
+      10,
+      -10,
+      2,
+      "heartwood",
+      0
+    ],
+    [
+      10,
+      -10,
+      3,
+      "heartwood",
+      0
+    ],
+    [
+      10,
+      -10,
+      5,
+      "shingles",
+      0
+    ],
+    [
+      10,
+      -9,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      11,
+      -13,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      11,
+      -12,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      11,
+      -11,
+      4,
+      "shingles",
+      0
+    ],
+    [
+      11,
+      -10,
+      4,
+      "shingles",
       0
     ]
   ]

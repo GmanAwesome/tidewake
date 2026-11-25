@@ -2,15 +2,29 @@
   "name": "Cedar Treehouse",
   "author": "a loft in the high cedars",
   "seed_text": "ember-croft",
-  "gen": {},
+  "gen": {
+    "island_size": 50,
+    "island_thickness": 50,
+    "sky_density": 50,
+    "terrain_roughness": 50,
+    "mountain_height": 50,
+    "flatness": 50,
+    "cave_amount": 50,
+    "cave_size": 50,
+    "water": 50,
+    "biome_size": 50,
+    "tree_density": 50,
+    "glimmer_rarity": 50,
+    "generator_version": 3
+  },
   "site": {
-    "q": 74,
-    "r": 123,
-    "top": 48,
+    "q": 27,
+    "r": 0,
+    "top": 71,
     "dock_dir": 0
   },
   "camera": {
-    "radius": 44.0,
+    "radius": 48.0,
     "height": 28.0,
     "target_dy": 8.0,
     "yaw_offset": -24.0,
@@ -21,7 +35,7 @@
     "radius": 7,
     "blend": 5,
     "clear_up": 30,
-    "clear_trees": 18,
+    "clear_trees": 20,
     "flowers": 8
   },
   "blocks": [

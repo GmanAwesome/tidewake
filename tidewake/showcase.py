@@ -32,22 +32,20 @@ def list_builds():
 # Strong v2 skies, scored for a nearby spire, land, and a mix of realms.
 # site is the spawn we found for that seed so the camera has a place to stand.
 SEED_SHOWS = [
-    dict(name='Bright Arch', seed_text='bright-arch', site={'q': -72, 'r': 15, 'top': 81},
+    dict(name='Bright Arch', seed_text='bright-arch', site={'q': 74, 'r': -279, 'top': 105},
          camera={'radius': 48.0, 'height': 22.0, 'target_dy': 4.0, 'yaw_offset': -16.0, 'speed': 0.032, 'phase': 0.12}),
-    dict(name='Saltwind Bay', seed_text='salt-wind-bay', site={'q': 27, 'r': 33, 'top': 71},
-         camera={'radius': 46.0, 'height': 20.0, 'target_dy': 3.0, 'yaw_offset': 18.0, 'speed': 0.03, 'phase': 0.28}),
-    dict(name='Windward Isle', seed_text='windward-isle', site={'q': 157, 'r': -36, 'top': 76},
+    dict(name='Saltwind Bay', seed_text='salt-wind-bay', site={'q': 68, 'r': -32, 'top': 107},
+         camera={'radius': 53.5, 'height': 26.0, 'target_dy': 3.0, 'yaw_offset': 18.0, 'speed': 0.03, 'phase': 0.28,
+                 'arc': [2.16, 7.461]}),
+    dict(name='Windward Isle', seed_text='windward-isle', site={'q': -292, 'r': 211, 'top': 115},
          camera={'radius': 50.0, 'height': 24.0, 'target_dy': 5.0, 'yaw_offset': -28.0, 'speed': 0.034, 'phase': 0.08,
                  'center': [-8, 0]}),
-    dict(name='Ember Croft', seed_text='ember-croft', site={'q': 28, 'r': 123, 'top': 41},
-         camera={'radius': 53.0, 'height': 26.0, 'target_dy': 4.0, 'yaw_offset': 12.0, 'speed': 0.036, 'phase': 0.36,
-                 'arc': [0.524, 5.629]}),
-    dict(name='Sky 4096', seed_text='4096', site={'q': -62, 'r': -124, 'top': 56},
-         camera={'radius': 52.0, 'height': 29.0, 'target_dy': 4.0, 'yaw_offset': -8.0, 'speed': 0.03, 'phase': 0.18,
-                 'arc': [4.189, 8.574]}),
-    dict(name='Hardy 1729', seed_text='1729', site={'q': 153, 'r': -160, 'top': 55},
-         camera={'radius': 57.0, 'height': 30.0, 'target_dy': 6.0, 'yaw_offset': 24.0, 'speed': 0.028, 'phase': 0.22,
-                 'arc': [3.927, 6.48]}),
+    dict(name='Ember Croft', seed_text='ember-croft', site={'q': 124, 'r': 70, 'top': 106},
+         camera={'radius': 53.0, 'height': 26.0, 'target_dy': 4.0, 'yaw_offset': 12.0, 'speed': 0.036, 'phase': 0.36}),
+    dict(name='Sky 4096', seed_text='4096', site={'q': -227, 'r': -64, 'top': 153},
+         camera={'radius': 52.0, 'height': 29.0, 'target_dy': 4.0, 'yaw_offset': -8.0, 'speed': 0.03, 'phase': 0.18}),
+    dict(name='Hardy 1729', seed_text='1729', site={'q': 239, 'r': 111, 'top': 112},
+         camera={'radius': 57.0, 'height': 30.0, 'target_dy': 6.0, 'yaw_offset': 24.0, 'speed': 0.028, 'phase': 0.22}),
 ]
 
 
@@ -100,13 +98,13 @@ def pick(advance=True):
     data.setdefault('blocks', [])
     if data.get('gen') is None:
         from . import gensettings as GS
-        data['gen'] = GS.normalize({})
+        data['gen'] = GS.normalize({}, new=True)
     return Showcase(data)
 
 
 _GROUND = np.array([MT.OPAQUE[i] and MT.NAMES[i] not in ('Canopy', 'Heartwood') for i in range(MT.N)])
 _FLOWERS = [MT.ID['bloom'], MT.ID['petals'], MT.ID['bloom'], MT.ID['sprout'], MT.ID['berry_bush']]
-_TREE = np.array([MT.ID['canopy'], MT.ID['heartwood']])
+_TREE = np.array([MT.ID['canopy'], *MT.WOODS])
 _TURF, _LOAM, _STONE = MT.ID['turf'], MT.ID['loam'], MT.ID['stone']
 
 
@@ -117,7 +115,7 @@ class Showcase:
         self.gen = data.get('gen')
         if self.gen is not None:
             from . import gensettings as GS
-            self.gen = GS.normalize(self.gen)
+            self.gen = GS.normalize(self.gen, new=True)
         self.name = data.get('name', 'A little build')
         self.seed_text = data['seed_text']
         s = data['site']

@@ -441,13 +441,14 @@ def test_showcase_camera_paths_stay_clear():
         if kind == 'json':
             sc = SC.Showcase.load(payload)
             builds += 1
-            assert sc.gen is not None, sc.name + ' must use generator v2'
+            assert sc.gen is not None, sc.name + ' must ship a generator setting'
+            assert int(sc.gen.get('generator_version') or 0) == 3, sc.name + ' must use generator v3'
         else:
             data = dict(payload)
             data.setdefault('kind', 'seed')
             data.setdefault('blocks', [])
             if data.get('gen') is None:
-                data['gen'] = GS.normalize({})
+                data['gen'] = GS.normalize({}, new=True)
             sc = SC.Showcase(data)
         world = SC.stamped_world(sc)
         rep = SC.path_report(sc, world, n=96)

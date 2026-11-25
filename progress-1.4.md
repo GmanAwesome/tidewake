@@ -368,4 +368,8 @@ Shelf centers run from the mid-thirties up to about 292, and relief takes some s
 
 Generating and meshing 49 chunks took about 4.5–5 ms each on v3, no slower than v2. A 25-chunk ring around the mid spawn and around that peak both took about 0.25 s. Far-distance LOD still builds (about 0.6 ms per chunk). Lighting, mobs, and the save format follow the new column height; old chunks are padded with empty air above 128. Camera fog is still tied to the load radius, so a 300-high island is in view if it is loaded. Updraft columns between tiers were left for later if travel feels too hard; waystones, glide, and sky boats are unchanged.
 
+## November 25, 2026, 6:38 PM EST — Title showcases on the new sky
+
+The eight player builds and the seed-only title skies now sit on generator v3. The Sky-boat Dock has a much larger boat (a long wide hull, a tall mast and a broad linen sail) and a cleared quay, the Twin Isles Bridge is a 20-hex crossing with wider abutments and a longer covered mid-span, and tree-clearing now removes every kind of heartwood, so leftover trunks no longer stand in the Lighthouse Cottage's inland view (the clear radius there is also wider). Every orbit still passes the camera-path test.
+
 

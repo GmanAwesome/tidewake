@@ -2,136 +2,209 @@
   "name": "Rose Temple",
   "author": "a quiet garden above the bay",
   "seed_text": "salt-wind-bay",
-  "gen": {},
+  "gen": {
+    "island_size": 50,
+    "island_thickness": 50,
+    "sky_density": 50,
+    "terrain_roughness": 50,
+    "mountain_height": 50,
+    "flatness": 50,
+    "cave_amount": 50,
+    "cave_size": 50,
+    "water": 50,
+    "biome_size": 50,
+    "tree_density": 50,
+    "glimmer_rarity": 50,
+    "generator_version": 3
+  },
   "site": {
-    "q": 67,
-    "r": 25,
-    "top": 80,
-    "dock_dir": 3
+    "q": 192,
+    "r": -78,
+    "top": 108,
+    "dock_dir": 0
   },
   "camera": {
-    "radius": 54.0,
-    "height": 28,
+    "radius": 50.0,
+    "height": 24.0,
     "target_dy": 3.0,
     "yaw_offset": 12.0,
     "speed": 0.031,
-    "phase": 0.2,
-    "center": [
-      -8,
-      0
-    ]
+    "phase": 0.2
   },
   "flatten": {
     "radius": 8,
     "blend": 5,
     "clear_up": 22,
-    "clear_trees": 24,
+    "clear_trees": 22,
     "flowers": 0
   },
   "blocks": [
     [
-      -9,
-      1,
-      1,
-      "glowstick",
+      -8,
+      0,
+      0,
+      "polished_rosestone",
       0
     ],
     [
       -8,
-      -1,
       0,
-      "polished_stone_slab",
-      0
-    ],
-    [
-      -8,
-      -1,
       1,
-      "signpost",
-      3
-    ],
-    [
-      -8,
-      0,
-      0,
-      "polished_stone_slab",
+      "bloom",
       0
     ],
     [
       -8,
       1,
       0,
-      "polished_stone_slab",
+      "polished_rosestone",
+      0
+    ],
+    [
+      -8,
+      1,
+      1,
+      "heather",
+      0
+    ],
+    [
+      -8,
+      2,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -8,
+      2,
+      1,
+      "bloom",
       0
     ],
     [
       -7,
       -1,
       0,
-      "polished_stone_slab",
+      "polished_rosestone",
+      0
+    ],
+    [
+      -7,
+      -1,
+      1,
+      "bloom",
       0
     ],
     [
       -7,
       0,
       0,
-      "polished_stone_slab",
+      "polished_rosestone",
+      0
+    ],
+    [
+      -7,
+      0,
+      1,
+      "water",
       0
     ],
     [
       -7,
       1,
       0,
-      "polished_stone_slab",
+      "polished_rosestone",
       0
     ],
     [
-      -6,
-      -1,
-      0,
-      "carved_stone",
+      -7,
+      1,
+      1,
+      "water",
       0
     ],
     [
-      -6,
+      -7,
+      2,
       0,
-      0,
-      "carved_stone",
+      "polished_rosestone",
       0
     ],
     [
-      -6,
-      0,
+      -7,
+      2,
       1,
       "heather",
       0
     ],
     [
       -6,
+      -2,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -6,
+      -2,
+      1,
+      "bloom",
+      0
+    ],
+    [
+      -6,
+      -1,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -6,
+      -1,
+      1,
+      "water",
+      0
+    ],
+    [
+      -6,
+      0,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -6,
+      0,
+      1,
+      "water",
+      0
+    ],
+    [
+      -6,
       1,
       0,
-      "carved_stone",
+      "polished_rosestone",
       0
     ],
     [
       -6,
       1,
       1,
-      "sprout",
+      "water",
       0
     ],
     [
       -6,
       2,
       0,
-      "loam",
+      "polished_rosestone",
       0
     ],
     [
       -6,
       2,
       1,
-      "wildflower",
+      "bloom",
       0
     ],
     [
@@ -192,16 +265,30 @@
     ],
     [
       -5,
+      -2,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -5,
+      -2,
+      1,
+      "heather",
+      0
+    ],
+    [
+      -5,
       -1,
       0,
-      "loam",
+      "polished_rosestone",
       0
     ],
     [
       -5,
       -1,
       1,
-      "bloom",
+      "water",
       0
     ],
     [
@@ -214,47 +301,61 @@
     [
       -5,
       0,
+      1,
+      "water",
+      0
+    ],
+    [
+      -5,
+      1,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -5,
+      1,
+      1,
+      "bloom",
+      0
+    ],
+    [
+      -5,
+      2,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -5,
+      3,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -5,
+      4,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -5,
+      5,
+      0,
+      "polished_rosestone",
+      0
+    ],
+    [
+      -5,
+      5,
       1,
       "pale_planks_slab",
       0
     ],
     [
       -5,
-      1,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      -5,
-      2,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      -5,
-      3,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      -5,
-      4,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      -5,
-      5,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      -5,
       6,
       0,
       "loam",
@@ -271,14 +372,14 @@
       -4,
       -2,
       0,
-      "loam",
+      "polished_rosestone",
       0
     ],
     [
       -4,
       -2,
       1,
-      "petals",
+      "bloom",
       0
     ],
     [
@@ -290,9 +391,23 @@
     ],
     [
       -4,
+      -1,
+      1,
+      "heather",
+      0
+    ],
+    [
+      -4,
       0,
       0,
       "polished_rosestone",
+      0
+    ],
+    [
+      -4,
+      0,
+      1,
+      "bloom",
       0
     ],
     [
@@ -895,6 +1010,13 @@
       -5,
       0,
       "polished_rosestone",
+      0
+    ],
+    [
+      0,
+      -5,
+      1,
+      "pale_planks_slab",
       0
     ],
     [
@@ -1144,13 +1266,6 @@
     ],
     [
       0,
-      5,
-      1,
-      "pale_planks_slab",
-      0
-    ],
-    [
-      0,
       6,
       0,
       "loam",
@@ -1747,13 +1862,6 @@
     [
       4,
       0,
-      1,
-      "bloom",
-      0
-    ],
-    [
-      4,
-      0,
       2,
       "aether_lamp",
       0
@@ -1767,23 +1875,16 @@
     ],
     [
       4,
-      1,
-      1,
-      "heather",
-      0
-    ],
-    [
-      4,
       2,
       0,
-      "polished_rosestone",
+      "loam",
       0
     ],
     [
       4,
       2,
       1,
-      "bloom",
+      "sprout",
       0
     ],
     [
@@ -1805,13 +1906,6 @@
       -5,
       0,
       "polished_rosestone",
-      0
-    ],
-    [
-      5,
-      -5,
-      1,
-      "pale_planks_slab",
       0
     ],
     [
@@ -1844,13 +1938,6 @@
     ],
     [
       5,
-      -1,
-      1,
-      "bloom",
-      0
-    ],
-    [
-      5,
       0,
       0,
       "polished_rosestone",
@@ -1860,35 +1947,21 @@
       5,
       0,
       1,
-      "water",
+      "pale_planks_slab",
       0
     ],
     [
       5,
       1,
       0,
-      "polished_rosestone",
+      "loam",
       0
     ],
     [
       5,
       1,
       1,
-      "water",
-      0
-    ],
-    [
-      5,
-      2,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      5,
-      2,
-      1,
-      "heather",
+      "wildflower",
       0
     ],
     [
@@ -1951,168 +2024,105 @@
       6,
       -2,
       0,
-      "polished_rosestone",
+      "loam",
       0
     ],
     [
       6,
-      -2,
-      1,
-      "bloom",
-      0
-    ],
-    [
-      6,
-      -1,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      6,
-      -1,
-      1,
-      "water",
-      0
-    ],
-    [
-      6,
-      0,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      6,
-      0,
-      1,
-      "water",
-      0
-    ],
-    [
-      6,
-      1,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      6,
-      1,
-      1,
-      "water",
-      0
-    ],
-    [
-      6,
-      2,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      6,
-      2,
-      1,
-      "bloom",
-      0
-    ],
-    [
-      7,
-      -2,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      7,
       -2,
       1,
       "heather",
       0
     ],
     [
-      7,
+      6,
       -1,
       0,
-      "polished_rosestone",
+      "carved_stone",
       0
     ],
     [
-      7,
+      6,
       -1,
-      1,
-      "water",
-      0
-    ],
-    [
-      7,
-      0,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      7,
-      0,
-      1,
-      "water",
-      0
-    ],
-    [
-      7,
-      1,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      7,
-      1,
       1,
       "bloom",
       0
     ],
     [
-      8,
-      -2,
+      6,
       0,
-      "polished_rosestone",
+      0,
+      "carved_stone",
       0
     ],
     [
-      8,
-      -2,
+      6,
+      0,
       1,
-      "bloom",
+      "petals",
+      0
+    ],
+    [
+      6,
+      1,
+      0,
+      "carved_stone",
+      0
+    ],
+    [
+      7,
+      -1,
+      0,
+      "polished_stone_slab",
+      0
+    ],
+    [
+      7,
+      0,
+      0,
+      "polished_stone_slab",
+      0
+    ],
+    [
+      7,
+      1,
+      0,
+      "polished_stone_slab",
       0
     ],
     [
       8,
       -1,
       0,
-      "polished_rosestone",
+      "polished_stone_slab",
       0
     ],
     [
       8,
+      0,
+      0,
+      "polished_stone_slab",
+      0
+    ],
+    [
+      8,
+      1,
+      0,
+      "polished_stone_slab",
+      0
+    ],
+    [
+      8,
+      1,
+      1,
+      "signpost",
+      0
+    ],
+    [
+      9,
       -1,
       1,
-      "heather",
-      0
-    ],
-    [
-      8,
-      0,
-      0,
-      "polished_rosestone",
-      0
-    ],
-    [
-      8,
-      0,
-      1,
-      "bloom",
+      "glowstick",
       0
     ]
   ]
