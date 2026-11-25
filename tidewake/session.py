@@ -19,7 +19,7 @@ from . import tide as TIDE
 from .world import World
 from . import items as I
 from .inventory import Inventory
-from .entities import Mob, Drop, spawn_spot, KINDS
+from .entities import Mob, Drop, spawn_spot, KINDS, FLYING, FLOWER_BLOCKS
 from . import models as MD
 
 ABILITIES = [('Glide', 'Hold Space while falling to glide on the wind.'),
@@ -1181,8 +1181,11 @@ class Session:
             self.mob_t = 1.0
             passive = [m for m in self.mobs if not m.hostile]
             hostile = [m for m in self.mobs if m.hostile]
-            if len(passive) < 9 and not getattr(self, 'tutorial', False):
-                self._try_spawn(False)
+            if not getattr(self, 'tutorial', False):
+                ground = [m for m in passive if m.kind not in FLYING]
+                if len(ground) < 9:
+                    self._try_spawn(False)
+                self._try_spawn_flyers(dusk)
             if dusk > 0.55 and not peaceful and not getattr(self, 'tutorial', False) and len(hostile) < 6:
                 self._try_spawn(True)
         self._mob_tick = getattr(self, '_mob_tick', 0) + 1
@@ -1209,8 +1212,8 @@ class Session:
                 if mob.lay <= 0:
                     mob.lay = random.uniform(80, 220)
                     self.drops.append(Drop(I.EGG.id, 1, mob.x, mob.y + 0.3, mob.z))
-        far = 70
-        self.mobs = [m for m in self.mobs if not m.dead and math.hypot(m.x - p.x, m.z - p.z) < far]
+        self.mobs = [m for m in self.mobs if not m.dead and
+                     math.hypot(m.x - p.x, m.z - p.z) < (140 if m.kind == 'skywhale' else 70)]
 
     def _try_spawn(self, hostile, kind=None, near=None):
         p = self.player
@@ -1246,6 +1249,43 @@ class Session:
                 self.mobs.append(Mob(kind, sx + random.uniform(-0.4, 0.4), sy, sz + random.uniform(-0.4, 0.4)))
             return True
         return False
+
+
+    def _try_spawn_flyers(self, dusk):
+        """A couple of skywhales in the open air, and fairies near flowers."""
+        whales = [m for m in self.mobs if m.kind == 'skywhale']
+        fairies = [m for m in self.mobs if m.kind == 'fairy']
+        p = self.player
+        if len(whales) < 2:
+            for _ in range(4):
+                a = random.uniform(0, math.tau)
+                d = random.uniform(32, 70)
+                x, z = p.x + math.cos(a) * d, p.z + math.sin(a) * d
+                q, r = cell_at(x, z)
+                top = self.world.column_top(q, r)
+                base = ((top + 1) * LAYER) if top is not None else max(p.y, CLOUD_SEA * LAYER + 8)
+                y = base + random.uniform(10, 20)
+                self.mobs.append(Mob('skywhale', x, y, z))
+                break
+        want_fairies = 6 if dusk > 0.3 else 3
+        if len(fairies) < want_fairies:
+            # look for a nearby flower, otherwise a grassy column
+            for _ in range(8):
+                a = random.uniform(0, math.tau)
+                d = random.uniform(8, 26)
+                x, z = p.x + math.cos(a) * d, p.z + math.sin(a) * d
+                q, r = cell_at(x, z)
+                top = self.world.column_top(q, r)
+                if top is None:
+                    continue
+                above = self.world.get(q, r, top + 1)
+                ground = self.world.get(q, r, top)
+                if above not in FLOWER_BLOCKS and ground not in (M['turf'], M['loam'], M['mossrock']):
+                    continue
+                cx, cz = center(q, r)
+                y = (top + 1) * LAYER + 0.4
+                self.mobs.append(Mob('fairy', cx + random.uniform(-0.3, 0.3), y, cz + random.uniform(-0.3, 0.3)))
+                break
 
     def _update_drops(self, dt):
         p = self.player
@@ -1649,6 +1689,13 @@ class Session:
         if 'brightwake' in getattr(self, 'attune', []):
             p = self.player
             L.append((p.x - cx, p.y + 0.9 - cy, p.z - cz, M['glimmer_font']))
+        lamp = M.get('lumen_lamp', M['lantern'])
+        for mob in self.mobs:
+            if mob.kind != 'fairy' or mob.dead:
+                continue
+            if abs(mob.x - cx) + abs(mob.z - cz) > 28:
+                continue
+            L.append((mob.x - cx, mob.y + 0.12 - cy, mob.z - cz, lamp))
         return [np.array(L)] if L else []
 
     # ------------------------------------------------------------------ commands (whisper box)
@@ -1656,7 +1703,7 @@ class Session:
         ('/tp x z  ·  /tp x y z', 'go to a spot (finds land)'),
         ('/tp spire  ·  /tp spawn', 'go to the nearest sleeping spire, or your waking spot'),
         ('/give item [count]', 'e.g. /give aetherite pick, /give glass 64'),
-        ('/spawn creature [count]', 'woolhop, pebblebeak, mossback, gloomling, brute'),
+        ('/spawn creature [count]', 'woolhop, pebblebeak, mossback, gloomling, brute, skywhale, fairy'),
         ('/killmobs', 'clear all creatures (also /kill)'),
         ('/tide light|dusk|0-1', 'set the tide (also /time day|night)'),
         ('/weather clear|rain', 'change the weather'),
@@ -1715,7 +1762,7 @@ class Session:
                 kind = (args[0].lower() if args else 'woolhop')
                 kind = next((k for k in KINDS if k.startswith(kind)), None)
                 if not kind:
-                    self.toast('Unknown creature', 'woolhop, pebblebeak, mossback, gloomling, brute', 3)
+                    self.toast('Unknown creature', 'woolhop, pebblebeak, mossback, gloomling, brute, skywhale, fairy', 3)
                     return
                 n = int(args[1]) if len(args) > 1 else 1
                 ex, ey, ez = p.eye
@@ -1723,11 +1770,15 @@ class Session:
                 made = 0
                 for k in range(min(n, 30)):
                     x, z = p.x + fx * (3 + k % 4) + random.uniform(-1, 1), p.z + fz * (3 + k % 4) + random.uniform(-1, 1)
-                    spot = spawn_spot(self.world, x, z)
-                    if spot:
-                        self.mobs.append(Mob(kind, spot[0], spot[1], spot[2]))
+                    if kind in FLYING:
+                        y = p.y + (12 if kind == 'skywhale' else 1.2) + random.uniform(-0.4, 0.8)
+                        self.mobs.append(Mob(kind, x, y, z))
                     else:
-                        self.mobs.append(Mob(kind, x, p.y + 1, z))
+                        spot = spawn_spot(self.world, x, z)
+                        if spot:
+                            self.mobs.append(Mob(kind, spot[0], spot[1], spot[2]))
+                        else:
+                            self.mobs.append(Mob(kind, x, p.y + 1, z))
                     made += 1
                 self.toast(f'Spawned {made} {kind}', '', 2)
             elif cmd in ('killmobs', 'kill', 'butcher'):

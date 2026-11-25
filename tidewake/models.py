@@ -278,6 +278,35 @@ def _creature(kind, t, walking, color_seed=0.0, hurt=0.0):
                 prisms((-0.14, 0.14), (-0.37, -0.37), 0.32, 0.44, 0.07, eye, eye, 1.0),
                 prisms((-0.24, 0.24), (0.0, 0.0), 0.68, 0.84, 0.06, c * 1.2, c, 0.2))
         return transform(v, sy=squash)
+    if kind == 'skywhale':
+        # long pale body, facing -z, with fins and a slow tail sweep
+        tail = math.sin(t * 1.4) * 0.12
+        flap = math.sin(t * 0.9) * 0.08
+        skin = np.array([0.78, 0.88, 0.94]) * tint
+        belly = np.array([0.94, 0.96, 0.98]) * tint
+        mark = np.array([0.62, 0.74, 0.86]) * tint
+        eye = np.array([0.12, 0.16, 0.22])
+        return cat(
+            prisms(0, 0.15, 0.35, 1.15, 0.42, skin, skin * 0.88),          # shoulders
+            prisms(0, 0.05, 0.20, 1.05, 0.55, skin, belly),                 # mid body
+            prisms(0, -0.55, 0.30, 0.95, 0.32, skin, skin * 0.9),           # neck
+            prisms(0, -0.95, 0.40, 0.88, 0.22, skin, belly),                # head
+            prisms(0, -1.12, 0.52, 0.70, 0.10, mark, mark),                 # snout
+            prisms((-0.12, 0.12), (-1.02, -1.02), 0.68, 0.74, 0.04, eye, eye),
+            prisms((-0.7, 0.7), (0.05, 0.05), 0.55 + flap, 0.72 + flap, 0.28, mark, skin),  # wings
+            prisms(0, 0.70 + tail, 0.40, 0.95, 0.22, skin, mark),           # tail stock
+            prisms((-0.35, 0.35), (1.05 + tail, 1.05 + tail), 0.45, 0.85, 0.08, mark, skin),
+        )
+    if kind == 'fairy':
+        flutter = math.sin(t * 18.0) * 0.06
+        glow = np.array([1.0, 0.86, 0.55]) * tint
+        wing = np.array([0.85, 0.95, 1.0]) * tint
+        core = np.array([1.0, 0.95, 0.80])
+        return cat(
+            prisms(0, 0, 0.04, 0.22, 0.07, glow, core, 0.6),
+            prisms(0, 0, 0.10, 0.18, 0.04, core, core, 1.0),
+            prisms((-0.16, 0.16), (0.0, 0.0), 0.10 + flutter, 0.20 + flutter, 0.05, wing, wing, 0.35),
+        )
     return prisms(0, 0, 0, 0.5, 0.3, (1, 0, 1), (1, 0, 1))
 
 

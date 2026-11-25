@@ -1,6 +1,7 @@
 """Creatures and dropped items.
 
 Woolhops, pebblebeaks and mossbacks wander the islands and drop useful things.
+Skywhales drift between the islands, and fairies glow near flowers as dusk comes on.
 Gloomlings come out in the dusk tide (they can be switched off in Settings), and
 fade away when the light returns.
 """
@@ -24,8 +25,13 @@ KINDS = {
     'mossback':  (14,  0.8,  0.55, 0.56,  False, [(MT.ID['mossrock'], 1, 2), (MT.ID['vine'], 0, 2)]),
     'gloomling': (10,  2.9,  0.40, 0.84,  True,  [(I.GLOOM.id, 1, 2)]),
     'brute':     (26,  2.2,  0.65, 1.40,  True,  [(I.GLOOM.id, 2, 4), (I.EMBERITE.id, 0, 2)]),
+    'skywhale':  (40,  0.55, 2.20, 1.60,  False, []),
+    'fairy':     (2,   1.35, 0.16, 0.28,  False, []),
 }
-SCALE = {'brute': 1.7}
+SCALE = {'brute': 1.7, 'skywhale': 3.4}
+FLYING = frozenset({'skywhale', 'fairy'})
+FLOWER_BLOCKS = {MT.ID['bloom'], MT.ID['petals'], MT.ID['berry_bush'], MT.ID['sprout'],
+                 MT.ID['skywheat'], MT.ID['berry_crop']}
 
 
 def solid_at(world, x, y, z):
@@ -53,6 +59,8 @@ class Mob:
         self.seed = random.random()
         self.lay = random.uniform(60, 200)
         self.scale = SCALE.get(kind, 1.0)
+        self.home = (x, y, z)
+        self._cruise_y = y
 
     def update(self, dt, world, player, dusk, peaceful):
         self.t += dt
@@ -60,6 +68,9 @@ class Mob:
         self.attack_cd = max(0.0, self.attack_cd - dt)
         self.think -= dt
         self.panic = max(0.0, self.panic - dt)
+        if self.kind in FLYING:
+            self._update_fly(dt, world, player, dusk)
+            return
         dx, dz = player.x - self.x, player.z - self.z
         dist = math.hypot(dx, dz)
         want = 0.0
@@ -107,6 +118,59 @@ class Mob:
             self.vy = min(self.vy, 0.0)
         self._move(world, dt)
         if self.y < CLOUD_SEA * LAYER - 4:
+            self.dead = True
+
+
+    def _update_fly(self, dt, world, player, dusk):
+        """Skywhales drift slowly through the open air; fairies hover near flowers."""
+        a = math.radians(self.yaw)
+        fx, fz = math.sin(a), -math.cos(a)
+        if self.kind == 'skywhale':
+            if self.think <= 0:
+                self.think = random.uniform(8, 20)
+                self.yaw = (self.yaw + random.uniform(-50, 50)) % 360
+                self._cruise_y = max(CLOUD_SEA * LAYER + 8, self._cruise_y + random.uniform(-2.5, 2.5))
+            want = self.speed * (1.35 if self.hurt > 0 else 1.0)
+            k = min(1.0, 1.1 * dt)
+            self.vx += (fx * want - self.vx) * k
+            self.vz += (fz * want - self.vz) * k
+            tgt = self._cruise_y + math.sin(self.t * 0.18 + self.seed * 6) * 1.4
+            self.vy += ((tgt - self.y) * 0.25 - self.vy) * min(1.0, 1.8 * dt)
+            self.x += self.vx * dt
+            self.y += self.vy * dt
+            self.z += self.vz * dt
+            self.walking = True
+            self.on_ground = False
+            if self.y < CLOUD_SEA * LAYER + 4:
+                self.vy = abs(self.vy) + 0.6
+                self.y = CLOUD_SEA * LAYER + 4
+            if solid_at(world, self.x, self.y, self.z) or solid_at(world, self.x + fx * 3, self.y, self.z + fz * 3):
+                self.vy = max(self.vy, 2.4)
+                self.yaw = (self.yaw + 25) % 360
+        else:
+            hx, hy, hz = self.home
+            dart = 1.35 + (0.7 if dusk > 0.35 else 0.0)
+            if self.think <= 0:
+                self.think = random.uniform(0.7, 2.4)
+                self.yaw = (self.yaw + random.uniform(-140, 140)) % 360
+                if math.hypot(self.x - hx, self.z - hz) > 4.5:
+                    self.yaw = math.degrees(math.atan2(hx - self.x, -(hz - self.z)))
+            want = self.speed * dart * (0.55 + 0.45 * (self.think < 0.35))
+            if self.hurt > 0:
+                want = self.speed * 2.2
+            k = min(1.0, 6 * dt)
+            self.vx += (fx * want - self.vx) * k
+            self.vz += (fz * want - self.vz) * k
+            bob = hy + 0.55 + math.sin(self.t * 2.6 + self.seed * 8) * 0.28
+            if dusk > 0.35:
+                bob += 0.15
+            self.vy += ((bob - self.y) * 2.4 - self.vy) * min(1.0, 6 * dt)
+            self.x += self.vx * dt
+            self.y += self.vy * dt
+            self.z += self.vz * dt
+            self.walking = True
+            self.on_ground = False
+        if self.y < CLOUD_SEA * LAYER - 2:
             self.dead = True
 
     def _blocked(self, world, x, y, z):

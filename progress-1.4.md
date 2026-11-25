@@ -163,3 +163,7 @@ Older skies still use the previous generator. Brand-new skies get rarer Glimmer,
 
 The lesson huts are pale planks now, with glass windows and a lamp inside, so they no longer read as dark caves. Mira's practice door stands in a little frame and sits slightly ajar, so the leaf and handle are obvious. Woolhops and the other wandering creatures stay off the lesson island — it's just you and the guides.
 
+## November 25, 2026, 4:23 PM EST — Skywhales and fairies
+
+Two new creatures share the open air. Skywhales are huge, slow, and peaceful; they drift between islands and only climb if a peak gets in the way. Fairies are tiny glows that hover near flowers, and they come out a little more as dusk comes on. Neither one fights back — they just slip away if you startle them. They stay off the lesson island, like the woolhops.
+

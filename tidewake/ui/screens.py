@@ -468,16 +468,19 @@ class JournalScreen(Screen):
             rows = [('woolhop', 'Woolhop', 'Fluffy and calm. Drops Fluff (bedrolls, fluff blocks, cloudstuff) and hopmeat.'),
                     ('pebblebeak', 'Pebblebeak', 'A round little bird. Drops Plumes and lays Speckled Eggs.'),
                     ('mossback', 'Mossback', 'A slow, mossy tortoise. Drops Mossrock and Vines.'),
+                    ('skywhale', 'Skywhale', 'A huge, peaceful drifter between the islands. Slow, quiet, and happy just to pass by.'),
+                    ('fairy', 'Fairy', 'A tiny glow that lingers near flowers, especially as dusk comes on. Harmless, and it lights the grass.'),
                     ('gloomling', 'Gloomling', 'Comes out in the dusk and bumps into you. Fades in the light. Drops Gloom Dust.'),
                     ('brute', 'Gloom Brute', 'A big gloomling. Hits harder; drops more.')]
             for i, (k, name, desc) in enumerate(rows):
-                y = y0 - i * 66 * s
-                gui.rect(x0, y - 50 * s, tw_, 58 * s, (0.97, 0.95, 0.98, 1), 14 * s)
+                y = y0 - i * 52 * s
+                gui.rect(x0, y - 42 * s, tw_, 48 * s, (0.97, 0.95, 0.98, 1), 12 * s)
                 col = {'woolhop': (0.99, 0.95, 0.90), 'pebblebeak': (0.98, 0.86, 0.70), 'mossback': (0.46, 0.68, 0.42),
+                       'skywhale': (0.78, 0.88, 0.94), 'fairy': (1.0, 0.86, 0.55),
                        'gloomling': (0.30, 0.22, 0.46), 'brute': (0.30, 0.22, 0.46)}[k]
-                gui.hexagon(x0 + 30 * s, y - 21 * s, 18 * s, (*col, 1), border=(1, 1, 1), border_w=2 * s)
-                gui.text(name, x0 + 62 * s, y - 12 * s, 12, INK, font='bold')
-                gui.text(desc, x0 + 62 * s, y - 34 * s, 9.5, MUTED)
+                gui.hexagon(x0 + 26 * s, y - 18 * s, 14 * s, (*col, 1), border=(1, 1, 1), border_w=2 * s)
+                gui.text(name, x0 + 52 * s, y - 8 * s, 11, INK, font='bold')
+                gui.text(desc, x0 + 52 * s, y - 28 * s, 9, MUTED)
         elif self.tab == 3:
             lines = ['Dormant spires stand on old plinths across every sky. Each one longs for certain cells.',
                      'Place those cells on the ring of six hexes right around its base, and it will wake.',
