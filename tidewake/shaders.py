@@ -158,8 +158,8 @@ void main() {
         c += u_sun_col * spec * 0.18;
         float fres = pow(1.0 - max(dot(v, n), 0.0), 4.0);
         // nearly fully transparent from every angle; only a faint rim
-        a = mix(0.10, 0.28, fres);
-        c = mix(c, u_fog_col, fres * 0.10);
+        a = mix(0.18, 0.40, fres);
+        c = mix(c, u_fog_col, fres * 0.12);
     } else if (u_alpha < 0.99) {
         vec2 wp = v_pos.xz + u_cam_mod;
         float wave = sin(wp.x * 0.9 + u_time * 1.3) * sin(wp.y * 0.8 - u_time * 1.1);

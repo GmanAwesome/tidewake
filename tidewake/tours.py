@@ -993,3 +993,356 @@ def phase2a(app, log, shot, look_at, settled, arg):
         log('no cave found')
 
     log('phase2a tour finished')
+
+
+
+def phase2b(app, log, shot, look_at, settled, arg):
+    """1.4 Phase 2b: block palette, glass, and the three structure families."""
+    from .hexgrid import spiral
+    from . import gensettings as GS
+    from . import structures as ST
+    from . import materials as MT
+
+    yield 0.4
+    seed = int(arg) if (arg or '').isdigit() else 21
+    app.create_sky('Phase2b', seed, str(seed), 'dreamer', gen=GS.defaults())
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    q0, r0 = cell_at(p.x, p.z)
+    t0 = math.floor(p.y / LAYER + 0.01) - 1
+    if t0 < 8:
+        t0 = 24
+    log('stage', q0, r0, t0)
+
+    # a wide solid pad
+    for a, b in spiral(q0, r0, 22):
+        for yy in range(t0 + 1, t0 + 18):
+            ses.world.set(a, b, yy, 0, now=False)
+        for yy in range(t0 - 16, t0 + 1):
+            ses.world.set(a, b, yy, M['turf'] if yy == t0 else M['loam'], now=False)
+
+    # ---- block palette (rows of the new roster) ----
+    rows = [
+        ['cedar_heartwood', 'cedar_planks', 'pale_heartwood', 'pale_planks',
+         'dark_heartwood', 'dark_planks', 'thatch', 'shingles'],
+        ['cobble', 'slate', 'chalk', 'sandstone', 'cinder', 'starstone', 'salt_block', 'pale_stone'],
+        ['polished_stone', 'polished_basalt', 'polished_rosestone', 'polished_slate',
+         'polished_chalk', 'polished_sandstone', 'polished_starstone', 'carved_stone'],
+        ['stone_bricks', 'basalt_bricks', 'rosestone_bricks', 'chalk_bricks',
+         'dusk_bricks', 'lavender_bricks', 'verdigris_bricks', 'snow_bricks'],
+        ['stone_tiles', 'clay_tiles', 'starstone_tiles', 'lavender_tiles',
+         'verdigris_tiles', 'mosaic', 'wattle', 'heather'],
+        ['linen', 'crimson_cloth', 'dusk_cloth', 'packed_earth',
+         'ember_lamp', 'aether_lamp', 'verdigris_lamp', 'lumen_lamp'],
+        ['stone_slab', 'planks_slab', 'cedar_planks_slab', 'bricks_slab',
+         'thatch_slab', 'shingles_slab', 'glass', 'violet_glass'],
+    ]
+    pq, pr = q0 - 3, r0 - 6
+    for i, row in enumerate(rows):
+        for j, name in enumerate(row):
+            mid = M[name]
+            ses.world.set(pq + j, pr - i, t0 + 1, mid, now=False)
+
+    yield settled()
+    # elevated three-quarter view of the palette
+    tx, tz = center(pq + 3, pr - 3)
+    p.x, p.z = tx + 2.0, tz + 11.0
+    p.y = (t0 + 7.5) * LAYER
+    look_at(p, tx, (t0 + 1.6) * LAYER, tz)
+    yield 0.8
+    yield shot('00_palette')
+
+    # ---- glass: a clear window looking through to color ----
+    gq, gr = q0 + 2, r0 + 6
+    # solid pale-stone floor in front and behind so we don't look into a hole
+    for a in range(-4, 5):
+        for b in range(-3, 3):
+            ses.world.set(gq + a, gr + b, t0, M['pale_stone'], now=False)
+    for a in range(-3, 4):
+        for yy in range(t0 + 1, t0 + 5):
+            if abs(a) == 3 or yy == t0 + 4:
+                ses.world.set(gq + a, gr, yy, M['pale_planks'], now=False)
+            else:
+                kind = M['glass'] if a == 0 else (M['violet_glass'] if a > 0 else M['amber_glass'] if a < -1 else M['green_glass'])
+                ses.world.set(gq + a, gr, yy, kind, now=False)
+    # colorful solid wall a little behind the glass, so the pane has something to show
+    for a in range(-2, 3):
+        for yy in range(t0 + 1, t0 + 4):
+            ses.world.set(gq + a, gr - 2, yy, M['crimson_cloth'] if a < 0 else M['dusk_cloth'] if a > 0 else M['linen'], now=False)
+        ses.world.set(gq + a, gr - 2, t0 + 2, M['ember_lamp'] if a == 0 else (M['aether_lamp'] if a == 1 else M['heather']), now=False)
+    yield settled()
+    tx, tz = center(gq, gr)
+    bx, bz = center(gq, gr - 2)
+    p.x, p.z = tx, tz + 6.5
+    p.y = (t0 + 2.8) * LAYER
+    look_at(p, bx, (t0 + 2.2) * LAYER, bz)
+    yield 0.8
+    yield shot('01_glass')
+
+    # ---- structures, spaced around the pad ----
+    # village (intact)
+    vq, vr = q0 - 8, r0 + 2
+    ST.stamp_world(ses.world, vq, vr, 'village', ST.INTACT, seed=21, realm=0)
+    yield settled()
+    tx, tz = center(vq, vr)
+    p.x, p.z = tx + 2.0, tz + 14.0
+    p.y = (t0 + 8.0) * LAYER
+    look_at(p, tx, (t0 + 3.0) * LAYER, tz)
+    yield 0.9
+    yield shot('02_settlement')
+
+    # temple (slightly ruined so it reads as a ruin)
+    tq, tr = q0 + 10, r0 + 2
+    ST.stamp_world(ses.world, tq, tr, 'temple', ST.RUINED, seed=21, realm=12)
+    yield settled()
+    tx, tz = center(tq, tr)
+    p.x, p.z = tx - 3.0, tz + 15.0
+    p.y = (t0 + 9.0) * LAYER
+    look_at(p, tx, (t0 + 4.0) * LAYER, tz)
+    yield 0.9
+    yield shot('03_temple')
+
+    # standing stones (chalk so the pillars read against the sky)
+    sq, sr = q0 - 2, r0 - 16
+    ST.stamp_world(ses.world, sq, sr, 'standing_stones', ST.OVERGROWN, seed=7, realm=12)
+    yield settled()
+    tx, tz = center(sq, sr)
+    p.x, p.z = tx + 2.0, tz + 16.0
+    p.y = (t0 + 9.0) * LAYER
+    look_at(p, tx, (t0 + 3.5) * LAYER, tz)
+    yield 0.9
+    yield shot('04_standing_stones')
+
+    # buried chamber: look down the shaft, then a lower peek inside
+    cq, cr_ = q0 + 10, r0 - 10
+    ST.stamp_world(ses.world, cq, cr_, 'chamber', ST.INTACT, seed=3, realm=4)
+    yield settled()
+    tx, tz = center(cq, cr_)
+    p.x, p.z = tx + 0.2, tz + 4.2
+    p.y = (t0 + 4.4) * LAYER
+    look_at(p, tx, (t0 - 3.5) * LAYER, tz)
+    yield 0.9
+    yield shot('05_chamber')
+
+    # sky boat at a made edge (clear outward cells so it sits off the island)
+    bq, br = q0 - 8, r0 - 10
+    # carve a drop just past the mooring
+    from .hexgrid import DIRS as _DIRS
+    # leave land at bq,br and drop cells in +r
+    for a in range(-4, 6):
+        for b in range(1, 8):
+            for yy in range(t0 - 8, t0 + 10):
+                ses.world.set(bq + a, br + b, yy, 0, now=False)
+    ST.stamp_world(ses.world, bq, br, 'sky_boat', ST.INTACT, seed=5, realm=14)
+    yield settled()
+    hits = []
+    for a in range(-6, 10):
+        for b in range(-4, 12):
+            for yy in range(t0 - 1, t0 + 8):
+                m = ses.world.get(bq + a, br + b, yy)
+                if m in (M['linen'], M['dusk_cloth'], M['pale_planks'], M['planks'], M['bedroll']):
+                    hits.append((bq + a, br + b, yy))
+    log('boat cells', len(hits), hits[:6])
+    if hits:
+        aq = sum(c[0] for c in hits) / len(hits)
+        ar = sum(c[1] for c in hits) / len(hits)
+        ay = sum(c[2] for c in hits) / len(hits)
+        tx, tz = center(int(round(aq)), int(round(ar)))
+        p.x, p.z = tx + 11.0, tz + 6.0
+        p.y = (ay + 5.0) * LAYER
+        look_at(p, tx, (ay + 0.6) * LAYER, tz)
+    else:
+        tx, tz = center(bq, br + 2)
+        p.x, p.z = tx + 11.0, tz + 6.0
+        p.y = (t0 + 7.0) * LAYER
+        look_at(p, tx, (t0 + 3.0) * LAYER, tz)
+    yield 0.9
+    yield shot('06_sky_boat')
+
+    log('phase2b tour finished')
+
+
+
+def phase2b_fix(app, log, shot, look_at, settled, arg):
+    """Retake glass, standing stones, and the sky boat with cleaner framing."""
+    from .hexgrid import spiral
+    from . import gensettings as GS
+    from . import structures as ST
+
+    yield 0.4
+    seed = int(arg) if (arg or '').isdigit() else 21
+    app.create_sky('Phase2bFix', seed, str(seed), 'dreamer', gen=GS.defaults())
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    q0, r0 = cell_at(p.x, p.z)
+    t0 = math.floor(p.y / LAYER + 0.01) - 1
+    if t0 < 8:
+        t0 = 24
+    log('stage', q0, r0, t0)
+    for a, b in spiral(q0, r0, 24):
+        for yy in range(t0 + 1, t0 + 18):
+            ses.world.set(a, b, yy, 0, now=False)
+        for yy in range(t0 - 16, t0 + 1):
+            ses.world.set(a, b, yy, M['turf'] if yy == t0 else M['loam'], now=False)
+
+    # glass with a windowsill so the floor doesn't read as a hole
+    gq, gr = q0, r0
+    for a in range(-5, 6):
+        for b in range(-3, 4):
+            ses.world.set(gq + a, gr + b, t0, M['pale_stone'], now=False)
+            ses.world.set(gq + a, gr + b, t0 - 1, M['pale_stone'], now=False)
+    for a in range(-3, 4):
+        ses.world.set(gq + a, gr, t0 + 1, M['pale_planks'], now=False)  # sill
+        for yy in range(t0 + 2, t0 + 5):
+            if abs(a) == 3 or yy == t0 + 4:
+                ses.world.set(gq + a, gr, yy, M['pale_planks'], now=False)
+            else:
+                kind = M['glass'] if a == 0 else (M['violet_glass'] if a > 0 else M['amber_glass'] if a < -1 else M['green_glass'])
+                ses.world.set(gq + a, gr, yy, kind, now=False)
+    for a in range(-2, 3):
+        for yy in range(t0 + 1, t0 + 4):
+            ses.world.set(gq + a, gr - 2, yy, M['crimson_cloth'] if a < 0 else M['dusk_cloth'] if a > 0 else M['linen'], now=False)
+        if a == 0:
+            ses.world.set(gq, gr - 2, t0 + 2, M['ember_lamp'], now=False)
+    yield settled()
+    tx, tz = center(gq, gr)
+    bx, bz = center(gq, gr - 2)
+    p.x, p.z = tx, tz + 7.0
+    p.y = (t0 + 3.0) * LAYER
+    look_at(p, bx, (t0 + 2.4) * LAYER, bz)
+    yield 0.8
+    yield shot('01_glass')
+
+    # standing stones on their own pad, well away, then frame from a found pillar ring
+    sq, sr = q0 + 14, r0
+    ST.stamp_world(ses.world, sq, sr, 'standing_stones', ST.OVERGROWN, seed=7, realm=12)
+    yield settled()
+    cols = []
+    for a, b in spiral(sq, sr, 6):
+        h = 0
+        for yy in range(t0 + 1, t0 + 12):
+            if ses.world.get(a, b, yy) in (M['carved_stone'], M['chalk'], M['stone'], M['slate'], M['plinth']):
+                h += 1
+        if h >= 2:
+            cols.append((a, b, h))
+    log('stone pillars', cols)
+    if cols:
+        aq = sum(c[0] for c in cols) / len(cols)
+        ar = sum(c[1] for c in cols) / len(cols)
+    else:
+        aq, ar = sq, sr
+    tx, tz = center(int(round(aq)), int(round(ar)))
+    p.x, p.z = tx + 3.0, tz + 18.0
+    p.y = (t0 + 10.0) * LAYER
+    look_at(p, tx, (t0 + 3.8) * LAYER, tz)
+    yield 0.9
+    yield shot('04_standing_stones')
+
+    # sky boat at a carved edge, aim using sail cloth only
+    bq, br = q0 - 14, r0
+    for a in range(-5, 7):
+        for b in range(1, 10):
+            for yy in range(t0 - 8, t0 + 12):
+                ses.world.set(bq + a, br + b, yy, 0, now=False)
+    ST.stamp_world(ses.world, bq, br, 'sky_boat', ST.INTACT, seed=5, realm=14)
+    yield settled()
+    hits = []
+    for a in range(-6, 12):
+        for b in range(-1, 12):
+            for yy in range(t0 - 1, t0 + 10):
+                m = ses.world.get(bq + a, br + b, yy)
+                if m in (M['linen'], M['dusk_cloth']):
+                    hits.append((bq + a, br + b, yy))
+    if not hits:
+        for a in range(-6, 12):
+            for b in range(0, 12):
+                for yy in range(t0, t0 + 6):
+                    if ses.world.get(bq + a, br + b, yy) in (M['pale_planks'], M['bedroll']):
+                        hits.append((bq + a, br + b, yy))
+    log('boat cells', len(hits), hits[:8])
+    if hits:
+        aq = sum(c[0] for c in hits) / len(hits)
+        ar = sum(c[1] for c in hits) / len(hits)
+        ay = sum(c[2] for c in hits) / len(hits)
+        tx, tz = center(int(round(aq)), int(round(ar)))
+        p.x, p.z = tx + 12.0, tz + 3.0
+        p.y = (ay + 3.5) * LAYER
+        look_at(p, tx, (ay - 0.2) * LAYER, tz)
+    yield 0.9
+    yield shot('06_sky_boat')
+    log('phase2b_fix finished')
+
+
+
+def phase2b_boat(app, log, shot, look_at, settled, arg):
+    from .hexgrid import spiral
+    from . import gensettings as GS
+    from . import structures as ST
+    yield 0.3
+    app.create_sky('Phase2bBoat', 21, '21', 'dreamer', gen=GS.defaults())
+    yield lambda: app.mode == 'game'
+    ses, p = app.session, app.session.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    q0, r0 = cell_at(p.x, p.z)
+    t0 = math.floor(p.y / LAYER + 0.01) - 1
+    if t0 < 8:
+        t0 = 24
+    for a, b in spiral(q0, r0, 16):
+        for yy in range(t0 + 1, t0 + 14):
+            ses.world.set(a, b, yy, 0, now=False)
+        for yy in range(t0 - 10, t0 + 1):
+            ses.world.set(a, b, yy, M['turf'] if yy == t0 else M['loam'], now=False)
+    bq, br = q0, r0
+    # drop just past +r
+    for a in range(-6, 7):
+        for b in range(1, 10):
+            for yy in range(t0 - 8, t0 + 12):
+                ses.world.set(bq + a, br + b, yy, 0, now=False)
+    ST.stamp_world(ses.world, bq, br, 'sky_boat', ST.INTACT, seed=5, realm=14)
+    yield settled()
+    hits = []
+    for a in range(-8, 10):
+        for b in range(-4, 12):
+            for yy in range(t0 - 1, t0 + 10):
+                m = ses.world.get(bq + a, br + b, yy)
+                if m in (M['linen'], M['dusk_cloth'], M['pale_planks'], M['bedroll']):
+                    hits.append((bq + a, br + b, yy, m))
+    log('boat', len(hits), hits[:10])
+    # centroid of the hull / sail
+    pts = [(a, b, y) for a, b, y, m in hits]
+    aq = sum(c[0] for c in pts) / max(1, len(pts))
+    ar = sum(c[1] for c in pts) / max(1, len(pts))
+    ay = sum(c[2] for c in pts) / max(1, len(pts))
+    tx, tz = center(int(round(aq)), int(round(ar)))
+    # side-on, slightly above
+    p.x, p.z = tx - 9.0, tz + 11.0
+    p.y = (ay + 5.5) * LAYER
+    look_at(p, tx, (ay + 1.2) * LAYER, tz)
+    yield 0.9
+    yield shot('06_sky_boat')
+    log('done')

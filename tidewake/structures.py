@@ -570,62 +570,45 @@ def build_chamber(st, q, r, y):
 def build_boat(st, q, r, y, edge_dir=0):
     """A small sky boat moored at an island edge, with a walkway back to land."""
     dq, dr = DIRS[edge_dir % 6]
-    # sit the hull one step off the edge, deck at or just above ground
+    # port / starboard
+    pq, pr = DIRS[(edge_dir + 2) % 6]
+    sq, sr = DIRS[(edge_dir + 4) % 6]
     gy = st.ground(q, r)
     if gy is None:
         gy = y
     deck = gy + 1
-    # bow points outward
-    hull = []
-    for i in range(-1, 5):
-        aq, ar = q + dq * i, r + dr * i
-        hull.append((aq, ar))
-        for s in (-1, 0, 1):
-            sdq, sdr = DIRS[(edge_dir + 1 + (s > 0)) % 6] if s else (0, 0)
-            if s == 0:
-                tq, tr = aq, ar
-            elif s < 0:
-                tq, tr = aq + DIRS[(edge_dir + 2) % 6][0], ar + DIRS[(edge_dir + 2) % 6][1]
-            else:
-                tq, tr = aq + DIRS[(edge_dir + 4) % 6][0], ar + DIRS[(edge_dir + 4) % 6][1]
-            hull.append((tq, tr))
-    seen = set()
     pl = st.pal['planks']
-    for tq, tr in hull:
-        if (tq, tr) in seen:
-            continue
-        seen.add((tq, tr))
-        # keel / hull depth
-        st.put(tq, tr, deck - 1, pl, force=True)
-        st.put(tq, tr, deck, pl, force=True)
-        if st.cond != RUINED or st.chance(0.7):
-            # gunwale
-            if (tq, tr) != (q + dq * 2, r + dr * 2):
-                st.put(tq, tr, deck + 1, pl)
-    # mast + sail
+    # solid hull: 6 long, 3 wide, keel + deck + gunwales
+    cells = []
+    for i in range(-1, 5):
+        for s, (wq, wr) in ((0, (0, 0)), (-1, (pq, pr)), (1, (sq, sr))):
+            tq, tr = q + dq * i + wq, r + dr * i + wr
+            cells.append((tq, tr, s, i))
+            st.put(tq, tr, deck - 1, pl, force=True)
+            st.put(tq, tr, deck, pl, force=True)
+            # gunwale on the sides and at the bow/stern, leave a walk along the middle
+            if s != 0 or i in (-1, 4):
+                if not (st.cond == RUINED and st.chance(0.4)):
+                    st.put(tq, tr, deck + 1, pl, force=True)
+    # mast + sail, midships
     mq, mr = q + dq * 2, r + dr * 2
     st.column(mq, mr, deck + 1, 4 if st.cond != RUINED else 2, st.pal['log'])
     if st.cond != RUINED:
-        st.put(mq + DIRS[(edge_dir + 2) % 6][0], mr + DIRS[(edge_dir + 2) % 6][1], deck + 4, st.pal['cloth'], force=True)
+        st.put(mq + pq, mr + pr, deck + 3, st.pal['cloth'], force=True)
+        st.put(mq + pq, mr + pr, deck + 4, st.pal['cloth'], force=True)
         st.put(mq, mr, deck + 5, st.pal['cloth'], force=True)
-        st.put(mq + DIRS[(edge_dir + 4) % 6][0], mr + DIRS[(edge_dir + 4) % 6][1], deck + 4, st.pal['cloth'], force=True)
-    # walkway back onto the island (inward, opposite edge_dir)
-    iq, ir = -dq, -dr
+        st.put(mq + sq, mr + sr, deck + 3, st.pal['cloth'], force=True)
+        st.put(mq + sq, mr + sr, deck + 4, st.pal['cloth'], force=True)
+    # walkway back onto the island (inward)
     for i in range(0, 4):
-        tq, tr = q + iq * i, r + ir * i
+        tq, tr = q - dq * i, r - dr * i
         gy2 = st.ground(tq, tr)
-        if gy2 is not None:
-            # ramp / planks to land
-            st.put(tq, tr, deck, pl, force=True)
-            if abs(gy2 - deck) <= 2:
-                break
-        else:
-            st.put(tq, tr, deck, pl, force=True)
-            st.put(tq, tr, deck - 1, pl, force=True)
-    # ladder hanging down from the inward gunwale in case the deck is high
+        st.put(tq, tr, deck, pl, force=True)
+        if gy2 is not None and abs(gy2 - deck) <= 2:
+            break
+        st.put(tq, tr, deck - 1, pl, force=True)
     st.put(q, r, deck, M['ladder'], edge_dir, force=True)
-    st.put(q, r, deck - 1, M['ladder'], edge_dir, force=True)
-    # reason to visit: a rest and a chest of sky-farer goods
+    # reason to visit
     st.put(q + dq, r + dr, deck + 1, M['bedroll'], force=True)
     st.chest(q + dq * 3, r + dr * 3, deck + 1, LOOT_BOAT, edge_dir)
     st.lamp(mq, mr, deck + 3)
