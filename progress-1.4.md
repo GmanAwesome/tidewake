@@ -223,3 +223,8 @@ The first-session controls hint was drawn near the top of the screen, right over
 
 A buried chamber often went up without a lamp, because ruined or abandoned rooms skipped the usual light roll, and one hanging lamp was easy to miss in the dark stone. Each chamber now always has a lumen lamp on the ceiling and an ember lamp by the chest, so the room reads as a place you can see, not a black pit at the bottom of the shaft.
 
+
+## November 25, 2026, 4:44 PM EST — Max cave sliders no longer lace the islands
+
+Turning cave amount and cave size all the way up used to Swiss-cheese the islands: the walking surface held, but the cliffs opened into a lace of holes. The top of those sliders is a little gentler now, rooms stay rooms instead of eating everything, and a solid shell is kept around the outside of each island so caves can still open wide inside without turning the land into cheese.
+

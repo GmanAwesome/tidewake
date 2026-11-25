@@ -63,6 +63,64 @@ def test_buried_chamber_is_lit():
     assert lamps >= 2, f'chamber only had {lamps} lamps; it would still read as a dark pit'
 
 
+
+
+def _cave_stats(settings, seed=7, n=5):
+    import numpy as np
+    from tidewake.generator import Generator
+    gen = Generator(seed, settings)
+    chunks = [(-20, -11), (8, -3), (0, 4), (-14, 6), (4, 0)]
+    surface_gaps = solid_cols = mouths = cave_cells = body_cells = 0
+    for cq, cr in chunks[:n]:
+        cells, _, _ = gen.generate(cq, cr)
+        A, Y, B = cells.shape
+        for a in range(A):
+            for b in range(B):
+                col = cells[a, :, b]
+                ys = np.where(col > 0)[0]
+                if len(ys) == 0:
+                    continue
+                top = int(ys.max())
+                solid_cols += 1
+                if (cells[a, max(0, top - 3):top, b] == 0).any():
+                    surface_gaps += 1
+                # body cells below a 5-layer roof
+                body = col[max(0, top - 20):max(0, top - 5)]
+                body_cells += int((body > 0).sum() + (body == 0).sum())
+                cave_cells += int((body == 0).sum())
+                # cliff mouth: an air cell under the roof that has a neighbor column
+                # with no solid at that height and no solid above it (open sky beside)
+                for y in range(max(1, top - 14), max(1, top - 4)):
+                    if col[y] != 0:
+                        continue
+                    for da, db in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                        aa, bb = a + da, b + db
+                        if not (0 <= aa < A and 0 <= bb < B):
+                            continue
+                        nb = cells[aa, :, bb]
+                        if (nb[y:] == 0).all():
+                            mouths += 1
+                            break
+    return {
+        'surface': surface_gaps / max(1, solid_cols),
+        'mouths_per_col': mouths / max(1, solid_cols),
+        'cave_frac': cave_cells / max(1, body_cells),
+        'solid': solid_cols,
+    }
+
+
+def test_max_caves_do_not_swiss_cheese_islands():
+    mid = _cave_stats({})
+    hi = _cave_stats({'cave_amount': 100, 'cave_size': 100})
+    lo = _cave_stats({'cave_amount': 0, 'cave_size': 0})
+    assert mid['solid'] > 100 and hi['solid'] > 100
+    assert hi['surface'] < 0.03, f'max caves still punch the walking surface: {hi}'
+    assert mid['surface'] < 0.02, f'default caves punch the walking surface: {mid}'
+    # max still makes more cave, just not a lace of cliff holes
+    assert hi['cave_frac'] > lo['cave_frac'] * 1.15, (lo, hi)
+    assert hi['mouths_per_col'] < 0.55, f'max caves lace the cliffs: {hi}'
+
+
 if __name__ == '__main__':
     test_skywhale_is_longer_than_it_is_chunky()
     print('ok skywhale silhouette is long and flat')
@@ -70,4 +128,6 @@ if __name__ == '__main__':
     print('ok wanderer front view has a face')
     test_buried_chamber_is_lit()
     print('ok buried chamber is lit')
+    test_max_caves_do_not_swiss_cheese_islands()
+    print('ok max caves keep a solid shell')
     print('ALL PHASE5 UNIT TESTS PASSED')

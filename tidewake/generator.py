@@ -77,11 +77,12 @@ class Generator:
             self.hill_amp = self.hill_amp * GS.scale(s, 'terrain_roughness', 0.45, 1.05, 1.8)
             self.mount_amp = self.mount_amp * GS.scale(s, 'mountain_height', 0.35, 1.15, 1.9)
             self.depth_amp = (self.depth_amp + 10) * GS.scale(s, 'island_thickness', 0.42, 1.0, 2.15)
-            self.caves = self.caves * GS.scale(s, 'cave_amount', 0.35, 1.25, 2.1)
+            # max used to Swiss-cheese islands; keep a mid that's still roomy
+            self.caves = self.caves * GS.scale(s, 'cave_amount', 0.35, 1.15, 1.55)
             self.tree_mul = GS.scale(s, 'tree_density', 0.15, 1.0, 2.2)
             self.water_mul = GS.scale(s, 'water', 0.15, 1.0, 2.0)
             self.flatness = s['flatness'] / 100.0
-            self.cave_size = GS.scale(s, 'cave_size', 0.55, 1.0, 1.85)
+            self.cave_size = GS.scale(s, 'cave_size', 0.55, 1.0, 1.45)
             # 1.4-phase3: Glimmer is substantially rarer at every slider setting
             self.glimmer_mul = GS.scale(s, 'glimmer_rarity', 0.70, 0.32, 0.10)
         else:
@@ -430,9 +431,9 @@ class Generator:
                 h2 = self.n_hw.noise3(xx / (42.0 * cs) + 8.1, yy / (16.0 * cs) - 5.4, zz / (42.0 * cs) + 19.2)
                 highway = (np.abs(h1) < amt * 0.85) & (np.abs(h2) < amt * 1.3)
                 # rooms: a few sizes of open cavern
-                small = self.n_room.noise3(xx / (18.0 * cs), yy / (10.0 * cs), zz / (18.0 * cs)) > (0.52 - amt * 0.6)
-                midc = self.n_tunnel.noise3(xx / (34.0 * cs), yy / (16.0 * cs), zz / (34.0 * cs)) > (0.46 - amt * 0.5)
-                huge = self.n_room.noise3(xx / (70.0 * cs) + 4.4, yy / (28.0 * cs), zz / (70.0 * cs)) > (0.62 - amt * 0.25)
+                small = self.n_room.noise3(xx / (18.0 * cs), yy / (10.0 * cs), zz / (18.0 * cs)) > max(0.30, 0.52 - amt * 0.6)
+                midc = self.n_tunnel.noise3(xx / (34.0 * cs), yy / (16.0 * cs), zz / (34.0 * cs)) > max(0.28, 0.46 - amt * 0.5)
+                huge = self.n_room.noise3(xx / (70.0 * cs) + 4.4, yy / (28.0 * cs), zz / (70.0 * cs)) > max(0.42, 0.62 - amt * 0.25)
                 # tall fissures and wide squash chambers
                 fiss = (np.abs(self.n_fiss.noise3(xx / 9.0, yy / 22.0, zz / 9.0)) < 0.07 * (0.7 + amt)) & (
                     np.abs(self.n_fiss.noise3(xx / 22.0 + 3, yy / 9.0, zz / 22.0)) < 0.22)
@@ -451,6 +452,20 @@ class Generator:
                 na = self.n_arch.noise3(xx / 11.0, yy / 4.5, zz / 11.0)
                 thr = self.arches + (0.14 if self.version == 2 else 0.0)
                 hole |= band & (na > thr)
+            # v2: keep a shell around the island so max cave sliders don't lace the cliffs
+            if self.version == 2 and hole.any():
+                solid_now = cells != 0
+                ia, iy, ib = idx[0][hole], idx[1][hole], idx[2][hole]
+                nbs = np.zeros(ia.shape[0], dtype=np.int16)
+                H, _, W = solid_now.shape
+                for da, db in ((1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)):
+                    aa, bb = ia + da, ib + db
+                    inside = (aa >= 0) & (aa < H) & (bb >= 0) & (bb < W)
+                    # treat chunk-edge neighbors as solid so seams don't over-heal
+                    nbs += np.where(inside, solid_now[np.clip(aa, 0, H - 1), iy, np.clip(bb, 0, W - 1)], 1)
+                keep = nbs >= 4
+                dropped = np.flatnonzero(hole)[~keep]
+                hole[dropped] = False
             cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
             # glowcaps and crystals on cave floors
             fl = hole & (rand01(qq.astype(np.int64), rr.astype(np.int64) * 7 + idx[1], self.h + 31) < 0.04)
