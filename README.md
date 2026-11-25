@@ -33,6 +33,10 @@
 - 🛡️ **"Windows protected your PC"?** The game isn't code-signed. Click **More info**, then **Run anyway**.
 - 💾 Your skies, settings and snapshots are saved next to the exe (`skies/`, `settings.json`, `snapshots/`).
 
+> [!NOTE]
+> A **1.4 Phase 1 pre-release** is up if you'd like to try the foundation work early (taller blocks, crouch, doors, ladders, leaf decay, and a handful of fixes). It is [here](../../releases/tag/v1.4-phase1) — 1.3.4 stays the recommended download until 1.4 is finished. Your 1.3 skies still load.
+
+
 ---
 
 ## ✨ Features
