@@ -34,7 +34,7 @@
 - 💾 Your skies, settings and snapshots are saved next to the exe (`skies/`, `settings.json`, `snapshots/`).
 
 > [!NOTE]
-> A **1.4 Phase 2b pre-release** is up if you'd like to try the new blocks and structures early (an expanded block roster, clearer glass, slabs, and settlements, ruins and a sky boat in new skies). It is [here](../../releases/tag/v1.4-phase2b) — 1.3.4 stays the recommended download until 1.4 is finished. Your 1.3 skies still load and keep their old terrain. (The earlier [Phase 2a](../../releases/tag/v1.4-phase2a) and [Phase 1](../../releases/tag/v1.4-phase1) pre-releases are still there too.)
+> A **1.4 Phase 3 pre-release** is up if you'd like to try the new systems early (rarer Glimmer with waystones and a Font, fishing, farming, an achievement Path that teaches as you go, and a lesson island from the title screen). It is [here](../../releases/tag/v1.4-phase3) — 1.3.4 stays the recommended download until 1.4 is finished. Your 1.3 skies still load and keep their old terrain. (The earlier [Phase 2b](../../releases/tag/v1.4-phase2b), [Phase 2a](../../releases/tag/v1.4-phase2a) and [Phase 1](../../releases/tag/v1.4-phase1) pre-releases are still there too.)
 
 
 ---

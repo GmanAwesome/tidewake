@@ -149,3 +149,7 @@ Press P, or open The Path from the rest menu, to see a tree of goals for this sk
 
 The title screen has a Learn to play button. It opens a small hand-built island called The Lesson, separate from the wandering skies. Friendly people stand along a path and talk in simple bubbles — walking and looking, mining a grove, a tinker bench, a kiln, doors and ladders, a fishing dock, a little farm, and a Glimmer shrine with two waystones and a Font. Chests at each stop hold what you need, a few practice motes drift by the shrine, and gloomlings stay away. If you already started the lesson, the same island is waiting for you.
 
+## November 25, 2026, 4:04 PM EST — Phase 3 tour
+
+Play-test shots for Phase 3 are in `screenshots-final/v1.4-phase3/`: the title screen with Learn to play, the lesson island from above and along the path (welcome, trees, the bench and kiln, doors and ladders, the fishing dock, the farm, and the Glimmer shrine), plus the Path tree and the Font. A few frames were retaken so the yard, the pool, the tilled beds and the Path all read clearly. The version string is now 1.4-phase3.
+

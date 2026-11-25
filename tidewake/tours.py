@@ -1346,3 +1346,176 @@ def phase2b_boat(app, log, shot, look_at, settled, arg):
     yield 0.9
     yield shot('06_sky_boat')
     log('done')
+
+
+def phase3(app, log, shot, look_at, settled, arg):
+    """1.4 Phase 3: tutorial island, fishing, farming, Glimmer shrines, and the Path."""
+    from . import tutorial as TUT
+    from .ui.systems import PathScreen, WaystoneScreen, FontScreen
+    from . import glimmer as G
+
+    yield 0.5
+    yield lambda: bool(app.backdrop and app.backdrop.get('world') and app.backdrop['world'].busy() == 0)
+    yield 0.8
+    yield shot('00_title')
+
+    app.start_tutorial()
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    log('tutorial ready', p.x, p.y, p.z, 'npcs', len(ses.npcs))
+
+    # aerial of the whole lesson island
+    ox, oz = center(0, 0)
+    p.x, p.z = ox + 4.0, oz + 22.0
+    p.y = (TUT.SURF + 16) * LAYER
+    look_at(p, ox, (TUT.SURF + 2) * LAYER, oz)
+    yield settled()
+    yield 0.8
+    yield shot('01_lesson_island')
+
+    # Willow at spawn, with talk bubble
+    app.hide_hud = False
+    if ses.npcs:
+        ses.talk = 'Willow'
+        ses.npcs[0]['line'] = 0
+    wx, wz = center(0, 0)
+    p.x, p.z = wx + 2.4, wz + 4.2
+    p.y = (TUT.SURF + 2.2) * LAYER
+    look_at(p, wx, (TUT.SURF + 1.6) * LAYER, wz)
+    yield 0.7
+    yield shot('02_welcome')
+
+    # mining grove
+    app.hide_hud = True
+    tx, tz = center(5, -1)
+    p.x, p.z = tx + 1.5, tz + 8.0
+    p.y = (TUT.SURF + 5.5) * LAYER
+    look_at(p, tx, (TUT.SURF + 2.4) * LAYER, tz)
+    yield 0.7
+    yield shot('03_mining_grove')
+
+    # tinker hut + kiln along the path
+    tx, tz = center(9, 1)
+    p.x, p.z = tx + 1.0, tz + 9.5
+    p.y = (TUT.SURF + 6.0) * LAYER
+    look_at(p, tx, (TUT.SURF + 2.2) * LAYER, tz)
+    yield 0.7
+    yield shot('04_bench_and_kiln')
+
+    # doors and ladders
+    tx, tz = center(13, -2)
+    p.x, p.z = tx - 1.0, tz + 8.0
+    p.y = (TUT.SURF + 5.0) * LAYER
+    look_at(p, tx, (TUT.SURF + 2.4) * LAYER, tz)
+    yield 0.7
+    yield shot('05_doors_and_ladders')
+
+    # fishing dock + bobber
+    tx, tz = center(6, 8)
+    p.x, p.z = tx + 1.2, tz + 8.5
+    p.y = (TUT.SURF + 4.2) * LAYER
+    look_at(p, tx, (TUT.SURF + 0.6) * LAYER, tz)
+    ses.fishing = {'state': 'bite', 't': 0.2, 'wait': 1, 'window': 1,
+                   'pos': (tx, (TUT.SURF + 0.15) * LAYER, tz), 'realm': 0, 'cell': (6, 8, TUT.SURF - 1)}
+    app.hide_hud = False
+    yield 0.7
+    yield shot('06_fishing')
+
+    # farm
+    app.hide_hud = True
+    ses.fishing = None
+    tx, tz = center(3, 6)
+    p.x, p.z = tx + 1.0, tz + 7.5
+    p.y = (TUT.SURF + 4.5) * LAYER
+    look_at(p, tx, (TUT.SURF + 1.4) * LAYER, tz)
+    yield 0.7
+    yield shot('07_farm')
+
+    # glimmer shrine + font + motes
+    tx, tz = center(0, -7)
+    p.x, p.z = tx + 2.0, tz + 9.0
+    p.y = (TUT.SURF + 5.5) * LAYER
+    look_at(p, tx, (TUT.SURF + 2.0) * LAYER, tz)
+    yield 0.7
+    yield shot('08_glimmer_shrine')
+
+    # the Path (a few steps already remembered)
+    ses.achieved = ['first', 'gather', 'craft', 'wander']
+    app.set_screen(PathScreen())
+    yield 0.5
+    yield shot('09_path')
+    app.set_screen(None)
+    yield 0.2
+
+    # Font screen
+    ses.give(I.GLIMMER.id, 8, quiet=True)
+    app.set_screen(FontScreen())
+    yield 0.5
+    yield shot('10_font')
+    app.set_screen(None)
+
+    log('phase3 tour finished')
+
+
+
+def phase3_fix(app, log, shot, look_at, settled, arg):
+    """Retake doors, fishing, the farm, and the Path with tighter framing."""
+    from . import tutorial as TUT
+    from .ui.systems import PathScreen
+    app.start_tutorial()
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+
+    # doors and ladders: stand in the yard, look at the wall and door
+    tx, tz = center(13, -2)
+    p.x, p.z = tx - 3.2, tz + 2.8
+    p.y = (TUT.SURF + 3.6) * LAYER
+    look_at(p, tx + 0.6, (TUT.SURF + 2.2) * LAYER, tz)
+    yield 0.7
+    yield shot('05_doors_and_ladders')
+
+    # fishing: low over the pool, bobber biting, HUD on
+    tx, tz = center(6, 8)
+    p.x, p.z = tx + 0.4, tz + 5.2
+    p.y = (TUT.SURF + 3.0) * LAYER
+    look_at(p, tx, (TUT.SURF + 0.3) * LAYER, tz)
+    ses.fishing = {'state': 'bite', 't': 0.2, 'wait': 1, 'window': 1,
+                   'pos': (tx, (TUT.SURF - 0.15) * LAYER, tz), 'realm': 0, 'cell': (6, 8, TUT.SURF - 1)}
+    app.hide_hud = False
+    yield 0.7
+    yield shot('06_fishing')
+
+    # farm: look down on the tilled beds
+    app.hide_hud = True
+    ses.fishing = None
+    tx, tz = center(3, 6)
+    p.x, p.z = tx - 1.5, tz + 5.0
+    p.y = (TUT.SURF + 4.0) * LAYER
+    look_at(p, tx, (TUT.SURF + 1.1) * LAYER, tz)
+    yield 0.7
+    yield shot('07_farm')
+
+    ses.achieved = ['first', 'gather', 'craft', 'wander']
+    app.set_screen(PathScreen())
+    yield 0.5
+    yield shot('09_path')
+    app.set_screen(None)
+    log('phase3_fix finished')

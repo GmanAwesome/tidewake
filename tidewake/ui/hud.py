@@ -135,28 +135,29 @@ def draw_hud(gui, app, ses, w, h):
     if gifts:
         soft_text(gui, '  ·  '.join(gifts), dx - 20 * s, dy - 44 * s, 9, (1, 0.95, 0.85, 0.9), 'left', 'center')
 
-    # wayfinder (top centre)
-    ww, wh = 380 * s, 26 * s
-    wx, wy = w / 2 - ww / 2, h - 38 * s
-    gui.rect(wx, wy, ww, wh, (0.2, 0.15, 0.3, 0.28), wh / 2)
-    for k in range(-6, 7):
-        tx = w / 2 + k * ww / 14
-        gui.rect(tx - 0.7 * s, wy + 8 * s, 1.4 * s, 10 * s, (1, 1, 1, 0.35 if k else 0.8))
-    ns = ses.nearest_spire
-    if ns:
-        sp, d = ns
-        sx, sz = center(sp['q'], sp['r'])
-        bearing = math.degrees(math.atan2(sx - p.x, -(sz - p.z)))
-        rel = (bearing - p.yaw + 180) % 360 - 180
-        t = max(-1, min(1, rel / 90))
-        gx = w / 2 + t * (ww / 2 - 14 * s)
-        pulse = 1 + 0.12 * math.sin(time.time() * 3)
-        gui.hexagon(gx, wy + wh / 2, 9 * s * pulse, (0.75, 0.68, 1.0, 1), border=(1, 1, 1), border_w=2 * s)
-        if abs(rel) > 90:
-            soft_text(gui, '‹' if rel < 0 else '›', gx + (-16 if rel < 0 else 16) * s, wy + wh / 2, 12, WHITE, 'center', 'center')
-        soft_text(gui, f'sleeping spire  ·  {d:,.0f} m', w / 2, wy - 12 * s, 9.5, (1, 1, 1, 0.9), 'center', 'center')
-    else:
-        soft_text(gui, 'no sleeping spire nearby: wander on', w / 2, wy - 12 * s, 9.5, (1, 1, 1, 0.8), 'center', 'center')
+    # wayfinder (top centre) — hidden on the lesson island, which has no spires
+    if not getattr(ses, 'tutorial', False):
+        ww, wh = 380 * s, 26 * s
+        wx, wy = w / 2 - ww / 2, h - 38 * s
+        gui.rect(wx, wy, ww, wh, (0.2, 0.15, 0.3, 0.28), wh / 2)
+        for k in range(-6, 7):
+            tx = w / 2 + k * ww / 14
+            gui.rect(tx - 0.7 * s, wy + 8 * s, 1.4 * s, 10 * s, (1, 1, 1, 0.35 if k else 0.8))
+        ns = ses.nearest_spire
+        if ns:
+            sp, d = ns
+            sx, sz = center(sp['q'], sp['r'])
+            bearing = math.degrees(math.atan2(sx - p.x, -(sz - p.z)))
+            rel = (bearing - p.yaw + 180) % 360 - 180
+            t = max(-1, min(1, rel / 90))
+            gx = w / 2 + t * (ww / 2 - 14 * s)
+            pulse = 1 + 0.12 * math.sin(time.time() * 3)
+            gui.hexagon(gx, wy + wh / 2, 9 * s * pulse, (0.75, 0.68, 1.0, 1), border=(1, 1, 1), border_w=2 * s)
+            if abs(rel) > 90:
+                soft_text(gui, '‹' if rel < 0 else '›', gx + (-16 if rel < 0 else 16) * s, wy + wh / 2, 12, WHITE, 'center', 'center')
+            soft_text(gui, f'sleeping spire  ·  {d:,.0f} m', w / 2, wy - 12 * s, 9.5, (1, 1, 1, 0.9), 'center', 'center')
+        else:
+            soft_text(gui, 'no sleeping spire nearby: wander on', w / 2, wy - 12 * s, 9.5, (1, 1, 1, 0.8), 'center', 'center')
 
     # toasts
     ty = h - 110 * s

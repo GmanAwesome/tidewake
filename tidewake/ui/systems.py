@@ -98,10 +98,11 @@ class PathScreen(Screen):
         if gui.button(px + pw - 160 * s, py + ph - 54 * s, 128 * s, 36 * s, 'Close', primary=True):
             self.escape(app)
 
-        nw, nh = 176 * s, 48 * s
-        gap_x, gap_y = 22 * s, 16 * s
+        nw, nh = 176 * s, 40 * s
+        gap_x, gap_y = 22 * s, 8 * s
         ox = px + 28 * s
         oy = py + ph - 88 * s + self.scroll
+        tree_floor = py + 148 * s
         if gui.scroll:
             self.scroll = max(-480 * s, min(40 * s, self.scroll + int(gui.scroll) * 28 * s))
 
@@ -134,11 +135,13 @@ class PathScreen(Screen):
             else:
                 bg, ink = (0.99, 0.97, 0.95, 1), INK
             border = ACCENT if sel else (1, 1, 1)
+            if y < tree_floor:
+                continue
             if gui.clicked(x, y, nw, nh):
                 self.sel = nid
                 gui.consume_click()
             gui.rect(x, y, nw, nh, bg, 12 * s, border=border, border_w=(2.6 if sel else 1.1) * s)
-            label = (('✓  ' if on else '') + title)
+            label = title
             gui.text(label, x + nw / 2, y + nh / 2, 11, ink, 'center', 'center', font='bold')
 
         rec = A.BY_ID.get(self.sel, A.NODES[0])
