@@ -81,3 +81,9 @@ Screenshot: `screenshots-final/v1.4-phase2a/07_cloudstep_isles.png` (high, broke
 Islands are much thicker in most places — about three times the old depth on a typical new sky — and the thickness clearly varies from the rim to the heart of an island. Each island also sits at its own height: some hang lower over the clouds, some much higher. You can push this further with the Island thickness slider (thin about 28 layers, thick about 62).
 
 Screenshot: `screenshots-final/v1.4-phase2a/10_thick_island.png` (a cut through the inside of a thick island).
+
+## November 25, 2026, 2:58 PM EST — Bigger, more connected caves
+
+Caves under new islands are more open and less like a single narrow worm. You’ll find winding tunnels, wider rooms of a few different sizes, the occasional tall fissure, and longer “highways” that stitch chambers together. Cave amount and Cave size on the new-sky screen change how often they appear and how roomy they feel.
+
+Screenshot: `screenshots-final/v1.4-phase2a/10_thick_island.png` and `12_cave.png`.
