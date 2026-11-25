@@ -258,3 +258,8 @@ The version string is 1.4, and a changelog now covers the whole 1.4 work — new
 
 The README is rewritten as a straightforward front page: a clean title hero, a short pitch, a features overview with screenshots, Windows install (extract the zip, double-click the exe), a controls table, a link to the changelog, and credits that note the music is original and that Korobeiniki is public domain. The pre-release notes are gone. Screenshot originals for the release live in `screenshots-final/v1.4/`; the images the README uses are in `docs/v1.4/`.
 
+
+## November 25, 2026, 4:55 PM EST — Tidewake 1.4 is out
+
+1.4 is posted as the usual Latest download, not a pre-release. Grab `Tidewake-1.4-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4 (about 73 MB). The play-test screenshots are on that page too, and the same set lives in `screenshots-final/v1.4/`. This Windows build embeds the Common Controls v6 manifest and the icon in the exe, checked with pefile. Skies from 1.3 still load and keep their old terrain.
+
