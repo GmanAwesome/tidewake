@@ -626,3 +626,239 @@ def blocks(app, log, shot, look_at, settled, arg):
         log('cam', p.x, p.y, p.z, 'target', tx, tz)
         yield 1.5
         yield shot(name)
+
+
+
+def phase1(app, log, shot, look_at, settled, arg):
+    """1.4 Phase 1: scale, doors, ladders, crouch, leaves, kiln counts, rain, tools, mobs, fall-in."""
+    from .hexgrid import DIR_NORMALS, DIRS
+    from .inventory import Inventory
+    from .entities import Mob
+    from .config import HEIGHT, CROUCH_HEIGHT, CROUCH_EYE, FALL_RESPAWN_LAYERS, EYE
+    from .ui import inventory_ui as IU
+
+    yield 0.4
+    app.create_sky('Phase1', seed_from_text(arg or 'tide-foundation'), arg or 'tide-foundation', 'dreamer')
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    q0, r0 = cell_at(p.x, p.z)
+    t0 = math.floor(p.y / LAYER + 0.01) - 1
+    log('stage', q0, r0, t0, 'height', HEIGHT, 'layer', LAYER)
+
+    # a solid pad so we never look down into a cave
+    for a, b in spiral(q0, r0, 12):
+        for yy in range(t0 + 1, t0 + 18):
+            ses.world.set(a, b, yy, 0, now=False)
+        for yy in range(t0 - 8, t0 + 1):
+            ses.world.set(a, b, yy, M['turf'] if yy == t0 else M['loam'], now=False)
+
+    # a small plank hut: walls on three sides, door opening toward +r (camera)
+    door_q, door_r = q0 - 3, r0
+    hut = [
+        (door_q - 1, door_r - 1), (door_q, door_r - 1), (door_q + 1, door_r - 1),
+        (door_q - 1, door_r),                           (door_q + 1, door_r),
+        (door_q - 1, door_r + 1),                       (door_q + 1, door_r + 1),
+    ]
+    for a, b in hut:
+        ses.world.set(a, b, t0 + 1, M['planks'], now=False)
+        ses.world.set(a, b, t0 + 2, M['planks'], now=False)
+        ses.world.set(a, b, t0 + 3, M['planks'], now=False)  # roof / lintel
+    # roof over the interior too
+    for a, b in ((door_q, door_r), (door_q, door_r + 1)):
+        ses.world.set(a, b, t0 + 3, M['planks'], now=False)
+    cx_, cz_ = center(door_q, door_r)
+    camx, camz = center(door_q, door_r + 4)
+    vx, vz = camx - cx_, camz - cz_
+    face = max(range(6), key=lambda d: DIR_NORMALS[d][0] * vx + DIR_NORMALS[d][1] * vz)
+    ses.world.set(door_q, door_r, t0 + 1, M['door'], face, now=False)
+    ses.world.set(door_q, door_r, t0 + 2, M['door'], face | 16, now=False)
+    # a second, open door standing in a one-block frame to the right
+    oq, or_ = q0 - 1, r0
+    ses.world.set(oq - 1, or_, t0 + 1, M['planks'], now=False)
+    ses.world.set(oq - 1, or_, t0 + 2, M['planks'], now=False)
+    ses.world.set(oq + 1, or_, t0 + 1, M['planks'], now=False)
+    ses.world.set(oq + 1, or_, t0 + 2, M['planks'], now=False)
+    ses.world.set(oq, or_, t0 + 3, M['planks'], now=False)
+    ses.world.set(oq, or_, t0 + 1, M['door'], face | 8, now=False)
+    ses.world.set(oq, or_, t0 + 2, M['door'], face | 8 | 16, now=False)
+
+    # stone tower with a ladder on the camera-facing side
+    wq, wr = q0 + 4, r0
+    for yy in range(t0 + 1, t0 + 9):
+        ses.world.set(wq, wr, yy, M['stone'], now=False)
+    ses.world.set(wq, wr + 1, t0 + 8, M['stone'], now=False)
+    cam2x, cam2z = center(wq, wr + 4)
+    best, best_d = None, 1e9
+    for d, (dq, dr) in enumerate(DIRS):
+        aq, ar = wq + dq, wr + dr
+        ax, az = center(aq, ar)
+        dist = (ax - cam2x) ** 2 + (az - cam2z) ** 2
+        if dist < best_d:
+            best_d, best = dist, (aq, ar)
+    lq, lr = best
+    face_l = 0
+    for d, (dq, dr) in enumerate(DIRS):
+        if (lq + dq, lr + dr) == (wq, wr):
+            face_l = d
+            break
+    for yy in range(t0 + 1, t0 + 9):
+        ses.world.set(lq, lr, yy, M['ladder'], face_l, now=False)
+
+    # a modest tree (trunk + a tight canopy) out on the pad
+    tq, tr = q0 + 1, r0 - 5
+    for yy in range(t0 + 1, t0 + 5):
+        ses.world.set(tq, tr, yy, M['heartwood'], now=False)
+    for a, b in spiral(tq, tr, 1):
+        ses.world.set(a, b, t0 + 5, M['canopy'], now=False)
+        if (a, b) != (tq, tr):
+            ses.world.set(a, b, t0 + 4, M['canopy'], now=False)
+    ses.world.set(tq, tr, t0 + 6, M['canopy'], now=False)
+
+    # kiln with two stacks of 16 (the old bug made those counts share one label)
+    kq, kr = q0 + 2, r0
+    kface = max(range(6), key=lambda d: DIR_NORMALS[d][0] * (camx - center(kq, kr)[0]) + DIR_NORMALS[d][1] * (camz - center(kq, kr)[1]))
+    ses.world.set(kq, kr, t0 + 1, M['kiln'], kface | 8, now=False)
+    kinv = Inventory(3)
+    kinv.slots[0] = [M['sand'], 16, 0]
+    kinv.slots[1] = [I.EMBERITE.id, 16, 0]
+    kinv.slots[2] = [M['glass'], 16, 0]
+    ses.kilns[f'{kq},{kr},{t0 + 1}'] = {'slots': kinv, 'burn': 0.0, 'burn_max': 5.0, 'prog': 0.0}
+
+    hx, hz = center(q0 + 1, r0 + 2)
+    ses.mobs = [Mob('woolhop', hx, (t0 + 1) * LAYER + 0.01, hz)]
+    ses.mobs[0].walking = False
+    ses.mobs[0].think = 99
+    ses.mobs[0].vx = ses.mobs[0].vz = 0
+
+    pick = I.TOOLS[('pick', 2)]
+    ses.inv.slots[0] = [pick.id, 1, pick.uses]
+    ses.hot = 0
+    ses.phase = 0.16
+    ses.dev = False
+    p.drifting = False
+    p.noclip = False
+    ses.hold = True          # don't walk off while we pose
+    app.hide_hud = False
+
+    yield settled()
+    ses.toasts = []
+    p.update = lambda *a, **k: None   # keep posed eyes and feet still
+
+    def stand_on(x, z, y_off=0.01):
+        p.drifting = False
+        p.x, p.z = x, z
+        p.y = (t0 + 1) * LAYER + y_off
+        p.vx = p.vy = p.vz = 0
+        p.crouching = False
+        p._eye = EYE
+
+    # --- 01 scale: mid shot of the 2-block doorway, standing eye height
+    dx, dz = center(door_q, door_r)
+    stand_on(dx + 0.4, dz + 5.6)
+    look_at(p, dx, (t0 + 2.0) * LAYER, dz)
+    yaw_door, pitch_door = p.yaw, p.pitch
+    yield 0.6
+    yield shot('01_scale_door')
+
+    # --- 02 crouch: same place and look, only the camera drops
+    p.crouching = True
+    p._eye = CROUCH_EYE
+    p.yaw, p.pitch = yaw_door, pitch_door
+    yield 0.4
+    yield shot('02_crouch_door')
+    p.crouching = False
+    p._eye = EYE
+
+    # --- 03 both doors, a little off to the side
+    stand_on(*center(q0 - 2, r0 + 5))
+    tx, tz = center(q0 - 2, r0)
+    look_at(p, tx, (t0 + 1.7) * LAYER, tz)
+    yield 0.8
+    yield shot('03_doors')
+
+    # --- 04 ladder close-up, mid climb
+    lx, lz = center(lq, lr)
+    wx, wz = center(wq, wr)
+    p.drifting = False
+    p.x, p.z = lx, lz
+    p.y = (t0 + 4) * LAYER + 0.15
+    look_at(p, wx, (t0 + 5.6) * LAYER, wz)
+    yield 0.7
+    yield shot('04_ladder')
+
+    # --- 05 whole tower + ladder
+    stand_on(*center(wq, wr + 5), y_off=LAYER * 1.2)
+    p.y = (t0 + 2.2) * LAYER
+    look_at(p, wx, (t0 + 4.6) * LAYER, wz)
+    yield 0.8
+    yield shot('05_ladder_wall')
+
+    # --- 06 / 07 leaf decay, same camera
+    tx, tz = center(tq, tr)
+    p.drifting = True
+    p.x, p.z = tx + 1.5, tz + 8.5
+    p.y = (t0 + 3.4) * LAYER
+    look_at(p, tx, (t0 + 4.0) * LAYER, tz)
+    p.drifting = False
+    yield 0.9
+    yield shot('06_leaves_before')
+    for yy in range(t0 + 1, t0 + 5):
+        ses.world.set(tq, tr, yy, 0, now=True)
+    ses.sim.wake_leaves(tq, tr, t0 + 4, 0.0)
+    for _ in range(50):
+        ses.sim.step(0.2, 0.0, budget=400)
+    yield settled()
+    yield 0.5
+    yield shot('07_leaves_after')
+
+    # --- 08 kiln counts (16 and 16 must both be visible)
+    kinv.slots[0] = [M['sand'], 16, 0]
+    kinv.slots[1] = [I.EMBERITE.id, 16, 0]
+    kinv.slots[2] = [M['glass'], 16, 0]
+    ses.kilns[f'{kq},{kr},{t0 + 1}']['burn'] = 0.0
+    ses.kilns[f'{kq},{kr},{t0 + 1}']['prog'] = 0.0
+    app.set_screen(IU.KilnScreen(ses.kilns[f'{kq},{kr},{t0 + 1}']))
+    yield 0.8
+    yield shot('08_kiln_counts')
+    app.set_screen(None)
+
+    # --- 09 rain against the sky
+    ses.weather = 'rain'
+    ses.time = 4.0
+    p.drifting = False
+    stand_on(*center(q0, r0 + 2))
+    # look just above the horizon
+    hx2, hz2 = center(q0, r0 - 8)
+    look_at(p, hx2, (t0 + 6) * LAYER, hz2)
+    yield 1.1
+    yield shot('09_rain')
+    ses.weather = 'clear'
+
+    # --- 10 held tool aimed at the kiln
+    ses.swing = 0.28
+    stand_on(*center(kq, kr + 3))
+    look_at(p, *center(kq, kr), (t0 + 1.45) * LAYER)
+    # look_at arg order is (p, tx, ty, tz)
+    look_at(p, center(kq, kr)[0], (t0 + 1.45) * LAYER, center(kq, kr)[1])
+    yield 0.7
+    yield shot('10_held_tool')
+    ses.swing = 0
+
+    # --- 11 woolhop standing still
+    stand_on(hx, hz + 3.4)
+    look_at(p, hx, (t0 + 1) * LAYER + 0.65, hz)
+    yield 0.8
+    yield shot('11_mob')
+
+    # --- 12 fall-in from high above the pad
+    p.drifting = True
+    p.x, p.z = center(q0, r0)
+    p.y = (t0 + FALL_RESPAWN_LAYERS) * LAYER + 0.01
+    look_at(p, center(q0, r0)[0], (t0 + 1) * LAYER, center(q0, r0)[1])
+    p.pitch = -72
+    yield 0.9
+    yield shot('12_fall_respawn')
+
+    log('phase1 tour finished')

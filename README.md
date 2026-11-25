@@ -116,9 +116,10 @@ The main menu floats over a hand-built **Lighthouse Cottage** on a meadow headla
 | Key | Action |
 |---|---|
 | **W A S D** + mouse | Walk and look |
-| **Space** | Jump · hold to glide · climb vines |
-| **Shift** | Hurry |
-| **Ctrl** or **C** | Fly down (while flying) |
+| **Space** | Jump · hold to glide · climb vines or ladders |
+| **Shift** | Crouch (slower, lower camera, won't walk off edges). While flying, also move down. |
+| **Ctrl** | Hurry |
+| **C** | Fly down (while flying) |
 | **Left click** (hold) | Mine · hit creatures |
 | **Right click** | Place · use · eat |
 | **1 – 9** / mouse wheel | Pick a hotbar slot |
