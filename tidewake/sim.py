@@ -243,15 +243,15 @@ def grow_tree(world, q, r, top, realm, rng):
     wood, leaf = M['heartwood'], M['canopy']
     if realm == 9:          # Cedar Highlands
         wood = M['cedar_heartwood']
-        hgt = rng.randint(7, 9)
+        hgt = rng.randint(9, 12)
     elif realm in (8, 12, 14):  # Saltwind, Chalk, Cloudstep
         wood = M['pale_heartwood']
-        hgt = rng.randint(3, 5)
+        hgt = rng.randint(6, 8)
     elif realm in (1, 15):      # Amberwood, Verdigris
         wood = M['dark_heartwood']
-        hgt = rng.randint(5, 7)
+        hgt = rng.randint(8, 11)
     else:
-        hgt = rng.randint(4, 6)
+        hgt = rng.randint(7, 10)
 
     def put(a, b, y, mat):
         if world.get(a, b, y) in (0, M['petals'], M['sprout']):
@@ -266,9 +266,9 @@ def grow_tree(world, q, r, top, realm, rng):
     for y in range(top + 2, top + hgt + 1):
         put(q, r, y, wood)
     if realm in (3, 9, 14):  # frost, cedar, cloudstep firs
-        for i, y in enumerate(range(top + 3, top + hgt + 2)):
+        for i, y in enumerate(range(top + 5, top + hgt + 2)):
             disk(y, max(0, 2 - i // 2), leaf)
     else:
-        disk(top + hgt - 1, 2, leaf)
         disk(top + hgt, 2, leaf)
-        disk(top + hgt + 1, 1, leaf)
+        disk(top + hgt + 1, 2, leaf)
+        disk(top + hgt + 2, 1, leaf)

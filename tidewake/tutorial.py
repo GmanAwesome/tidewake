@@ -76,7 +76,7 @@ def _column(cells, meta, cq, cr, q, r, bot, top, fill, cap):
     _put(cells, meta, cq, cr, q, r, top, cap)
 
 
-def _tree(cells, meta, cq, cr, q, r, h=5):
+def _tree(cells, meta, cq, cr, q, r, h=7):
     for i in range(h):
         _put(cells, meta, cq, cr, q, r, SURF + 1 + i, M['heartwood'])
     for dq, dr in [(0, 0)] + DIRS:

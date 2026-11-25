@@ -171,3 +171,7 @@ Two new creatures share the open air. Skywhales are huge, slow, and peaceful; th
 
 Four new songs join the procedural soundtrack, and the music cache is now v9 so they build on first listen. Firstlight is a gentle C major piece for the lesson island, with the same public-domain Korobeiniki hint the other songs use. Undertide is slow and watery in F-sharp minor, and comes in when you swim. Rainwake is a soft G minor for rainy weather. Highmere is a brighter A major day song that takes its turn in the daytime rotation. Minecraft and Donkey Kong were style references only — none of their tunes are in here.
 
+## November 25, 2026, 4:26 PM EST — Taller trees you can walk under
+
+Trees got taller, and their leaves start higher up the trunk. You can walk under most canopies now without the leaves sitting on your head. Grown sprouts follow the same idea, and the little grove on the lesson island does too.
+

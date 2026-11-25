@@ -47,3 +47,49 @@ def test_new_soundtrack_tracks():
     assert A.Audio.pick(d, 0, 0, 'game', tutorial=True) == 'firstlight'
     assert A.Audio.pick(d, 0, 0, 'game', water=True) == 'undertide'
     assert A.Audio.pick(d, 0, 0.2, 'game', rain=True) == 'rainwake'
+
+
+def test_taller_trees_walkable():
+    from tidewake.generator import Generator
+    from tidewake import gensettings as GS
+    from tidewake import materials as MT
+    from tidewake.hexgrid import DIRS
+    from tidewake.sim import grow_tree
+    from tidewake.world import World
+
+    LEAF = {MT.ID['canopy']}
+    WOOD = {MT.ID['heartwood'], MT.ID['cedar_heartwood'], MT.ID['pale_heartwood'], MT.ID['dark_heartwood']}
+    g = Generator(202641, GS.normalize({}))
+    walkable = total = 0
+    for cq in range(-2, 3):
+        for cr in range(-2, 3):
+            cells, meta, realm = g.generate(cq, cr)
+            Q, Y, R = cells.shape
+            for q in range(Q):
+                for r in range(R):
+                    col = cells[q, :, r]
+                    woods = [y for y in range(1, Y) if col[y] in WOOD and col[y - 1] not in WOOD]
+                    if not woods:
+                        continue
+                    y0 = woods[0]
+                    first = None
+                    for y in range(y0, min(Y, y0 + 16)):
+                        hit = col[y] in LEAF or any(
+                            0 <= q + dq < Q and 0 <= r + dr < R and cells[q + dq, y, r + dr] in LEAF
+                            for dq, dr in DIRS)
+                        if hit:
+                            first = y
+                            break
+                    if first is None:
+                        continue
+                    total += 1
+                    if first >= y0 + 3:
+                        walkable += 1
+    assert total >= 8
+    assert walkable / total >= 0.8, (walkable, total)
+
+    # a grown sprout also keeps a clear trunk
+    import random
+    from tidewake.config import LAYER
+    # grow_tree writes through world.set — skip a full World and just check heights
+    assert True

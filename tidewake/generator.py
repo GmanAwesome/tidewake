@@ -551,7 +551,7 @@ class Generator:
         elif realm in (AMBER, VERDIGRIS):
             wood = M['dark_heartwood']
         if realm == LUMEN:                      # giant glowing toadstool
-            hgt = rng.randint(4, 7)
+            hgt = rng.randint(6, 9)
             for y in range(top + 1, top + 1 + hgt):
                 self._put(cells, lq, y, lr, M['plinth'] if False else wood)
             self._disk(cells, lq, lr, top + hgt, 2, leaf)
@@ -560,10 +560,10 @@ class Generator:
                 self._put(cells, lq + dq, top + hgt - 1, lr + dr, M['glowcap'])
             return
         if realm == FROST:                      # stacked rings, narrowing: a hex fir
-            hgt = rng.randint(6, 9)
+            hgt = rng.randint(8, 12)
             for y in range(top + 1, top + hgt):
                 self._put(cells, lq, y, lr, wood)
-            for i, y in enumerate(range(top + 3, top + hgt + 1)):
+            for i, y in enumerate(range(top + 5, top + hgt + 1)):
                 rad = max(0, 2 - i // 2)
                 self._disk(cells, lq, lr, y, rad, leaf)
             return
@@ -574,36 +574,36 @@ class Generator:
                 self._put(cells, lq, top + rng.randint(2, 4), lr, M['crystal'])
             return
         if realm == STARFALL:
-            hgt = rng.randint(4, 7)
+            hgt = rng.randint(6, 9)
             for y in range(top + 1, top + hgt):
                 self._put(cells, lq, y, lr, M['crystal'] if y > top + hgt - 3 else wood)
             self._disk(cells, lq, lr, top + hgt, 2, leaf)
             self._put(cells, lq, top + hgt + 1, lr, M['lumen_shard'])
             return
         if realm == CEDAR or realm == CLOUDSTEP:
-            hgt = rng.randint(7, 10) if realm == CEDAR else rng.randint(4, 6)
+            hgt = rng.randint(9, 13) if realm == CEDAR else rng.randint(7, 10)
             for y in range(top + 1, top + hgt):
                 self._put(cells, lq, y, lr, wood)
-            for i, y in enumerate(range(top + (3 if realm == CEDAR else 2), top + hgt + 1)):
+            for i, y in enumerate(range(top + 5, top + hgt + 1)):
                 rad = max(0, (2 if realm == CEDAR else 1) - i // 2)
                 self._disk(cells, lq, lr, y, rad, leaf)
             return
         if realm == CHALK or realm == SALTWIND:
-            hgt = rng.randint(3, 5)
+            hgt = rng.randint(6, 8)
             for y in range(top + 1, top + hgt):
                 self._put(cells, lq, y, lr, wood)
             self._disk(cells, lq, lr, top + hgt, 1, leaf)
             return
-        hgt = rng.randint(4, 6) + (2 if realm in (AMBER, VERDIGRIS) else 0)
+        hgt = rng.randint(7, 10) + (2 if realm in (AMBER, VERDIGRIS) else 0)
         for y in range(top + 1, top + hgt + 1):
             self._put(cells, lq, y, lr, wood)
         rad = 2 if realm != ROSE else 1
-        self._disk(cells, lq, lr, top + hgt - 1, rad, leaf)
         self._disk(cells, lq, lr, top + hgt, rad, leaf)
-        self._disk(cells, lq, lr, top + hgt + 1, max(1, rad - 1), leaf)
+        self._disk(cells, lq, lr, top + hgt + 1, rad, leaf)
+        self._disk(cells, lq, lr, top + hgt + 2, max(1, rad - 1), leaf)
         if realm in (FEN, VERDIGRIS):          # weeping vines from the canopy edge
             for (dq, dr) in ((2, 0), (-2, 0), (0, 2), (0, -2), (2, -2), (-2, 2)):
-                for y in range(top + hgt - 2 - rng.randint(0, 2), top + hgt - 1):
+                for y in range(top + hgt - 1 - rng.randint(0, 1), top + hgt + 1):
                     self._put(cells, lq + dq, y, lr + dr, M['vine'])
 
     def _stamp_spire(self, cells, meta, s, q0, r0):
