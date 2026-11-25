@@ -10,6 +10,7 @@ ELEMENT_COLORS = [(0.80, 0.72, 0.62), (0.42, 0.70, 0.95), (1.00, 0.84, 0.45), (0
 from ..noise import seed_from_text, random_seed
 from ..settings import FPS_CHOICES
 from ..storage import SkyStorage
+from .. import gensettings as GS
 
 SPLASHES = ['The clouds remember everything.', 'Every sky is new.', 'Hexagons all the way down.',
             'Mind the drifting spires.', 'Gather gently.', 'Listen for the hum.', 'No two tides alike.',
@@ -83,7 +84,7 @@ class TitleScreen(Screen):
         if gui.button(x, y - 156 * s, bw, bh, 'Leave'):
             app.quit()
         gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
-        gui.text('Tidewake 1.4-phase1', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
+        gui.text('Tidewake 1.4-phase2a', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
         gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
         sc = app.backdrop.get('showcase') if app.backdrop else None
         if sc is not None:
@@ -175,44 +176,67 @@ class NewSkyScreen(Screen):
         self.name = 'My Sky'
         self.seed = ''
         self.mode = 'wanderer'
+        self.gen = GS.defaults()
+        self._hint = ''
 
     def build(self, gui, app, w, h):
         s = gui.s
         veil(gui, w, h, 0.25)
-        pw, ph = min(560 * s, w - 40 * s), min(520 * s, h - 30 * s)
+        pw, ph = min(1080 * s, w - 24 * s), min(680 * s, h - 20 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
-        gui.text('Dream a New Sky', w / 2, py + ph - 38 * s, 22, INK, 'center', 'center', font='title')
-        fx, fw, fh = px + 36 * s, pw - 72 * s, 40 * s
-        y = py + ph - 110 * s
-        gui.text('Name', fx, y + fh + 8 * s, 10, MUTED, font='bold')
-        self.name = gui.textfield(fx, y, fw, fh, 'name', self.name, 'My Sky', 36)
-        y -= 82 * s
-        gui.text('Seed: a word, a number, or empty for a surprise', fx, y + fh + 8 * s, 10, MUTED, font='bold')
-        self.seed = gui.textfield(fx, y, fw - 130 * s, fh, 'seed', self.seed, 'surprise me', 40)
-        if gui.button(fx + fw - 120 * s, y, 120 * s, fh, 'Roll'):
+        gui.text('Dream a New Sky', px + 28 * s, py + ph - 28 * s, 22, INK, 'left', 'center', font='title')
+        if gui.button(px + pw - 148 * s, py + ph - 46 * s, 120 * s, 32 * s, 'Reset', size=11):
+            self.gen = GS.defaults()
+            if gui.sound:
+                gui.sound('click')
+        # name, seed, way of play on one compact row
+        fx, y = px + 28 * s, py + ph - 100 * s
+        nw, sw = pw * 0.28, pw * 0.28
+        gui.text('Name', fx, y + 28 * s, 9, MUTED, font='bold')
+        self.name = gui.textfield(fx, y - 16 * s, nw, 36 * s, 'name', self.name, 'My Sky', 36)
+        sx = fx + nw + 16 * s
+        gui.text('Seed (or empty for a surprise)', sx, y + 28 * s, 9, MUTED, font='bold')
+        self.seed = gui.textfield(sx, y - 16 * s, sw - 86 * s, 36 * s, 'seed', self.seed, 'surprise me', 40)
+        if gui.button(sx + sw - 80 * s, y - 16 * s, 80 * s, 36 * s, 'Roll', size=11):
             self.seed = dream_name()
-        y -= 70 * s
-        gui.text('Way of play', fx, y + 46 * s, 10, MUTED, font='bold')
-        cw = (fw - 12 * s) / 2
-        for i, (mode, label, desc) in enumerate([('wanderer', 'Wanderer', 'mine, craft, eat, brave the dusk'),
-                                                  ('dreamer', 'Dreamer', 'build freely: fly, endless items, dev mode')]):
-            cx = fx + i * (cw + 12 * s)
+        mx = fx + nw + sw + 32 * s
+        mw = px + pw - 28 * s - mx
+        gui.text('Way of play', mx, y + 28 * s, 9, MUTED, font='bold')
+        for i, (mode, label) in enumerate([('wanderer', 'Wanderer'), ('dreamer', 'Dreamer')]):
+            cx = mx + i * (mw / 2 + 6 * s)
+            cw = mw / 2 - 6 * s
             on = self.mode == mode
-            gui.rect(cx, y - 30 * s, cw, 68 * s, (1, 0.93, 0.88, 1) if on else (0.97, 0.95, 0.98, 1), 14 * s,
+            gui.rect(cx, y - 16 * s, cw, 36 * s, (1, 0.93, 0.88, 1) if on else (0.97, 0.95, 0.98, 1), 10 * s,
                      border=ACCENT if on else (0.88, 0.86, 0.93), border_w=2 * s)
-            gui.text(label, cx + cw / 2, y + 16 * s, 13, INK, 'center', 'center', font='bold')
-            gui.text(desc, cx + cw / 2, y - 8 * s, 8.5, MUTED, 'center', 'center')
-            if gui.clicked(cx, y - 30 * s, cw, 68 * s):
+            gui.text(label, cx + cw / 2, y + 2 * s, 11, INK, 'center', 'center', font='bold')
+            if gui.clicked(cx, y - 16 * s, cw, 36 * s):
                 gui.consume_click()
                 self.mode = mode
                 if gui.sound:
                     gui.sound('click')
-        bw = (fw - 12 * s) / 2
+        # twelve sliders, two columns
+        gui.text('World shape', fx, y - 42 * s, 11, INK, font='bold')
+        sh = 34 * s
+        gap = 8 * s
+        col_w = (pw - 56 * s - 16 * s) / 2
+        top = y - 58 * s
+        self._hint = self._hint or 'These sliders are saved with the sky. 50 is the usual mid setting.'
+        for i, (key, label, hint, lo, hi) in enumerate(GS.SLIDERS):
+            col, row = i % 2, i // 2
+            x = fx + col * (col_w + 16 * s)
+            sy = top - row * (sh + gap)
+            before = self.gen[key]
+            self.gen[key] = int(gui.slider(x, sy - sh, col_w, sh, label, self.gen[key], 0, 100, fmt=lambda v, lo=lo, hi=hi: f'{int(v)}  {lo}–{hi}', step=1))
+            # show this slider's hint when the handle is being dragged or hovered
+            if gui.hovered == label or gui.active == ('slider', label):
+                self._hint = hint
+        gui.text(self._hint, fx, py + 86 * s, 10, MUTED, width=pw - 56 * s)
+        bw = (pw - 56 * s - 12 * s) / 2
         if gui.button(fx, py + 26 * s, bw, 42 * s, 'Dream it', primary=True, size=13) or 'enter' in gui.keys:
             text = self.seed.strip()
             seed = seed_from_text(text) if text else random_seed()
-            app.create_sky(self.name.strip() or 'My Sky', seed, text, self.mode)
+            app.create_sky(self.name.strip() or 'My Sky', seed, text, self.mode, gen=self.gen)
             return
         if gui.button(fx + bw + 12 * s, py + 26 * s, bw, 42 * s, 'Back'):
             app.set_screen(self.parent)

@@ -35,8 +35,9 @@ class Chunk:
 
 
 class World:
-    def __init__(self, seed, storage, renderer, pool, view_distance=8, far_distance=16):
+    def __init__(self, seed, storage, renderer, pool, view_distance=8, far_distance=16, gen_settings=None):
         self.seed = seed
+        self.gen_settings = gen_settings
         self.storage = storage
         self.renderer = renderer
         self.pool = pool
@@ -289,7 +290,7 @@ class World:
             if self.storage:
                 paths = {(key[0] * LOD_GROUP + i, key[1] * LOD_GROUP + k): self.storage.chunk_file(key[0] * LOD_GROUP + i, key[1] * LOD_GROUP + k)
                          for i in range(LOD_GROUP) for k in range(LOD_GROUP)}
-            self.lod_jobs[key] = self.pool.submit(workers.lod_job, self.seed, key[0], key[1], paths, want)
+            self.lod_jobs[key] = self.pool.submit(workers.lod_job, self.seed, key[0], key[1], paths, want, self.gen_settings)
             budget -= 1
 
     def _schedule(self):
@@ -313,7 +314,7 @@ class World:
             key = (cq0 + a, cr0 + b)
             if key not in self.chunks and key not in self.gen_jobs:
                 path = self.storage.chunk_file(*key) if self.storage else None
-                self.gen_jobs[key] = self.pool.submit(workers.generate_job, self.seed, key[0], key[1], path)
+                self.gen_jobs[key] = self.pool.submit(workers.generate_job, self.seed, key[0], key[1], path, self.gen_settings)
                 budget -= 1
 
     def _upload(self, budget):

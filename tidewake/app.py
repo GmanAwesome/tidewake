@@ -206,10 +206,12 @@ class App(pyglet.window.Window):
             self.backdrop['world'].close()
             self.backdrop = None
 
-    def create_sky(self, name, seed, seed_text, mode):
+    def create_sky(self, name, seed, seed_text, mode, gen=None):
         folder = SkyStorage.unique_folder(self.skies_dir, name)
         st = SkyStorage(self.skies_dir, folder)
-        ses = Session(self, st, create=dict(name=name, seed=seed, seed_text=seed_text, mode=mode),
+        from . import gensettings as GS
+        ses = Session(self, st, create=dict(name=name, seed=seed, seed_text=seed_text, mode=mode,
+                                           gen=GS.normalize(gen)),
                       view_distance=self.settings['view_distance'], far_distance=self.settings['far_distance'])
         self.begin(ses, 'Dreaming ' + name)
 
@@ -575,7 +577,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.4-phase1   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.4-phase2a   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

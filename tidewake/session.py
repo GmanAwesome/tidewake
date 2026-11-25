@@ -7,6 +7,7 @@ import numpy as np
 
 from . import config as C
 from .config import LAYER, CHUNK, CLOUD_SEA
+from . import gensettings as GS
 from .generator import Generator, SPIRE_REGION
 from .hexgrid import cell_at, center, hex_distance, DIRS, ring, spiral
 from . import materials as MT
@@ -33,7 +34,9 @@ STARTER = [(I.BERRIES.id, 4), (M['glowstick'], 3)]
 USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door']}
 SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick'}
 PASSIVE_REALMS = {
-    'woolhop': (0, 1, 5, 3, 7), 'pebblebeak': (0, 2, 6, 1, 4), 'mossback': (5, 4, 3, 7),
+    'woolhop': (0, 1, 5, 3, 7, 8, 9, 10, 14),
+    'pebblebeak': (0, 2, 6, 1, 4, 11, 12),
+    'mossback': (5, 4, 3, 7, 9, 12, 15),
 }
 
 
@@ -82,7 +85,8 @@ class Session:
             self.seed = create['seed']
             self.seed_text = create.get('seed_text', '')
             self.mode = create.get('mode', 'wanderer')
-            self.gen = Generator(self.seed)
+            self.gen_settings = GS.normalize(create.get('gen'))
+            self.gen = Generator(self.seed, self.gen_settings)
             q, r, top, sp = find_spawn(self.gen)
             x, z = center(q, r)
             yaw = 0.0
@@ -110,7 +114,8 @@ class Session:
             self.seed = d['seed']
             self.seed_text = d.get('seed_text', '')
             self.mode = d.get('mode', 'wanderer')
-            self.gen = Generator(self.seed)
+            self.gen_settings = GS.normalize(d['gen']) if d.get('gen') is not None else None
+            self.gen = Generator(self.seed, self.gen_settings)
             p = d['player']
             self.player = Player(p['x'], p['y'], p['z'], p.get('yaw', 0), p.get('pitch', 0))
             self.player.drifting = bool(p.get('drifting'))
@@ -138,7 +143,8 @@ class Session:
             self.kilns = {k: {'slots': Inventory(3).load(v.get('slots', [])), 'burn': float(v.get('burn', 0)),
                               'burn_max': float(v.get('burn_max', 1)), 'prog': float(v.get('prog', 0))}
                           for k, v in d.get('kilns', {}).items()}
-        self.world = World(self.seed, storage, app.renderer, app.pool, view_distance, far_distance)
+        self.world = World(self.seed, storage, app.renderer, app.pool, view_distance, far_distance,
+                          gen_settings=self.gen_settings)
         self.sim = Simulation(self.world, self.seed & 0xFFFF)
         self.sim.on_tree = self._grow_tree
         self.world.on_chunk_loaded = self._chunk_loaded
@@ -1103,8 +1109,9 @@ class Session:
             return
         p = self.player
         dusk = TIDE.dusk_amount(self.phase)
-        want = int(4 + 14 * dusk)
-        while len(self.motes) < want and random.random() < dt * 3:
+        gmul = getattr(self.gen, 'glimmer_mul', 1.0)
+        want = int((4 + 14 * dusk) * gmul)
+        while len(self.motes) < want and random.random() < dt * 3 * max(0.2, gmul):
             ang = random.uniform(0, 2 * math.pi)
             dist = random.uniform(4, 16)
             x, z = p.x + math.cos(ang) * dist, p.z + math.sin(ang) * dist
@@ -1491,6 +1498,7 @@ class Session:
     def to_dict(self):
         p = self.player
         return {'version': 2, 'name': self.name, 'seed': self.seed, 'seed_text': self.seed_text, 'mode': self.mode,
+                'gen': self.gen_settings,
                 'player': {'x': p.x, 'y': p.y, 'z': p.z, 'yaw': p.yaw, 'pitch': p.pitch, 'drifting': p.drifting,
                            'noclip': p.noclip, 'fly_speed': p.fly_speed, 'safe': list(p.last_safe)},
                 'awakened': self.awakened, 'phase': self.phase, 'play_time': self.play_time, 'created': self.created,

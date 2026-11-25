@@ -93,3 +93,9 @@ Screenshot: `screenshots-final/v1.4-phase2a/10_thick_island.png` and `12_cave.pn
 Eight new biomes join the original eight, using existing blocks with new colors, plants and layouts (no new block types yet). The real-world-inspired ones are Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires and Chalk Barrens. The fictional ones are Starfall Veil, Cloudstep Isles and Verdigris Canyons. Each has its own turf color, trees or crystals, and a little gameplay flavor (wood, clay, ores, high overlooks, and so on).
 
 Screenshots: `screenshots-final/v1.4-phase2a/01_lavender_downs.png` through `08_verdigris_canyons.png`.
+
+## November 25, 2026, 2:58 PM EST — World creation sliders
+
+Dreaming a new sky now opens a proper setup screen with twelve labeled sliders: island size, island thickness, sky density, terrain roughness, mountain height, flatness, cave amount, cave size, water, biome size, tree density and Glimmer rarity. 50 is the usual mid setting, Reset puts them all back, and the values are saved with the sky so they come back the next time you play it.
+
+Screenshot: `screenshots-final/v1.4-phase2a/00_sliders.png`.
