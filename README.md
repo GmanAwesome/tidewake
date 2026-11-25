@@ -45,7 +45,7 @@
 Everything is built from **hexagonal prism cells** stacked in 128 layers, with six-sided terrain, six-sided houses and six-sided everything. Cliffs, terraces, arches and overhangs come out softer and stranger than cubes.
 
 ### 🏝️ Floating islands and eight realms
-Every sky is generated from a seed (any number or words) and goes on forever above a sea of clouds. There are eight realms: **Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass** and the glowing **Lumen Grove**. Waterfalls pour off the edges into the cloud sea.
+Every sky is generated from a seed (any number or words) and goes on forever above a sea of clouds. There are sixteen landscapes: the original eight (**Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass, Lumen Grove**) and eight new ones — real-world-inspired **Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires, Chalk Barrens**, and fictional **Starfall Veil, Cloudstep Isles, Verdigris Canyons**. When you dream a new sky you can tune its shape with a dozen sliders (island size and thickness, mountains, caves, water, trees, and more). Those sliders are saved with the sky. Waterfalls pour off the edges into the cloud sea.
 
 ### ⛏️ Mining and tools
 Hold left click to break blocks. Harder blocks take longer, and tools speed you up: **Wooden → Stone → Verdigris → Silverine → Aetherite** picks, axes and spades.

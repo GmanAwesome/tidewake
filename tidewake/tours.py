@@ -100,7 +100,7 @@ def realms(app, log, shot, look_at, settled, arg):
     Q, R = np.meshgrid(qs, qs, indexing='ij')
     c = g.columns(Q, R)
     targets = []
-    for realm in range(8):
+    for realm in range(len(MT.REALMS)):
         m = (c['realm'] == realm) & c['land'] & (c['e'] > 0.12) & ~c['skerry']
         idx = np.argwhere(m)
         if len(idx):
@@ -862,3 +862,134 @@ def phase1(app, log, shot, look_at, settled, arg):
     yield shot('12_fall_respawn')
 
     log('phase1 tour finished')
+
+
+def phase2a(app, log, shot, look_at, settled, arg):
+    """1.4 Phase 2a: slider screen, new biomes, thick islands, caves."""
+    from .hexgrid import spiral
+    from .ui.screens import NewSkyScreen, TitleScreen
+    from . import gensettings as GS
+    from . import materials as MT
+
+    yield 0.5
+    app.set_screen(NewSkyScreen(TitleScreen()))
+    yield 0.8
+    yield shot('00_sliders')
+
+    seed = int(arg) if (arg or '').isdigit() else 5
+    app.create_sky('Phase2a', seed, str(seed), 'dreamer', gen=GS.defaults())
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    log('spawn', cell_at(p.x, p.z), 'seed', seed)
+
+    # locate nearby examples of each landscape
+    g = ses.gen
+    Q, R = np.mgrid[-90:90:2, -90:90:2]
+    col = g.columns(Q, R)
+    land = col['land'] & ~col['skerry']
+    found = {}
+    for a in range(Q.shape[0]):
+        for b in range(Q.shape[1]):
+            if not land[a, b]:
+                continue
+            rid = int(col['realm'][a, b])
+            rec = (int(Q[a, b]), int(R[a, b]), int(col['top'][a, b]), int(col['bottom'][a, b]))
+            if rid not in found:
+                found[rid] = rec
+            else:
+                # prefer closer to origin
+                if rec[0] * rec[0] + rec[1] * rec[1] < found[rid][0] ** 2 + found[rid][1] ** 2:
+                    found[rid] = rec
+    log('biomes found', {MT.REALMS[k]: found[k][:2] for k in sorted(found)})
+
+    def pose(q, r, top, dist=9.0, up=3.2, look_y=1.4):
+        x, z = center(q, r)
+        p.x, p.z = x, z + dist
+        p.y = (top + up) * LAYER
+        look_at(p, x, (top + look_y) * LAYER, z)
+
+    # several new biomes, plus a familiar one for contrast
+    wanted = [
+        (10, '01_lavender_downs'),
+        (9, '02_cedar_highlands'),
+        (8, '03_saltwind_flats'),
+        (11, '04_cinder_spires'),
+        (12, '05_chalk_barrens'),
+        (13, '06_starfall_veil'),
+        (14, '07_cloudstep_isles'),
+        (15, '08_verdigris_canyons'),
+        (0, '09_meadow_isles'),
+    ]
+    for rid, name in wanted:
+        if rid not in found:
+            log('missing biome', MT.REALMS[rid])
+            continue
+        q, r, top, bot = found[rid]
+        pose(q, r, top)
+        log('shot', name, MT.REALMS[rid], q, r, 'thick', top - bot)
+        yield settled()
+        yield 0.7
+        yield shot(name)
+
+    # a thick island from the side, mid-height, so you can see the depth
+    thickest = max((found[k] for k in found), key=lambda rec: rec[2] - rec[3])
+    q, r, top, bot = thickest
+    x, z = center(q, r)
+    mid = (top + bot) * 0.5
+    p.x, p.z = x + 14.0, z + 2.0
+    p.y = mid * LAYER
+    look_at(p, x, mid * LAYER, z)
+    log('thick island', q, r, 'top', top, 'bottom', bot, 'depth', top - bot)
+    yield settled()
+    yield 0.8
+    yield shot('10_thick_island')
+
+    # underside / hanging into the cloud sea
+    p.x, p.z = x + 6.0, z + 6.0
+    p.y = (bot - 4) * LAYER
+    look_at(p, x, (bot + 2) * LAYER, z)
+    yield 0.7
+    yield shot('11_island_underside')
+
+    # a cave: search loaded cells for a roomy interior void
+    cave = None
+    pq, pr = cell_at(p.x, p.z)
+    # start near the thick island, then spawn
+    for origin in ((q, r), cell_at(ses.player.x, ses.player.z) if False else (q, r)):
+        for a, b in spiral(origin[0], origin[1], 48):
+            topc = ses.world.column_top(a, b)
+            if topc is None or topc < 8:
+                continue
+            # find a run of air under a roof
+            for y in range(int(topc) - 3, max(3, int(topc) - 50), -1):
+                if (ses.world.get(a, b, y) == 0 and ses.world.get(a, b, y + 1) != 0
+                        and ses.world.get(a, b, y - 1) == 0 and ses.world.get(a, b, y - 2) != 0):
+                    cave = (a, b, y - 1)
+                    break
+            if cave:
+                break
+        if cave:
+            break
+    if cave:
+        cq, cr, cy = cave
+        cx, cz = center(cq, cr)
+        p.x, p.z = cx, cz
+        p.y = cy * LAYER + 0.2
+        look_at(p, cx + 4.0, cy * LAYER + 0.4, cz + 2.0)
+        log('cave', cave)
+        yield settled()
+        yield 0.8
+        yield shot('12_cave')
+    else:
+        log('no cave found')
+
+    log('phase2a tour finished')
