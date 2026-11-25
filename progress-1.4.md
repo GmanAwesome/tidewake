@@ -270,3 +270,8 @@ The README is rewritten as a straightforward front page: a clean title hero, a s
 
 The title screen was drawing a big rounded dark panel behind the buttons, and a bar along the bottom, over the showcase sky. Those were the gray boxes. They are gone, so the menu sits cleanly on the sky.
 
+
+## November 25, 2026, 5:10 PM EST — Lesson NPCs wait to be asked
+
+Walking up to someone on the lesson island used to open their speech on its own. They now only talk when you right-click them. If you are close, a small “Right-click to talk” hint appears, and the conversation closes again when you walk away.
+

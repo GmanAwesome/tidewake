@@ -36,7 +36,7 @@ def draw_hud(gui, app, ses, w, h):
                     soft_text(gui, 'It longs for: ' + ', '.join(MT.NAMES[x] for x in sp['wants']) +
                               '  (place them around its base)', w / 2, h / 2 - 46 * s, 9.5, (1, 0.92, 0.8, 1), 'center', 'center')
 
-    # lesson-island talk bubble
+    # lesson-island talk: dialog only after a right-click; a small hint otherwise
     npc = ses.nearby_talk() if hasattr(ses, 'nearby_talk') else None
     if npc:
         lines = npc.get('lines') or ()
@@ -50,6 +50,11 @@ def draw_hud(gui, app, ses, w, h):
             gui.text(text, bx + 16 * s, by + bh - 34 * s, 10, INK, 'left', 'top', width=bw - 32 * s)
             if len(lines) > 1:
                 gui.text('Right-click to hear more', bx + bw - 16 * s, by + 12 * s, 8, MUTED, 'right', 'center')
+    elif getattr(ses, 'tutorial', False) and hasattr(ses, 'closest_npc'):
+        hint = ses.closest_npc()
+        if hint:
+            soft_text(gui, 'Right-click to talk', w / 2, h / 2 - 86 * s, 11,
+                      (1, 1, 1, 0.88), 'center', 'center', 'bold')
 
     # fishing prompt
     if getattr(ses, 'fishing', None):

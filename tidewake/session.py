@@ -1026,17 +1026,33 @@ class Session:
         self.app.audio.play('chord', 0.25)
         return True
 
-    def nearby_talk(self):
-        """The closest lesson NPC within a few steps, for a talk bubble."""
+    def _npc_dist(self, npc):
+        p = self.player
+        return math.sqrt((npc['x'] - p.x) ** 2 + (npc['z'] - p.z) ** 2 + (npc['y'] - p.y) ** 2)
+
+    def closest_npc(self, reach=5.5):
+        """The closest lesson NPC within reach, or None."""
         if not getattr(self, 'npcs', None):
             return None
-        p = self.player
-        best, bd = None, 5.5
+        best, bd = None, reach
         for npc in self.npcs:
-            d = math.sqrt((npc['x'] - p.x) ** 2 + (npc['z'] - p.z) ** 2 + (npc['y'] - p.y) ** 2)
+            d = self._npc_dist(npc)
             if d < bd:
                 best, bd = npc, d
         return best
+
+    def nearby_talk(self):
+        """Active tutorial dialog, only after a right-click, and only while still close."""
+        if not getattr(self, 'talk', None) or not getattr(self, 'npcs', None):
+            return None
+        for npc in self.npcs:
+            if npc.get('name') == self.talk:
+                if self._npc_dist(npc) < 6.5:
+                    return npc
+                self.talk = None
+                return None
+        self.talk = None
+        return None
 
     def use_hoe(self):
         from . import farming as F
