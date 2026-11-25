@@ -387,7 +387,105 @@ def _extras(mf, facing, cx, cz, ytop, open_top, sky):
 
 
 
+
+def _oriented_boxes(cx, cz, y0, y1, ux, uz, half_u, px, pz, half_p, col, ecol, emit, mat,
+                    u0, u1, v0, v1):
+    """Axis-aligned-in-their-own-frame boxes (width along u, thickness along p, height along y).
+    The ±p faces use the given UV window so a texture can span several boxes."""
+    n = len(cx)
+    if n == 0:
+        return []
+    my = (y0 + y1) * 0.5
+    hy = (y1 - y0) * 0.5
+    # 8 corners, bit 0 = u, bit 1 = p, bit 2 = y  (0 = negative)
+    su = np.array([-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0])
+    sp = np.array([-1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0])
+    sy = np.array([-1.0, -1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0])
+    Px = cx[:, None] + ux[:, None] * (su * half_u[:, None]) + px[:, None] * (sp * half_p[:, None])
+    Pz = cz[:, None] + uz[:, None] * (su * half_u[:, None]) + pz[:, None] * (sp * half_p[:, None])
+    Py = my[:, None] + sy * hy[:, None]
+    # faces: (corners in CCW, outward axis, is_front, u of c0..c3, v of c0..c3)
+    # corner index: u + 2p + 4y
+    # +p (front): 2,3,7,6 ; +u: 1,3,7,5? wait CCW from outside
+    # +p looking along -p (from +p): u increases left? 
+    # from outside +p, +u is to the right if +y is up and (u,p,y) is right-handed?
+    # u × p should be +y: (ux,0,uz)×(px,0,pz) = (0, ux*pz-uz*px, 0). We will pass p = rot90ccw(u) so
+    # ux*pz - uz*px = ux*ux - uz*(-uz) wait p=rot90ccw(u)=(-uz, ux), ux*ux - uz*(-uz)= ux^2+uz^2=1. Good.
+    # From outside +p, +y up, +u is to the right. CCW: bottom-left, bottom-right, top-right, top-left
+    # = (-u,+p,-y), (+u,+p,-y), (+u,+p,+y), (-u,+p,+y) = 2, 3, 7, 6
+    faces = [
+        # +p front
+        ((2, 3, 7, 6), (0, 0, 1), True,
+         'u',  # U follows u: c0=-u -> u0, c1=+u -> u1
+         'y'),
+        # -p back (from outside -p, +y up, +u is to the left): (+u,-p,-y), (-u,-p,-y), (-u,-p,+y), (+u,-p,+y) = 1,0,4,5
+        ((1, 0, 4, 5), (0, 0, -1), True, 'u_flip', 'y'),
+        # +u meeting/hinge edge (thin)
+        ((1, 3, 7, 5), (1, 0, 0), False, 'p', 'y'),
+        # -u
+        ((2, 0, 4, 6), (-1, 0, 0), False, 'p_flip', 'y'),
+        # +y top, looking down? from +y, CCW: (-u,-p), (+u,-p), (+u,+p), (-u,+p) = 4,5,7,6
+        ((4, 5, 7, 6), (0, 1, 0), False, 'u', 'p'),
+        # -y bottom from below: (-u,+p), (+u,+p), (+u,-p), (-u,-p) = 2,3,1,0
+        ((2, 3, 1, 0), (0, -1, 0), False, 'u', 'p'),
+    ]
+    out = np.zeros((n, 6, 6), VERT)
+    col = np.asarray(col, dtype=np.float64)
+    ecol = np.asarray(ecol, dtype=np.float64)
+    ebyte = np.clip(np.round(np.asarray(emit, dtype=np.float64) * 255), 0, 255)
+    ids = np.broadcast_to(np.asarray(mat, dtype=np.uint8), (n,))
+
+    def axis_u(kind, ci):
+        # ci 0,1,2,3 -> first/second U endpoint
+        a, b = {
+            'u': (u0, u1),
+            'u_flip': (u1, u0),
+            'p': (np.full(n, 0.05), np.full(n, 0.95)),
+            'p_flip': (np.full(n, 0.95), np.full(n, 0.05)),
+        }[kind]
+        return a if ci in (0, 3) else b
+
+    def axis_v(kind, ci):
+        a, b = {
+            'y': (v0, v1),
+            'p': (np.full(n, 0.05), np.full(n, 0.95)),
+        }[kind]
+        return a if ci in (0, 1) else b
+
+    tris = (0, 1, 2, 0, 2, 3)
+    for fi, (corners, axis, is_front, uk, vk) in enumerate(faces):
+        # outward normal in world
+        ax, ay, az = axis
+        if ay == 0 and ax == 0:
+            # ±p
+            Nx, Ny, Nz = px * az, np.zeros(n), pz * az
+        elif ay == 0:
+            Nx, Ny, Nz = ux * ax, np.zeros(n), uz * ax
+        else:
+            Nx, Ny, Nz = np.zeros(n), np.full(n, float(ay)), np.zeros(n)
+        rgb = col if is_front else ecol
+        for vi, ci in enumerate(tris):
+            c = corners[ci]
+            out['p'][:, fi, vi, 0] = Px[:, c]
+            out['p'][:, fi, vi, 1] = Py[:, c]
+            out['p'][:, fi, vi, 2] = Pz[:, c]
+            out['c'][:, fi, vi, :3] = np.clip(rgb * 255.0, 0, 255)
+            out['c'][:, fi, vi, 3] = ebyte
+            out['n'][:, fi, vi, 0] = np.clip(Nx * 127.5 + 127.5, 0, 255)
+            out['n'][:, fi, vi, 1] = np.clip(Ny * 127.5 + 127.5, 0, 255)
+            out['n'][:, fi, vi, 2] = np.clip(Nz * 127.5 + 127.5, 0, 255)
+            uu = axis_u(uk, ci)
+            vv = axis_v(vk, ci)
+            out['n'][:, fi, vi, 3] = np.clip(np.round(vv * 255), 0, 255)
+            out['m'][:, fi, vi, 0] = ids
+            out['m'][:, fi, vi, 1] = 0
+            out['m'][:, fi, vi, 2] = 255 if is_front else 0
+            out['m'][:, fi, vi, 3] = np.clip(np.round(uu * 255), 0, 255)
+    return [out.reshape(-1)]
+
+
 def _fittings(mat, Pm, cx, cz, ly, pq, pr, SKY):
+
     """Doors and ladders: thin, faced fittings, not full hex prisms."""
     out = []
     if Pm is None:
@@ -400,23 +498,47 @@ def _fittings(mat, Pm, cx, cz, ly, pq, pr, SKY):
         meta = Pm[pq[s], ly[s], pr[s]].astype(np.int64)
         face = meta % 8 % 6
         opened = (meta & 8) != 0
-        base = face * (np.pi / 3)
-        ang = base + np.where(opened, 1.35, 0.0)
-        hinge = base + np.pi / 2
-        dist = np.where(opened, 0.22, 0.18)
-        px = cx[s] + np.cos(ang) * dist + np.where(opened, np.cos(hinge) * 0.30, 0)
-        pz = cz[s] + np.sin(ang) * dist + np.where(opened, np.sin(hinge) * 0.30, 0)
-        n = int(s.sum())
+        is_top = (meta & 16) != 0
+        theta = face * (np.pi / 3)
+        nx, nz = np.cos(theta), np.sin(theta)
+        tx, tz = -nz, nx                          # along the wall, through the hex middle
+        W, GAP, TH = 0.92, 0.012, 0.05          # almost vertex-to-vertex, a thin mid-plane
+        leaf_w = (W - GAP) * 0.5
         y0, y1 = ly[s] * LAYER, (ly[s] + 1) * LAYER
         E = pack(0.0, SKY[pq[s], ly[s], pr[s]])
-        out += _prisms(px, pz, y0, y1, np.full(n, 0.40), np.tile(wood, (n, 1)), np.tile(wood * 0.9, (n, 1)),
-                       np.tile(dark, (n, 1)), E, mat=_ID['door'], front=face)
-        # a darker strap / handle
-        hx = px + np.cos(ang + np.pi / 2) * 0.22
-        hz = pz + np.sin(ang + np.pi / 2) * 0.22
-        mid = (y0 + y1) * 0.5
-        out += _prisms(hx, hz, mid - 0.06, mid + 0.06, np.full(n, 0.07), np.tile(iron, (n, 1)), np.tile(iron, (n, 1)),
-                       np.tile(iron * 0.8, (n, 1)), E, mat=_ID['door'])
+        n = int(s.sum())
+        wood_n = np.tile(wood, (n, 1))
+        dark_n = np.tile(dark, (n, 1))
+        v0 = np.where(is_top, 0.5, 0.0)
+        v1 = np.where(is_top, 1.0, 0.5)
+        for sign, u_outer, u_inner in ((-1.0, 0.0, 0.5), (1.0, 1.0, 0.5)):
+            hx = cx[s] + tx * (sign * W)
+            hz = cz[s] + tz * (sign * W)
+            # closed: leaf grows from the jamb toward the meeting edge; open: both swing back
+            ux = np.where(opened, -nx, -sign * tx)
+            uz = np.where(opened, -nz, -sign * tz)
+            px_, pz_ = -uz, ux                    # rot90ccw(u) = thickness
+            mx = hx + ux * leaf_w
+            mz = hz + uz * leaf_w
+            out += _oriented_boxes(
+                mx, mz, y0, y1, ux, uz, np.full(n, leaf_w),
+                px_, pz_, np.full(n, TH * 0.5),
+                wood_n, dark_n, E, _ID['door'],
+                np.full(n, u_outer), np.full(n, u_inner), v0, v1,
+            )
+            # iron handle on the lower half, near the meeting edge, just in front
+            lower = ~is_top
+            if lower.any():
+                k = int(lower.sum())
+                hx2 = (hx + ux * (leaf_w * 2 - 0.10))[lower]
+                hz2 = (hz + uz * (leaf_w * 2 - 0.10))[lower]
+                hx2 = hx2 + nx[lower] * 0.04
+                hz2 = hz2 + nz[lower] * 0.04
+                mid = ((y0 + y1) * 0.5)[lower]
+                out += _prisms(
+                    hx2, hz2, mid - 0.05, mid + 0.05, np.full(k, 0.04),
+                    np.tile(iron, (k, 1)), np.tile(iron, (k, 1)),
+                    np.tile(iron * 0.8, (k, 1)), E[lower], mat=_ID['door'])
     s = mat == _ID['ladder']
     if s.any():
         meta = Pm[pq[s], ly[s], pr[s]].astype(np.int64)

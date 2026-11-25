@@ -225,6 +225,77 @@ def test_heartwood_rings_are_centered_on_the_hex():
     assert abs(com_x - 0.5) < 0.08 and abs(com_y - 0.5) < 0.08, (com_x, com_y, disc.mean(), np.std(ring))
 
 
+
+def _mesh_door(face, opened, q=2, r=2, y=10):
+    import numpy as np
+    from tidewake.config import CHUNK, LAYERS
+    from tidewake import materials as MT
+    from tidewake.mesher import mesh_chunk, pad_chunk, VERT
+    from tidewake.hexgrid import center
+    cells = np.zeros((CHUNK, LAYERS, CHUNK), np.uint8)
+    meta = np.zeros((CHUNK, LAYERS, CHUNK), np.uint8)
+    cells[q, y, r] = MT.ID['door']
+    cells[q, y + 1, r] = MT.ID['door']
+    bit = face | (8 if opened else 0)
+    meta[q, y, r] = bit
+    meta[q, y + 1, r] = bit | 16
+    empty = lambda a, b, src: src if (a, b) == (0, 0) else None
+    o, _w, _L = mesh_chunk(
+        pad_chunk(lambda a, b: empty(a, b, cells), 0, 0),
+        np.zeros((CHUNK, CHUNK), np.int32), 0, 0,
+        Pm=pad_chunk(lambda a, b: empty(a, b, meta), 0, 0),
+    )
+    return np.frombuffer(o, dtype=VERT), center(q, r)
+
+
+def test_doors_are_a_mid_hex_double_leaf():
+    import numpy as np
+    from tidewake.config import LAYER
+    from tidewake.hexgrid import DIR_NORMALS
+    from tidewake import materials as MT
+    from tidewake.world import World
+    from tidewake.materials import is_blocking, overlaps_solid
+
+    for face in (0, 2, 5):
+        nx, nz = DIR_NORMALS[face]
+        tx, tz = -nz, nx
+        closed, (cx, cz) = _mesh_door(face, False)
+        opened, _ = _mesh_door(face, True)
+        assert len(closed) > 100 and len(opened) > 100
+        def along(v):
+            p = v['p']
+            return (p[:, 0] - cx) * nx + (p[:, 2] - cz) * nz, (p[:, 0] - cx) * tx + (p[:, 2] - cz) * tz
+        cn, ct = along(closed)
+        on, ot = along(opened)
+        # closed: a thin plane through the middle, spanning nearly the full hex
+        assert np.abs(cn).max() < 0.12, (face, cn.min(), cn.max())
+        assert ct.min() < -0.8 and ct.max() > 0.8, (face, ct.min(), ct.max())
+        # open: leaves swing back, leaving a walkable gap down the middle
+        assert on.min() < -0.7 and on.max() <= 0.05, (face, on.min(), on.max())
+        mid = (np.abs(on) < 0.15) & (np.abs(ot) < 0.25)
+        assert mid.sum() == 0, (face, 'open door still occupies the path', mid.sum())
+
+    # interaction and collision are unchanged: closed blocks, open is a walkable path
+    w = World.__new__(World)
+    w.chunks = {}
+    from tidewake.config import CHUNK, LAYERS
+    import numpy as np
+    from tidewake.world import Chunk
+    cells = np.zeros((CHUNK, LAYERS, CHUNK), np.uint8)
+    meta = np.zeros((CHUNK, LAYERS, CHUNK), np.uint8)
+    cells[1, 8, 1] = MT.ID['door']
+    cells[1, 9, 1] = MT.ID['door']
+    meta[1, 8, 1] = 0
+    meta[1, 9, 1] = 16
+    w.chunks[(0, 0)] = Chunk(0, 0, cells, meta, np.zeros((CHUNK, CHUNK), np.int32))
+    assert is_blocking(w, 1, 1, 8) and is_blocking(w, 1, 1, 9)
+    assert overlaps_solid(w, 1, 1, 8 * LAYER + 0.1, 8 * LAYER + 1.2, LAYER)
+    meta[1, 8, 1] = 8
+    meta[1, 9, 1] = 8 | 16
+    assert not is_blocking(w, 1, 1, 8) and not is_blocking(w, 1, 1, 9)
+    assert not overlaps_solid(w, 1, 1, 8 * LAYER + 0.1, 8 * LAYER + 1.2, LAYER)
+
+
 if __name__ == '__main__':
     test_tutorial_dialog_only_after_talk()
     print('ok tutorial dialog only after right-click')
@@ -240,4 +311,6 @@ if __name__ == '__main__':
     print('ok side faces carry a per-layer V')
     test_heartwood_rings_are_centered_on_the_hex()
     print('ok heartwood rings are centred on the hex')
+    test_doors_are_a_mid_hex_double_leaf()
+    print('ok doors are a mid-hex double leaf')
     print('ALL 1.4.1 UNIT TESTS PASSED')

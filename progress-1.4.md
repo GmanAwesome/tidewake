@@ -295,3 +295,8 @@ Lamps were working in some rooms and not others. The light itself was only colle
 ## November 25, 2026, 5:17 PM EST — Textures sit in hex space, and log ends are centred
 
 The seams on block tops and sides were not a painted line in most tiles. Tops were mapped from world XZ, so a wrap in the middle of a hex cut through the face, and a log's end-grain rings were off-centre. Sides used world Y divided by 0.7, but a block is 0.85 tall, so a wrap line sat mid-block. Tops now use a UV local to the hex, with (0.5, 0.5) at the column centre, and the tile fits the hex exactly. Sides take V from the vertices, 0 at the bottom of the cell and 1 at the top, and the sample is clamped so the top edge does not wrap back to 0. Heartwood and other wood tops draw their rings in that same hex space so the centre sits on the hex centre. Boards, bricks and grout are still meant to show joints; the mid-face wrap is what is gone.
+
+
+## November 25, 2026, 5:20 PM EST — Doors are a thin double leaf through the hex
+
+A door used to be a short, offset hexagonal pillar that rotated to one side when opened, so a wall with a doorway did not read as a solid face. It is now a thin plane through the middle of the hex, lined up with neighbouring wall blocks, made of two halves. Opening it swings the halves apart and back, leaving a walkable path. Closed doors still block the cell; open doors are passable. Right-click still opens and closes both halves together.
