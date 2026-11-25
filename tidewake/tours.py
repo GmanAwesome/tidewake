@@ -2318,3 +2318,49 @@ def showcases141(app, log, shot, look_at, settled, arg):
             yield shot(f'{slug}_{k}')
         app.menu = keep
     log('showcases141 finished')
+
+
+def phase142_before(app, log, shot, look_at, settled, arg):
+    """1.4.2 playtest befores: seed -1740201319 at the reported sheer-cliff sites."""
+    from .hexgrid import cell_at
+    from .config import LAYER
+    seed = -1740201319
+    yield 0.8
+    app.create_sky('Before 142', seed, str(seed), 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    log('spawn', p.x, p.y, p.z, 'top', ses.world.column_top(*cell_at(p.x, p.z)))
+
+    def stand(x, z, yaw, pitch, up=2.2):
+        q, r = cell_at(x, z)
+        top = ses.world.column_top(q, r)
+        if top is None:
+            top = 60
+        p.x, p.z = float(x), float(z)
+        p.y = top * LAYER + up
+        p.yaw, p.pitch = yaw, pitch
+        log('stand', x, z, 'qr', q, r, 'top', top, 'yaw', yaw, 'pitch', pitch)
+
+    sites = [
+        ('chalk_barrens', -3246, -1298),
+        ('cinder_spires', -2296, 223),
+        ('rose_mesas', 1376, 1522),
+        ('lumen_grove', 1383, 1647),
+        ('cloudstep_isles', 411, 2057),
+    ]
+    views = ((0, -8), (90, -8), (180, -6), (270, -10), (45, -18))
+    for name, x, z in sites:
+        for i, (yaw, pitch) in enumerate(views):
+            stand(x, z, yaw, pitch)
+            yield settled()
+            yield 0.9
+            yield shot(f'{name}_{i}')
+        # pull back and look slightly down to show the wall in context
+        stand(x, z, 120, -16, up=8)
+        yield settled()
+        yield 0.9
+        yield shot(f'{name}_wide')
+    log('phase142_before finished')

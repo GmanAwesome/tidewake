@@ -10,6 +10,26 @@ import numpy as np
 VERSION = 1
 
 
+def pad_layers(cells, meta=None):
+    """Grow a 1.4-era (128-layer) chunk to the current column height, or trim a taller one."""
+    from .config import LAYERS
+    L = int(cells.shape[1])
+    if L == LAYERS:
+        return (cells, meta) if meta is not None else cells
+    def _fit(a):
+        if a is None:
+            return None
+        if a.shape[1] == LAYERS:
+            return a
+        out = np.zeros((a.shape[0], LAYERS, a.shape[2]), a.dtype)
+        n = min(L, LAYERS)
+        out[:, :n] = a[:, :n]
+        return out
+    cells = _fit(cells)
+    return (cells, _fit(meta)) if meta is not None else cells
+
+
+
 def sanitize(name):
     s = re.sub(r'[^A-Za-z0-9 _\-\']', '', name).strip() or 'New Sky'
     return s[:36]

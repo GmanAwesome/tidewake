@@ -40,7 +40,9 @@ def generate_job(seed, cq, cr, saved_path, settings=None):
     if saved_path and os.path.exists(saved_path):
         try:
             with np.load(saved_path) as f:
-                return cq, cr, f['cells'].astype(np.uint8), f['meta'].astype(np.uint8), f['realm'].astype(np.uint8), \
+                from .storage import pad_layers
+                cells, meta = pad_layers(f['cells'].astype(np.uint8), f['meta'].astype(np.uint8))
+                return cq, cr, cells, meta, f['realm'].astype(np.uint8), \
                     True, time.perf_counter() - t
         except Exception:
             pass

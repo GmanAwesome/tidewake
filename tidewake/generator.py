@@ -13,7 +13,7 @@ import random
 
 import numpy as np
 
-from .config import CHUNK, LAYERS, CLOUD_SEA, HEX, SQ3
+from .config import CHUNK, LAYERS, CLOUD_SEA, HEX, SQ3, V2_LAYERS
 from .materials import ID, N_REALMS
 from .noise import Noise, splitmix64, hash2, rand01, hash_ints
 from . import gensettings as GS
@@ -21,8 +21,10 @@ from . import gensettings as GS
 M = ID
 MEADOW, AMBER, ROSE, FROST, BASALT, FEN, DUNE, LUMEN = range(8)
 SALTWIND, CEDAR, LAVENDER, CINDER, CHALK, STARFALL, CLOUDSTEP, VERDIGRIS = range(8, 16)
-TOP_MAX = LAYERS - 18
+TOP_MAX = LAYERS - 18          # v3 ceiling (room for a surface near 300)
 TOP_MIN = CLOUD_SEA + 12
+V2_TOP_MAX = V2_LAYERS - 18    # 1.4 / 1.4.1 ceiling; must stay fixed
+V2_TOP_MIN = CLOUD_SEA + 12
 SPIRE_REGION = 88                      # cells; at most one spire per region
 OFFERINGS = [M['crystal'], M['bloom'], M['vine'], M['clay'], M['mossrock'], M['cloudstuff'], M['lantern'], M['water']]
 
@@ -50,9 +52,14 @@ class Generator:
     def __init__(self, seed, settings=None):
         self.seed = seed
         self.tutorial = bool(isinstance(settings, dict) and settings.get('tutorial'))
-        # v1: skies saved before 1.4-phase2a (no sliders). v2: new worlds, sliders saved with the sky.
+        # v1: skies saved before 1.4-phase2a (no sliders). v2: 1.4 / 1.4.1.
+        # v3: 1.4.2 (separated altitude shelves, higher peaks). Missing version on a
+        # saved slider sky means 2, so 1.4.1 worlds keep their terrain.
         self.settings = GS.normalize(settings) if settings is not None else None
-        self.version = 2 if self.settings is not None else 1
+        if self.settings is None:
+            self.version = 1
+        else:
+            self.version = int(self.settings.get('generator_version') or 2)
         rng = random.Random(splitmix64(seed & ((1 << 64) - 1)))
         k = lambda i: splitmix64((seed + 0x51ED * (i + 1)) & ((1 << 64) - 1))
         self.n_island, self.n_warp1, self.n_warp2, self.n_alt, self.n_hill = (Noise(k(i)) for i in range(5))
@@ -82,7 +89,7 @@ class Generator:
         self._spires = {}
         self.cliff_amp = rng.uniform(5, 11)       # 1.3: cliffs, terraces, arches
         self.arches = rng.uniform(0.40, 0.52)
-        if self.version == 2:
+        if self.version >= 2:
             s = self.settings
             # personality jitter stays, sliders do the heavy lifting
             self.island_scale = self.island_scale * GS.scale(s, 'island_size', 0.55, 1.0, 1.65)
@@ -111,6 +118,8 @@ class Generator:
         """Island shape for arrays of axial columns (any shape). Returns a dict of arrays."""
         if self.version == 1:
             return self._columns_v1(Q, R)
+        if self.version >= 3:
+            return self._columns_v3(Q, R)
         return self._columns_v2(Q, R)
 
     def _columns_v1(self, Q, R):
@@ -169,7 +178,7 @@ class Generator:
         top = np.where(sk, sk_alt, top)
         bottom = np.where(sk, sk_alt - np.floor(2 + np.sqrt(np.clip(ei, 0, None)) * 30), bottom)
         land = (e > 0) | sk
-        top = np.clip(top, TOP_MIN, TOP_MAX).astype(np.int64)
+        top = np.clip(top, V2_TOP_MIN, V2_TOP_MAX).astype(np.int64)
         bottom = np.clip(bottom, CLOUD_SEA + 2, None).astype(np.int64)
         bottom = np.minimum(bottom, top)
 
@@ -212,10 +221,10 @@ class Generator:
                 closer = d2 < best_d
                 best_band = np.where(closer, band, best_band)
                 best_d = np.minimum(best_d, d2)
-        lo_alt, hi_alt = float(CLOUD_SEA + 18), float(TOP_MAX - 14)
+        lo_alt, hi_alt = float(CLOUD_SEA + 18), float(V2_TOP_MAX - 14)
         com = lo_alt + (best_band + 0.30 * mass) / 6.0 * (hi_alt - lo_alt) + (self.alt_base - 59.0)
         com = com + 0.10 * (self.depth_amp - 40.0)
-        com = np.clip(com, CLOUD_SEA + 16, TOP_MAX - 14)
+        com = np.clip(com, CLOUD_SEA + 16, V2_TOP_MAX - 14)
         shelf = com
 
         heat = self.n_heat.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.heat_bias
@@ -320,7 +329,7 @@ class Generator:
         bottom = np.where(sk, sk_alt - np.floor(2 + sk_dome * 28 + (1.0 - sk_hull) * 0), bottom)
         land = (e > 0) | sk
         # thick low islands may hang down into the cloud sea; don't clip thickness away
-        top = np.clip(top, TOP_MIN, TOP_MAX).astype(np.int64)
+        top = np.clip(top, V2_TOP_MIN, V2_TOP_MAX).astype(np.int64)
         bottom = np.clip(bottom, 2, None).astype(np.int64)
         bottom = np.minimum(bottom, top - 2)
 
@@ -335,6 +344,170 @@ class Generator:
         return {'e': e, 'land': land, 'top': top, 'bottom': bottom, 'realm': realm, 'pool': pool, 'fall': fall,
                 'skerry': sk, 'inner': inner, 'rand': col_rand, 'peak': top > (com + 24), 'com': com}
 
+
+
+    def _worley_bands(self, X, Z, period, n_bands):
+        """Nearest and second-nearest jittered-grid cells, with a discrete altitude band each."""
+        fx, fz = X / period, Z / period
+        best_d = np.full(X.shape, 1e9, np.float64)
+        second_d = np.full(X.shape, 1e9, np.float64)
+        best_band = np.zeros(X.shape, np.float64)
+        second_band = np.zeros(X.shape, np.float64)
+        n = np.uint64(n_bands)
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                cx = np.floor(fx) + di
+                cz = np.floor(fz) + dj
+                ci, cj = cx.astype(np.int64), cz.astype(np.int64)
+                jx = rand01(ci, cj, self.h + 3)
+                jz = rand01(ci, cj, self.h + 4)
+                px = cx + 0.5 + (jx - 0.5) * 0.8
+                pz = cz + 0.5 + (jz - 0.5) * 0.8
+                d2 = (fx - px) ** 2 + (fz - pz) ** 2
+                band = (hash2(ci, cj, self.h + 5) % n).astype(np.float64)
+                closer = d2 < best_d
+                mid = (~closer) & (d2 < second_d)
+                second_band = np.where(closer, best_band, np.where(mid, band, second_band))
+                second_d = np.where(closer, best_d, np.where(mid, d2, second_d))
+                best_band = np.where(closer, band, best_band)
+                best_d = np.minimum(best_d, d2)
+        return best_band, second_band, np.sqrt(best_d), np.sqrt(second_d)
+
+    def _columns_v3(self, Q, R):
+        """Separated altitude shelves, surfaces up to ~300, and walkable multi-scale relief."""
+        Q = np.asarray(Q, dtype=np.int64)
+        R = np.asarray(R, dtype=np.int64)
+        X = HEX * SQ3 * (Q.astype(np.float64) + R.astype(np.float64) * 0.5)
+        Z = HEX * 1.5 * R.astype(np.float64)
+        s1 = self.island_scale
+        wx = X + self.warp * self.n_warp1.fbm2(X / (s1 * 0.9), Z / (s1 * 0.9), 3)
+        wz = Z + self.warp * self.n_warp2.fbm2(X / (s1 * 0.9) + 17.3, Z / (s1 * 0.9) - 4.1, 3)
+        # a second, slower warp so ranges meander instead of sitting on a grid
+        wx = wx + 28.0 * self.n_warp1.fbm2(X / 420.0, Z / 420.0, 2)
+        wz = wz + 28.0 * self.n_warp2.fbm2(X / 420.0 + 9.1, Z / 420.0 - 3.4, 2)
+        e = self.n_island.fbm2(wx / s1, wz / s1, 5) - self.coverage
+        ei = self.n_islet.fbm2(wx / 38.0, wz / 38.0, 3) - (0.62 - self.islet_rate)
+
+        mass = self.n_mass.fbm2(wx / s1, wz / s1, 2)
+        period = max(float(s1) * 1.15, 260.0)
+        n_bands = 8
+        best_band, second_band, f1, f2 = self._worley_bands(X, Z, period, n_bands)
+        # shelves from the low thirties up to ~250, leaving room for peaks near 300
+        lo_alt, hi_alt = 34.0, 292.0
+        com = lo_alt + best_band / float(n_bands - 1) * (hi_alt - lo_alt)
+        com = com + 6.0 * mass + 0.08 * (self.depth_amp - 40.0) + (self.alt_base - 59.0) * 0.35
+        com = np.clip(com, CLOUD_SEA + 16, 300.0)
+        shelf = com
+
+        # pull land back from a Voronoi edge when the two cells sit on different shelves,
+        # so neighbouring islands are separated by sky instead of a vertical wall
+        edge = f2 - f1
+        need_gap = np.abs(best_band - second_band) >= 1.0
+        e = np.where(need_gap & (edge < 0.085), np.minimum(e, (edge - 0.085) * 3.0), e)
+        ei = np.where(need_gap & (edge < 0.070), np.minimum(ei, (edge - 0.070) * 3.0), ei)
+
+        heat = self.n_heat.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.heat_bias
+        wet = self.n_wet.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.wet_bias
+        lum = self.n_lumen.fbm2(X / (self.realm_scale * 0.7), Z / (self.realm_scale * 0.7), 2)
+        sp = self.n_spice.fbm2(X / (self.realm_scale * 0.85), Z / (self.realm_scale * 0.85), 3)
+        realm = np.full(Q.shape, MEADOW, dtype=np.int64)
+        realm[heat > 0.05] = AMBER
+        realm[(heat > 0.30) & (wet >= -0.05)] = ROSE
+        realm[(heat > 0.30) & (wet < -0.05)] = DUNE
+        realm[(wet > 0.28) & (heat <= 0.30)] = FEN
+        realm[(wet < -0.30) & (heat <= 0.30)] = BASALT
+        realm[heat < -0.28] = FROST
+        realm[lum > 0.40] = LUMEN
+        realm[(wet > 0.02) & (e > 0) & (e < 0.13) & (heat > -0.16) & (heat < 0.36) & (lum <= 0.40)] = SALTWIND
+        realm[(heat < 0.02) & (heat > -0.30) & (wet > 0.00) & (sp < 0.22) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, FEN, AMBER, CEDAR))] = CEDAR
+        realm[(np.abs(heat) < 0.26) & (wet > -0.16) & (wet < 0.28) & (sp > 0.10) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, AMBER, ROSE, LAVENDER))] = LAVENDER
+        realm[(heat > 0.14) & (wet < 0.10) & (sp > 0.04) & (lum <= 0.40)
+              & np.isin(realm, (AMBER, ROSE, DUNE, CINDER))] = CINDER
+        realm[(wet < -0.02) & (heat > -0.14) & (heat < 0.32) & (sp < 0.18) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, BASALT, DUNE, AMBER, CHALK))] = CHALK
+        realm[(sp > 0.20) & (heat < 0.28) & (lum > -0.02) & (lum <= 0.40)] = STARFALL
+        realm[(mass > 0.08) & (shelf > 170) & (lum <= 0.40)] = CLOUDSTEP
+        realm[(wet > 0.04) & (heat > -0.16) & (heat < 0.36) & (sp > 0.00) & (sp < 0.36) & (lum <= 0.40)
+              & np.isin(realm, (MEADOW, FEN, BASALT, AMBER, VERDIGRIS, SALTWIND))] = VERDIGRIS
+        realm[lum > 0.40] = LUMEN
+
+        form = 0.5 + 0.5 * self.n_form.fbm2(X / 860.0, Z / 860.0, 2)
+        plains = smoothstep(0.38, 0.18, form)
+        hills_w = np.clip(1.0 - np.abs(form - 0.44) / 0.28, 0, 1)
+        valleys = smoothstep(0.40, 0.62, form) * smoothstep(0.88, 0.68, form)
+        mounts = smoothstep(0.42, 0.84, form)
+        style = self.n_style.fbm2(X / 980.0, Z / 980.0, 2)
+        # multi-scale relief with long wavelengths so neighbouring cells stay walkable (1–2 steps)
+        hills = self.n_hill.fbm2(wx / 140.0, wz / 140.0, 3)
+        fine = self.n_detail.fbm2(wx / 52.0, wz / 52.0, 2)
+        ridge_m = 1.0 - np.abs(self.n_mount.fbm2(wx / 400.0, wz / 400.0, 2)) * 2
+        inner = smoothstep(0.0, 0.18, e)
+        flat = self.flatness
+        rough = max(0.45, self.hill_amp / 10.0)
+        peak_scale = (1.0 - 0.80 * flat)
+
+        h = com.copy()
+        h = h + (5.0 + 6.0 * rough) * hills * plains * inner * (1.0 - 0.80 * flat)
+        h = h + (16.0 + self.hill_amp * 1.2) * (hills * 0.9 + 0.15 * fine) * hills_w * inner * peak_scale
+        h = h - (14.0 + 10.0 * rough) * valleys * inner * np.clip(0.7 + 0.4 * hills, 0, 1.2) * (1.0 - 0.65 * flat)
+        # long, walkable ranges; peaks climb tens of layers over many hexes, never as a wall
+        mount = mounts * smoothstep(0.04, 0.24, e)
+        alpine = (28.0 + self.mount_amp * 0.7) * mount * (0.55 + 0.45 * np.clip(ridge_m, 0, 1))
+        # eroded mesas: a wide skirt so the cap never drops as a wall
+        mesa_field = 0.5 + 0.5 * self.n_style.fbm2(wx / 380.0, wz / 380.0, 2)
+        mesa = smoothstep(0.08, 0.82, mesa_field)
+        mesa_h = (24.0 + self.mount_amp * 0.55) * mount * mesa
+        h = h + np.where(style > 0.18, alpine, mesa_h) * peak_scale
+        h = h + 2.4 * fine * inner * (1.0 - 0.85 * flat)
+        h = h + np.where(realm == FROST, ridge_m * 6 * inner * peak_scale, 0)
+        h = h + np.where(realm == DUNE, np.sin(wx / 16.0 + hills * 3) * 2.2 * inner, 0)
+        h = np.where(realm == FEN, com + (h - com) * (0.72 - 0.20 * flat), h)
+        h = np.where(realm == SALTWIND, com + (h - com) * (0.62 - 0.15 * flat), h)
+        h = np.where(realm == CHALK, com + (h - com) * 0.85, h)
+        h = np.where(realm == LAVENDER, com + (h - com) * (0.82 - 0.15 * flat), h)
+        h = np.where(realm == CINDER, com + (h - com) * 0.90 + 2.0 * fine * inner, h)
+
+        top = np.floor(h)
+        terr = np.floor(h / 2.0) * 2.0
+        top = np.where(realm == ROSE, terr, top)
+        col_rand = rand01(Q, R, self.h)
+
+        thick = self.depth_amp * (0.85 + 0.50 * self.n_depth.fbm2(X / 36.0, Z / 36.0, 3))
+        thick = thick * (1.0 + 0.32 * mounts + 0.06 * plains)
+        hull = smoothstep(0.0, 0.32, np.clip(e, 0, None))
+        rho = 1.0 - hull
+        dome = np.sqrt(np.clip(1.0 - rho * rho, 0, 1))
+        depth = 4.0 + thick * (0.88 * dome + 0.22 * (hull ** 2))
+        depth = depth + (rand01(Q, R, self.h + 1) ** 7) * 18 * hull
+        depth = depth * np.where(np.isin(realm, (SALTWIND, CHALK, LAVENDER)), 0.78, 1.0)
+        depth = depth * np.where(np.isin(realm, (CLOUDSTEP, CINDER, FROST)), 1.18, 1.0)
+        top = top - np.floor((1.0 - hull) ** 2 * 2.4)
+        bottom = top - np.floor(depth)
+
+        sk = (ei > 0) & (e <= 0)
+        sk_alt = np.floor(com + 8 + 16 * self.n_islet_alt.fbm2(X / 300.0, Z / 300.0, 2) + ei * 25)
+        top = np.where(sk, sk_alt, top)
+        sk_hull = smoothstep(0.0, 0.28, np.clip(ei, 0, None))
+        sk_dome = np.sqrt(np.clip(1.0 - (1.0 - sk_hull) ** 2, 0, 1))
+        bottom = np.where(sk, sk_alt - np.floor(2 + sk_dome * 28), bottom)
+        land = (e > 0) | sk
+        top = np.clip(top, TOP_MIN, TOP_MAX).astype(np.int64)
+        bottom = np.clip(bottom, 2, None).astype(np.int64)
+        bottom = np.minimum(bottom, top - 2)
+
+        pooln = self.n_pool.fbm2(X / 26.0, Z / 26.0, 2)
+        wmul = self.water_mul
+        pool_t = np.where(np.isin(realm, (FEN, SALTWIND, VERDIGRIS)), 0.14 - 0.10 * wmul,
+                          np.where(np.isin(realm, (BASALT, MEADOW, LAVENDER, CEDAR)), 0.50 - 0.16 * wmul, 9.0))
+        pool_t = np.where(np.isin(realm, (CINDER, DUNE, CHALK)), 0.75 - 0.10 * wmul, pool_t)
+        pool = land & ~sk & (e > 0.04) & (pooln > pool_t) & (wmul > 0.2)
+        fall = land & ~sk & (e > 0.0) & (e < 0.03) & (rand01(Q, R, self.h + 2) < (0.012 * wmul)) & \
+            np.isin(realm, (MEADOW, AMBER, FEN, BASALT, LUMEN, CEDAR, VERDIGRIS, CLOUDSTEP, LAVENDER))
+        return {'e': e, 'land': land, 'top': top, 'bottom': bottom, 'realm': realm, 'pool': pool, 'fall': fall,
+                'skerry': sk, 'inner': inner, 'rand': col_rand, 'peak': top > (com + 28), 'com': com,
+                'band': best_band}
 
     # ------------------------------------------------------------------ spires
     def spire(self, rq, rr):
@@ -458,9 +631,9 @@ class Generator:
             # caves: winding worms, linking highways, rooms of mixed scale, fissures, arches
             # v2 keeps a thicker roof so caves don't pock the walking surface
             original = cells.copy()
-            roof_d = 5 if self.version == 2 else 3
+            roof_d = 5 if self.version >= 2 else 3
             deep = (dd >= roof_d) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 3)
-            if self.version == 2:
+            if self.version >= 2:
                 cs = self.cave_size
                 amt = self.caves
                 n1 = self.n_cave.noise3(xx / (16.0 * cs), yy / (7.0 * cs), zz / (16.0 * cs))
@@ -486,15 +659,15 @@ class Generator:
                 hole = deep & (worm | big)
             # arches and overhangs: keep a solid roof so the walking surface is not holey
             # v2: start deeper (at least 5 layers under the top) and carve them more rarely
-            roof = 5 if self.version == 2 else 2
+            roof = 5 if self.version >= 2 else 2
             band = (dd >= roof) & (dd <= 9) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 4)
             if band.any():
                 na = self.n_arch.noise3(xx / 11.0, yy / 4.5, zz / 11.0)
-                thr = self.arches + (0.14 if self.version == 2 else 0.0)
+                thr = self.arches + (0.14 if self.version >= 2 else 0.0)
                 hole |= band & (na > thr)
             cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
             # v2: fill any cave that opens onto the outside, then cut a few framed mouths
-            if self.version == 2:
+            if self.version >= 2:
                 cave = solid & (cells == 0)
                 near = ~solid
                 for _ in range(2):
@@ -611,7 +784,7 @@ class Generator:
         free = land & ~pool & ~fall & (top + 1 < LAYERS)
         surf_top = cells[np.arange(CHUNK)[:, None], top, np.arange(CHUNK)[None, :]]
         on_turf = free & ((surf_top == M['turf']) | (surf_top == M['snow']) | (surf_top == M['sand']))
-        if self.version == 2:
+        if self.version >= 2:
             self._decorate_v2(cells, Q[sl], R[sl], top, bot, land, pool, fall, realm, surf_top, on_turf, free)
         else:
             deco_rate = np.take([0.07, 0.03, 0.02, 0.012, 0.03, 0.04, 0.012, 0.10,
@@ -658,7 +831,7 @@ class Generator:
                        hash_ints(self.h, q, r, 9))
         for s in spires:
             self._stamp_spire(cells, meta, s, q0, r0)
-        if self.version == 2:
+        if self.version >= 2:
             from . import structures as ST
             ST.place(self, cq, cr, cells, meta, col, sl)
         return cells, meta, realm.astype(np.uint8)

@@ -350,3 +350,22 @@ A first pass of screenshots showed a couple of orbits still grazing a cliff or l
 The version line is 1.4.1, without -test. The changelog and the README download link are updated, and this is going out as a full Latest release rather than another pre-release. The sky-boat dock and Twin Isles Bridge still have room to improve; that is left for a later update.
 
 
+
+
+# 1.4.2
+
+## November 25, 2026, 6:18 PM EST — Starting 1.4.2 from the playtest
+
+Playing 1.4.1 on seed -1740201319, the new altitude bands are making huge straight cliffs, 30–60 layers tall, where two landmasses of different heights still touch. They look like a bug, not a landscape. Islands are also still quite low (the ceiling is 128 layers) and the ground is too flat. This update will give new skies a generator v3 so 1.4.1 worlds stay as they were, pull those bands apart with real sky gaps, let some surfaces reach about layer 300, and put real hills and mountains on the big islands. Before shots are being taken at the places from the playtest.
+
+## November 25, 2026, 6:31 PM EST — Generator v3: gaps instead of walls, surfaces at 300
+
+New skies now use generator version 3. A 1.4.1 save with no version field still means version 2, so those worlds keep their terrain, and the lesson island stays pinned to v2 as well. The column height is 360 (the old 128-layer chunks grow on load), but v1 and v2 still clip to the old ceiling.
+
+v3 pulls land back from a Worley cell edge when the two cells sit on different shelves, so the old 30–60-layer vertical seams become sky. A metric test counts neighbouring land columns whose surface differs by more than 6 layers, over a 180-cell window on two seeds plus the five playtest sites on seed -1740201319: 2,533 such pairs in v2, none in v3 (100% reduction, well past the 90% bar). The steepest remaining v3 step in those windows is 4 layers, so the ground stays mostly 1–2-layer steps, with longer hills, ridged ranges, and eroded mesa skirts instead of a flat shelf.
+
+Shelf centers run from the mid-thirties up to about 292, and relief takes some surfaces to layer 300–304 (seed 7 reached 303, the playtest seed 304, with thousands of columns in the high two-nineties). Spawn on the playtest seed lands at q -4, r 501, surface 105, in the mid window (80–170). A peak on that seed sits at q -192, r -224, surface 304.
+
+Generating and meshing 49 chunks took about 4.5–5 ms each on v3, no slower than v2. A 25-chunk ring around the mid spawn and around that peak both took about 0.25 s. Far-distance LOD still builds (about 0.6 ms per chunk). Lighting, mobs, and the save format follow the new column height; old chunks are padded with empty air above 128. Camera fog is still tied to the load radius, so a 300-high island is in view if it is loaded. Updraft columns between tiers were left for later if travel feels too hard; waystones, glide, and sky boats are unchanged.
+
+

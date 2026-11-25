@@ -214,13 +214,13 @@ class App(pyglet.window.Window):
             return
         seed = random_seed()
         from . import gensettings as GS
-        gen = Generator(seed, GS.normalize({}))
+        gen = Generator(seed, GS.normalize({}, new=True))
         q, r, top, sp = find_spawn(gen)
         if sp:
             q, r, top = sp['q'], sp['r'], sp['top']
         x, z = center(q, r)
         world = World(seed, None, self.renderer, self.pool, min(self.settings['view_distance'], 5),
-                      gen_settings=GS.normalize({}))
+                      gen_settings=GS.normalize({}, new=True))
         self.backdrop = dict(world=world, x=x, z=z, y=(top + 26) * LAYER, ty=(top + 6) * LAYER,
                              ang=random.uniform(0, 6.28), phase=random.choice([0.06, 0.16, 0.27, 0.33, 0.72]),
                              rotate_in=time.perf_counter() + 24.0)
@@ -240,7 +240,7 @@ class App(pyglet.window.Window):
         st = SkyStorage(self.skies_dir, folder)
         from . import gensettings as GS
         ses = Session(self, st, create=dict(name=name, seed=seed, seed_text=seed_text, mode=mode,
-                                           gen=GS.normalize(gen), tutorial=tutorial),
+                                           gen=GS.normalize(gen, new=True), tutorial=tutorial),
                       view_distance=self.settings['view_distance'], far_distance=self.settings['far_distance'])
         self.begin(ses, 'Dreaming ' + name)
 

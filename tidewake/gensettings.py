@@ -38,28 +38,43 @@ SLIDERS = (
 DEFAULT = 50
 
 
+# 1 = pre-1.4 (no sliders). 2 = 1.4 / 1.4.1. 3 = 1.4.2 (higher, separated islands).
+CURRENT = 3
+
+
 def defaults():
     return {k: DEFAULT for k in KEYS}
 
 
-def normalize(data):
-    """A complete 0–100 int map. Missing keys become 50; unknown keys are dropped."""
+def normalize(data, *, new=False):
+    """A complete 0–100 int map. Missing keys become 50; unknown keys are dropped.
+
+    generator_version is not a slider. New skies get CURRENT (3). Existing skies
+    keep the version they were saved with; a missing version means 2 (1.4 / 1.4.1).
+    """
     out = defaults()
-    if not data:
-        return out
-    for k in KEYS:
-        try:
-            v = int(round(float(data[k])))
-        except (KeyError, TypeError, ValueError):
-            continue
-        out[k] = max(0, min(100, v))
+    if data:
+        for k in KEYS:
+            try:
+                v = int(round(float(data[k])))
+            except (KeyError, TypeError, ValueError):
+                continue
+            out[k] = max(0, min(100, v))
+        if 'generator_version' in data:
+            try:
+                out['generator_version'] = int(data['generator_version'])
+            except (TypeError, ValueError):
+                pass
+    if new and 'generator_version' not in out:
+        out['generator_version'] = CURRENT
     return out
 
 
 def fingerprint(data):
     """Stable cache key for worker processes."""
     d = normalize(data)
-    return tuple(d[k] for k in KEYS)
+    ver = int(d.get('generator_version') or 2)
+    return (ver,) + tuple(d[k] for k in KEYS)
 
 
 def scale(data, key, lo=0.5, mid=1.0, hi=1.5):
