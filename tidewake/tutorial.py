@@ -126,15 +126,21 @@ def generate_chunk(cq, cr):
     # Cole's kiln shed
     _hut(cells, meta, cq, cr, 11, 2, M['kiln'], w=2)
     _put(cells, meta, cq, cr, 11, 2, SURF + 1, M['kiln'], 0)
-    # Mira's yard: a short wall, a door frame, a ladder
+    # Mira's yard: a short wall, a clear open door in a frame, and a ladder
     for i in range(3):
-        _put(cells, meta, cq, cr, 14, -2, SURF + 1 + i, M['planks'])
-        _put(cells, meta, cq, cr, 14, -1, SURF + 1 + i, M['planks'])
-    _put(cells, meta, cq, cr, 13, -1, SURF + 1, M['door'], 0)
-    _put(cells, meta, cq, cr, 13, -1, SURF + 2, M['door'], 16)
-    _put(cells, meta, cq, cr, 14, -3, SURF + 1, M['ladder'], 3)
-    _put(cells, meta, cq, cr, 14, -3, SURF + 2, M['ladder'], 3)
-    _put(cells, meta, cq, cr, 14, -3, SURF + 3, M['ladder'], 3)
+        _put(cells, meta, cq, cr, 14, -2, SURF + 1 + i, M['pale_planks'])
+        _put(cells, meta, cq, cr, 14, 0, SURF + 1 + i, M['pale_planks'])
+    # door posts and a lintel, opening in the middle
+    for y in (SURF + 1, SURF + 2):
+        _put(cells, meta, cq, cr, 13, -2, y, M['pale_planks'])
+        _put(cells, meta, cq, cr, 13, 0, y, M['pale_planks'])
+    _put(cells, meta, cq, cr, 13, -1, SURF + 3, M['pale_planks'])
+    # face the yard and stand slightly ajar so the leaf and handle read as a door
+    _put(cells, meta, cq, cr, 13, -1, SURF + 1, M['door'], 4 | 8)
+    _put(cells, meta, cq, cr, 13, -1, SURF + 2, M['door'], 16 | 4 | 8)
+    _put(cells, meta, cq, cr, 14, -3, SURF + 1, M['ladder'], 4)
+    _put(cells, meta, cq, cr, 14, -3, SURF + 2, M['ladder'], 4)
+    _put(cells, meta, cq, cr, 14, -3, SURF + 3, M['ladder'], 4)
 
     # fishing pond + dock
     for dq in range(-2, 3):
@@ -177,20 +183,25 @@ def generate_chunk(cq, cr):
 
 
 def _hut(cells, meta, cq, cr, q, r, station, w=2):
-    """A tiny three-wall plank shelter, open to the south, with a station inside."""
-    # floor
+    """A tiny three-wall shelter, open and lit, with a station inside."""
+    # pale floor so the room stays bright
     for dq in range(-1, w):
         for dr in range(-1, 2):
-            _put(cells, meta, cq, cr, q + dq, r + dr, SURF, M['planks'])
-    # walls and a thatch roof
+            _put(cells, meta, cq, cr, q + dq, r + dr, SURF, M['pale_planks'])
+    # walls: pale planks, a wide south doorway, and a glass window on each side
     for dq in range(-1, w):
         for dr in range(-1, 2):
             edge = dq in (-1, w - 1) or dr in (-1, 1)
-            if edge and not (dr == 1 and dq == 0):  # doorway south
-                for y in (SURF + 1, SURF + 2):
-                    _put(cells, meta, cq, cr, q + dq, r + dr, y, M['planks'])
+            doorway = dr == 1 and dq in (0, 1 if w > 2 else 0)
+            if edge and not doorway:
+                window = (dr in (-1, 1) and dq == (0 if w == 2 else 0)) or (dq in (-1, w - 1) and dr == 0)
+                _put(cells, meta, cq, cr, q + dq, r + dr, SURF + 1, M['pale_planks'])
+                _put(cells, meta, cq, cr, q + dq, r + dr, SURF + 2,
+                     M['glass'] if window else M['pale_planks'])
             _put(cells, meta, cq, cr, q + dq, r + dr, SURF + 3, M['thatch'])
     _put(cells, meta, cq, cr, q, r, SURF + 1, station, 0)
+    # a warm lamp so the inside isn't a black cave
+    _put(cells, meta, cq, cr, q, r, SURF + 2, M['ember_lamp'], 0)
 
 
 def npc_records():

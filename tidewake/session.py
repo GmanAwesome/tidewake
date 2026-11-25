@@ -1181,7 +1181,7 @@ class Session:
             self.mob_t = 1.0
             passive = [m for m in self.mobs if not m.hostile]
             hostile = [m for m in self.mobs if m.hostile]
-            if len(passive) < 9:
+            if len(passive) < 9 and not getattr(self, 'tutorial', False):
                 self._try_spawn(False)
             if dusk > 0.55 and not peaceful and not getattr(self, 'tutorial', False) and len(hostile) < 6:
                 self._try_spawn(True)
