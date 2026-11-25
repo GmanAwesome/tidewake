@@ -396,7 +396,9 @@ class Generator:
                 hit = (dd >= mind) & (n > thr)
                 cells[idx[0][hit], idx[1][hit], idx[2][hit]] = ore
             # caves: winding worms, linking highways, rooms of mixed scale, fissures, arches
-            deep = (dd >= 3) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 3)
+            # v2 keeps a thicker roof so caves don't pock the walking surface
+            roof_d = 5 if self.version == 2 else 3
+            deep = (dd >= roof_d) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 3)
             if self.version == 2:
                 cs = self.cave_size
                 amt = self.caves
@@ -421,11 +423,14 @@ class Generator:
                 worm = (np.abs(n1) < self.caves) & (np.abs(n2) < self.caves * 1.7)
                 big = self.n_tunnel.noise3(xx / 34.0, yy / 14.0, zz / 34.0) > 0.42
                 hole = deep & (worm | big)
-            # arches and overhangs: carve near the surface, under a 2-layer roof
-            band = (dd >= 2) & (dd <= 9) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 4)
+            # arches and overhangs: keep a solid roof so the walking surface is not holey
+            # v2: start deeper (at least 5 layers under the top) and carve them more rarely
+            roof = 5 if self.version == 2 else 2
+            band = (dd >= roof) & (dd <= 9) & ((idx[1] - B[idx[0], 0, idx[2]]) >= 4)
             if band.any():
                 na = self.n_arch.noise3(xx / 11.0, yy / 4.5, zz / 11.0)
-                hole |= band & (na > (self.arches - (0.04 if self.version == 2 else 0.0)))
+                thr = self.arches + (0.14 if self.version == 2 else 0.0)
+                hole |= band & (na > thr)
             cells[idx[0][hole], idx[1][hole], idx[2][hole]] = 0
             # glowcaps and crystals on cave floors
             fl = hole & (rand01(qq.astype(np.int64), rr.astype(np.int64) * 7 + idx[1], self.h + 31) < 0.04)

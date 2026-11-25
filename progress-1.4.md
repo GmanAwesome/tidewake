@@ -105,3 +105,8 @@ Screenshot: `screenshots-final/v1.4-phase2a/00_sliders.png`.
 Phase 2a is up as a pre-release, so it doesn’t replace 1.3.4 as the usual download. Grab `Tidewake-1.4-phase2a-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4-phase2a (about 76.6 MB). The play-test screenshots are on that page too.
 
 Older skies still use the previous generator. Brand-new skies get the new land, caves, biomes and sliders. First launch still spends about a minute composing the music, same as before.
+
+## November 25, 2026, 3:02 PM EST — Less holey ground
+
+Arches and cave mouths no longer punch holes just under the grass. New skies keep a solid five-layer roof over both, and arches themselves are rarer, so you can walk a meadow without dropping into a pocket every few steps. Caves still open up once you dig down. Older skies are unchanged.
+
