@@ -19,6 +19,7 @@ DEFAULTS = {
     'motes': True,
     'creatures': True,        # woolhops, pebblebeaks, mossbacks
     'dusk_critters': True,    # gloomlings in the dusk tide
+    'title_showcase': '',     # last title-screen showcase, so the next launch starts elsewhere
 }
 FPS_CHOICES = [30, 60, 90, 120, 144, 0]
 

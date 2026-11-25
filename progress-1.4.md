@@ -275,3 +275,8 @@ The title screen was drawing a big rounded dark panel behind the buttons, and a 
 
 Walking up to someone on the lesson island used to open their speech on its own. They now only talk when you right-click them. If you are close, a small “Right-click to talk” hint appears, and the conversation closes again when you walk away.
 
+
+## November 25, 2026, 5:10 PM EST — A different title sky each launch
+
+The title screen always used to open on the same showcase (the Lighthouse Cottage) and only then start taking turns. It now picks a random backdrop when the game starts, and it remembers the last one so the next launch starts somewhere else. After that, the usual rotation continues as before.
+

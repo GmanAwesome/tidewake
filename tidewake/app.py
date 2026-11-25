@@ -80,6 +80,11 @@ class App(pyglet.window.Window):
         self.test_input = None
         self.on_frame = None
         self._scheduled = False
+        last = self.settings.get('title_showcase', '')
+        chosen = showcase.choose_launch(last)
+        if chosen:
+            self.settings['title_showcase'] = chosen
+            self.settings.save()
         self.start_backdrop()
         self.set_screen(S.TitleScreen())
         if self.settings['fullscreen']:

@@ -27,7 +27,29 @@ def test_tutorial_dialog_only_after_talk():
     assert t.nearby_talk() is None
     assert t.talk is None
 
+
+def test_title_showcase_launch_avoids_last():
+    from tidewake import showcase as SC
+    keys = SC.catalog_keys()
+    assert len(keys) >= 2
+    last = keys[0]
+    seen = set()
+    for _ in range(30):
+        k = SC.choose_launch(last)
+        assert k in keys
+        assert k != last
+        seen.add(k)
+        last = k
+    # over many launches we should visit more than one showcase
+    assert len(seen) >= 2
+    # rotation after a launch pick still walks the list
+    start = SC._index
+    SC.pick(advance=True)
+    assert SC._index == start + 1
+
 if __name__ == '__main__':
     test_tutorial_dialog_only_after_talk()
     print('ok tutorial dialog only after right-click')
+    test_title_showcase_launch_avoids_last()
+    print('ok title showcase shuffles at launch')
     print('ALL 1.4.1 UNIT TESTS PASSED')

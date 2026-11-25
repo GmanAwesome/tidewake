@@ -56,6 +56,30 @@ def catalog():
     return items
 
 
+def item_key(kind, payload):
+    if kind == 'json':
+        return 'json:' + os.path.splitext(os.path.basename(payload))[0]
+    return 'seed:' + str(payload.get('seed_text') or payload.get('name') or '')
+
+
+def catalog_keys():
+    return [item_key(k, p) for k, p in catalog()]
+
+
+def choose_launch(last_key=''):
+    """Pick a random opening showcase, skipping the one used last launch if we can."""
+    global _index
+    items = catalog()
+    if not items:
+        return ''
+    keys = [item_key(k, p) for k, p in items]
+    choices = [i for i, key in enumerate(keys) if key != last_key]
+    if not choices:
+        choices = list(range(len(items)))
+    _index = random.choice(choices)
+    return keys[_index]
+
+
 def pick(advance=True):
     global _index
     items = catalog()
