@@ -472,12 +472,12 @@ class App(pyglet.window.Window):
         dusk = 0.3
         if self.mode == 'title' and self.backdrop:
             b = self.backdrop
-            if b.get('arc'):
+            if b.get('arc') and b.get('speed', 0.05):
                 a0, a1 = b['arc']
                 b['ang_t'] = b.get('ang_t', 0.0) + dt * b.get('speed', 0.05)
                 mid, half = (a0 + a1) / 2.0, (a1 - a0) / 2.0
                 b['ang'] = mid + half * math.sin(b['ang_t'])
-            else:
+            elif not b.get('arc'):
                 b['ang'] += dt * b.get('speed', 0.05)
             b['world'].update(b['x'], b['z'], 4)
             dusk = TIDE.dusk_amount(b['phase'])

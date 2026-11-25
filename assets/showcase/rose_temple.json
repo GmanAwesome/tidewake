@@ -10,8 +10,8 @@
     "dock_dir": 3
   },
   "camera": {
-    "radius": 48.5,
-    "height": 22.0,
+    "radius": 54.0,
+    "height": 28,
     "target_dy": 3.0,
     "yaw_offset": 12.0,
     "speed": 0.031,
@@ -25,7 +25,7 @@
     "radius": 8,
     "blend": 5,
     "clear_up": 22,
-    "clear_trees": 14,
+    "clear_trees": 24,
     "flowers": 0
   },
   "blocks": [

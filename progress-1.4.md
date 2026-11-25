@@ -337,3 +337,9 @@ Each orbit was sampled all the way around (including leaves). If the path clippe
 A unit test now stamps every showcase and checks the camera path for solid cells.
 
 
+
+## November 25, 2026, 6:08 PM EST — Camera paths checked again, more carefully
+
+A first pass of screenshots showed a couple of orbits still grazing a cliff or looking at the build through a wall of leaves. The path check now also rejects a solid sitting close in front of the camera, tree-clearing around the leafy sites was widened, and a few cameras were raised or limited to a clearer arc. Pausing the orbit (or taking a still) no longer snaps an arc camera back to the middle of its swing.
+
+

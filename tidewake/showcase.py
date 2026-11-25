@@ -40,14 +40,16 @@ SEED_SHOWS = [
          camera={'radius': 50.0, 'height': 24.0, 'target_dy': 5.0, 'yaw_offset': -28.0, 'speed': 0.034, 'phase': 0.08,
                  'center': [-8, 0]}),
     dict(name='Ember Croft', seed_text='ember-croft', site={'q': 28, 'r': 123, 'top': 41},
-         camera={'radius': 48.0, 'height': 22.0, 'target_dy': 4.0, 'yaw_offset': 12.0, 'speed': 0.036, 'phase': 0.36}),
+         camera={'radius': 53.0, 'height': 26.0, 'target_dy': 4.0, 'yaw_offset': 12.0, 'speed': 0.036, 'phase': 0.36,
+                 'arc': [0.524, 5.629]}),
     dict(name='Sky 4096', seed_text='4096', site={'q': -62, 'r': -124, 'top': 56},
-         camera={'radius': 49.5, 'height': 27.0, 'target_dy': 4.0, 'yaw_offset': -8.0, 'speed': 0.03, 'phase': 0.18,
-                 'arc': [4.123, 5.956]}),
+         camera={'radius': 52.0, 'height': 29.0, 'target_dy': 4.0, 'yaw_offset': -8.0, 'speed': 0.03, 'phase': 0.18,
+                 'arc': [4.189, 8.574]}),
     dict(name='Hardy 1729', seed_text='1729', site={'q': 153, 'r': -160, 'top': 55},
-         camera={'radius': 54.5, 'height': 28.0, 'target_dy': 6.0, 'yaw_offset': 24.0, 'speed': 0.028, 'phase': 0.22,
-                 'arc': [3.862, 6.48]}),
+         camera={'radius': 57.0, 'height': 30.0, 'target_dy': 6.0, 'yaw_offset': 24.0, 'speed': 0.028, 'phase': 0.22,
+                 'arc': [3.927, 6.48]}),
 ]
+
 
 _index = 0
 
@@ -317,6 +319,26 @@ def sc_cols_only(build):
     return {(q, r) for q, r, _y in build}
 
 
+def _near_clip(world, p0, p1, dist=8.0, steps=16):
+    """True if a solid sits on the look ray close in front of the camera (a face in a cliff)."""
+    import math
+    from .entities import solid_at
+    x0, y0, z0 = p0
+    x1, y1, z1 = p1
+    length = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2 + (z1 - z0) ** 2) or 1.0
+    # walk the first `dist` world units of the ray, skipping the first 0.4 so we
+    # don't flag the camera's own clearance ball twice
+    span = min(dist / length, 0.55)
+    for i in range(1, steps + 1):
+        t = span * i / steps
+        if t * length < 0.5:
+            continue
+        x, y, z = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t
+        if solid_at(world, x, y, z):
+            return True
+    return False
+
+
 def path_report(sc, world=None, n=96):
     """Sample the orbit for solid clips (including canopy) and long terrain occlusion."""
     if world is None:
@@ -325,7 +347,7 @@ def path_report(sc, world=None, n=96):
     clips, hides = [], []
     samples = iter_orbit(sc, n)
     for ang, cam, target in samples:
-        if _cam_in_solid(world, *cam):
+        if _cam_in_solid(world, *cam) or _near_clip(world, cam, target):
             clips.append(ang)
         if _ray_hits_terrain(world, cam, target, build):
             hides.append(ang)
