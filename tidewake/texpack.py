@@ -239,6 +239,33 @@ def tile(mat, side):
         stile = (np.abs(X - 0.18) < 0.07) | (np.abs(X - 0.82) < 0.07)
         rung = (np.abs((Y * 4) % 1 - 0.5) < 0.12) & (X > 0.12) & (X < 0.88)
         return np.where(stile | rung, boards(rng, 5, vertical=True) * 1.05, 0.35)
+    # 1.4.1 ground cover (ids appended after berry crop)
+    from .materials import ID as _MID
+    if mat == _MID.get('grass'):
+        blade = 1 + 0.12 * np.sin((X * 14 + vnoise(rng, 5) * 0.4) * np.pi * 2)
+        tip = np.where(Y > 0.72, 0.85, 1.0)
+        return blade * tip * n(6, 2, 0.06)
+    if mat == _MID.get('wildflower'):
+        r = hex_r()
+        petal = (r < 0.55) & (np.abs(np.sin(np.arctan2(Y - 0.5, X - 0.5) * 5)) > 0.35)
+        return np.where(petal, 1.25, 0.8) * n(5, 2, 0.05)
+    if mat == _MID.get('mushroom'):
+        cap = ((X - 0.5) ** 2 + ((Y - 0.58) * 0.8) ** 2) < 0.22 ** 2
+        spots = cap & (vnoise(rng, 8, 2) > 0.28)
+        stem = (np.abs(X - 0.5) < 0.12) & (Y < 0.5)
+        return np.where(spots, 1.3, np.where(cap | stem, 1.05, 0.4)) * n(4, 2, 0.04)
+    if mat == _MID.get('pebble'):
+        d1, edge, idx = voronoi(rng, 9)
+        return (0.9 + 0.2 * (idx * 0.618 % 1)) * np.where(edge < 0.02, 0.75, 1.0) * n(4, 2, 0.04)
+    if mat == _MID.get('shrub'):
+        return leaves(rng, 40) * n(5, 2, 0.06)
+    if mat == _MID.get('reeds'):
+        stem = np.abs(((X * 6) % 1) - 0.5) < 0.12
+        return np.where(stem, 1.1 * (1 + 0.08 * np.sin(Y * np.pi * 8)), 0.4) * n(4, 2, 0.05)
+    if mat == _MID.get('signpost'):
+        post = np.abs(X - 0.5) < 0.08
+        board = (Y > 0.55) & (Y < 0.9) & (X > 0.18) & (X < 0.82)
+        return np.where(post | board, boards(rng, 4, vertical=True), 0.35)
     # 1.4 phase 2b: style-driven tiles for the expanded roster (procedural, never copied)
     from .materials import TEX_STYLE
     style = TEX_STYLE[mat] if mat < len(TEX_STYLE) else ''

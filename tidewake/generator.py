@@ -611,28 +611,31 @@ class Generator:
         free = land & ~pool & ~fall & (top + 1 < LAYERS)
         surf_top = cells[np.arange(CHUNK)[:, None], top, np.arange(CHUNK)[None, :]]
         on_turf = free & ((surf_top == M['turf']) | (surf_top == M['snow']) | (surf_top == M['sand']))
-        deco_rate = np.take([0.07, 0.03, 0.02, 0.012, 0.03, 0.04, 0.012, 0.10,
-                            0.03, 0.04, 0.11, 0.02, 0.015, 0.08, 0.03, 0.05], np.clip(realm, 0, 15))
-        deco = np.take([M['petals'], M['petals'], M['petals'], M['crystal'], M['petals'], M['petals'],
-                         M['crystal'], M['glowcap'],
-                         M['petals'], M['petals'], M['petals'], M['crystal'], M['petals'], M['crystal'],
-                         M['glowcap'], M['vine']], np.clip(realm, 0, 15))
-        place = on_turf & (rnd < deco_rate)
-        ii, kk = np.nonzero(place)
-        for i, k in zip(ii, kk):
-            if cells[i, top[i, k], k] != 0:
-                cells[i, top[i, k] + 1, k] = deco[i, k]
-        bush = on_turf & ~place & (rnd2 > 1 - np.take([0.012, 0.02, 0.004, 0.0, 0.006, 0.02, 0.0, 0.004,
-                                                     0.008, 0.025, 0.016, 0.0, 0.004, 0.006, 0.005, 0.014], np.clip(realm, 0, 15)))
-        ii, kk = np.nonzero(bush)
-        for i, k in zip(ii, kk):
-            if cells[i, top[i, k], k] != 0:
-                cells[i, top[i, k] + 1, k] = M['berry_bush']
-        under = land & (rnd2 < 0.02) & (bot > CLOUD_SEA + 3) & ~fall
-        ii, kk = np.nonzero(under)
-        for i, k in zip(ii, kk):
-            if cells[i, bot[i, k], k]:
-                cells[i, bot[i, k] - 1, k] = M['lumen_shard']
+        if self.version == 2:
+            self._decorate_v2(cells, Q[sl], R[sl], top, bot, land, pool, fall, realm, surf_top, on_turf, free)
+        else:
+            deco_rate = np.take([0.07, 0.03, 0.02, 0.012, 0.03, 0.04, 0.012, 0.10,
+                                0.03, 0.04, 0.11, 0.02, 0.015, 0.08, 0.03, 0.05], np.clip(realm, 0, 15))
+            deco = np.take([M['petals'], M['petals'], M['petals'], M['crystal'], M['petals'], M['petals'],
+                             M['crystal'], M['glowcap'],
+                             M['petals'], M['petals'], M['petals'], M['crystal'], M['petals'], M['crystal'],
+                             M['glowcap'], M['vine']], np.clip(realm, 0, 15))
+            place = on_turf & (rnd < deco_rate)
+            ii, kk = np.nonzero(place)
+            for i, k in zip(ii, kk):
+                if cells[i, top[i, k], k] != 0:
+                    cells[i, top[i, k] + 1, k] = deco[i, k]
+            bush = on_turf & ~place & (rnd2 > 1 - np.take([0.012, 0.02, 0.004, 0.0, 0.006, 0.02, 0.0, 0.004,
+                                                         0.008, 0.025, 0.016, 0.0, 0.004, 0.006, 0.005, 0.014], np.clip(realm, 0, 15)))
+            ii, kk = np.nonzero(bush)
+            for i, k in zip(ii, kk):
+                if cells[i, top[i, k], k] != 0:
+                    cells[i, top[i, k] + 1, k] = M['berry_bush']
+            under = land & (rnd2 < 0.02) & (bot > CLOUD_SEA + 3) & ~fall
+            ii, kk = np.nonzero(under)
+            for i, k in zip(ii, kk):
+                if cells[i, bot[i, k], k]:
+                    cells[i, bot[i, k] - 1, k] = M['lumen_shard']
 
         # spires (and keep trees away from them)
         spires = []
@@ -659,6 +662,119 @@ class Generator:
             from . import structures as ST
             ST.place(self, cq, cr, cells, meta, col, sl)
         return cells, meta, realm.astype(np.uint8)
+
+    def _decorate_v2(self, cells, Q, R, top, bot, land, pool, fall, realm, surf_top, on_turf, free):
+        """Richer, biome-specific ground cover: mixed plants, clusters, and sub-variations."""
+        # each biome: list of (mat, rate). rates are per-column chances on a plantable surface.
+        tables = {
+            MEADOW:    [(M['grass'], 0.28), (M['wildflower'], 0.08), (M['petals'], 0.07), (M['sprout'], 0.05),
+                        (M['shrub'], 0.03), (M['bloom'], 0.015), (M['pebble'], 0.02)],
+            AMBER:     [(M['grass'], 0.16), (M['petals'], 0.08), (M['shrub'], 0.05), (M['sprout'], 0.04),
+                        (M['wildflower'], 0.03), (M['pebble'], 0.02)],
+            ROSE:      [(M['bloom'], 0.06), (M['petals'], 0.10), (M['wildflower'], 0.07), (M['grass'], 0.08),
+                        (M['pebble'], 0.04), (M['shrub'], 0.02)],
+            FROST:     [(M['crystal'], 0.06), (M['pebble'], 0.08), (M['sprout'], 0.02)],
+            BASALT:    [(M['pebble'], 0.10), (M['grass'], 0.08), (M['sprout'], 0.04), (M['mushroom'], 0.02),
+                        (M['shrub'], 0.02)],
+            FEN:       [(M['reeds'], 0.14), (M['grass'], 0.12), (M['mushroom'], 0.05), (M['vine'], 0.04),
+                        (M['sprout'], 0.05), (M['shrub'], 0.03)],
+            DUNE:      [(M['pebble'], 0.08), (M['sprout'], 0.03), (M['grass'], 0.02)],
+            LUMEN:     [(M['glowcap'], 0.10), (M['bloom'], 0.05), (M['crystal'], 0.04), (M['wildflower'], 0.04),
+                        (M['grass'], 0.06)],
+            SALTWIND:  [(M['reeds'], 0.10), (M['pebble'], 0.08), (M['grass'], 0.05), (M['sprout'], 0.03)],
+            CEDAR:     [(M['mushroom'], 0.06), (M['shrub'], 0.07), (M['grass'], 0.12), (M['vine'], 0.03),
+                        (M['sprout'], 0.04), (M['petals'], 0.03)],
+            LAVENDER:  [(M['wildflower'], 0.12), (M['petals'], 0.10), (M['grass'], 0.16), (M['shrub'], 0.05),
+                        (M['bloom'], 0.03)],
+            CINDER:    [(M['pebble'], 0.10), (M['crystal'], 0.03), (M['sprout'], 0.02)],
+            CHALK:     [(M['pebble'], 0.12), (M['sprout'], 0.03), (M['grass'], 0.04), (M['wildflower'], 0.02)],
+            STARFALL:  [(M['crystal'], 0.08), (M['bloom'], 0.05), (M['glowcap'], 0.04), (M['wildflower'], 0.04),
+                        (M['grass'], 0.06)],
+            CLOUDSTEP: [(M['grass'], 0.10), (M['petals'], 0.06), (M['crystal'], 0.03), (M['wildflower'], 0.03)],
+            VERDIGRIS: [(M['vine'], 0.06), (M['mushroom'], 0.05), (M['reeds'], 0.05), (M['grass'], 0.10),
+                        (M['shrub'], 0.04), (M['sprout'], 0.04)],
+        }
+        planted = np.zeros(top.shape, bool)
+        # ground-cover mixes: patchy surface swaps (heather, moss, cobble, clay) for sub-variation
+        det = self.n_detail.fbm2(Q.astype(np.float64) / 7.0, R.astype(np.float64) / 7.0, 2)
+        patch = self.n_spice.fbm2(Q.astype(np.float64) / 18.0, R.astype(np.float64) / 18.0, 2)
+        cover = [
+            (LAVENDER, 0.18, M['heather'], 0.05),
+            (VERDIGRIS, 0.12, M['mossrock'], -0.05),
+            (FEN, 0.10, M['mossrock'], -0.1),
+            (CHALK, 0.12, M['cobble'], 0.1),
+            (CEDAR, 0.08, M['mossrock'], -0.15),
+            (SALTWIND, 0.08, M['salt_block'], 0.0),
+            (MEADOW, 0.05, M['heather'], 0.2),
+        ]
+        for bio, rate, mat, lo in cover:
+            hit = free & (realm == bio) & (surf_top == M['turf']) & (patch > lo) & (
+                rand01(Q, R, self.h + 41 + bio) < rate)
+            ii, kk = np.nonzero(hit)
+            for i, k in zip(ii, kk):
+                cells[i, top[i, k], k] = mat
+        # refresh plantable mask after cover swaps
+        surf_top = cells[np.arange(CHUNK)[:, None], top, np.arange(CHUNK)[None, :]]
+        plantable = free & np.isin(surf_top, (M['turf'], M['snow'], M['sand'], M['heather'], M['mossrock'],
+                                             M['chalk'], M['cinder'], M['pale_stone']))
+        # scatter each species, then bloom it into a small cluster around a few seeds
+        for bio, rows in tables.items():
+            in_b = plantable & (realm == bio)
+            if not in_b.any():
+                continue
+            for j, (mat, rate) in enumerate(rows):
+                rnd = rand01(Q, R, self.h + 50 + bio * 8 + j)
+                seed = in_b & ~planted & (rnd < rate)
+                # cluster seeds: a slower noise makes patches of the same plant
+                clump = in_b & ~planted & (self.n_detail.fbm2(
+                    (Q.astype(np.float64) + 13 * j) / 5.0,
+                    (R.astype(np.float64) - 7 * j) / 5.0, 2) > 0.32) & (rnd < rate * 2.2)
+                hit = seed | clump
+                ii, kk = np.nonzero(hit)
+                for i, k in zip(ii, kk):
+                    y = int(top[i, k]) + 1
+                    if 0 <= y < LAYERS and cells[i, y, k] == 0:
+                        cells[i, y, k] = mat
+                        planted[i, k] = True
+        # a few extra berry bushes in wooded biomes (keep some of the old flavour)
+        bush_rate = np.take([0.010, 0.018, 0.003, 0.0, 0.005, 0.016, 0.0, 0.003,
+                             0.006, 0.020, 0.012, 0.0, 0.003, 0.004, 0.004, 0.010], np.clip(realm, 0, 15))
+        bush = plantable & ~planted & (rand01(Q, R, self.h + 6) < bush_rate)
+        ii, kk = np.nonzero(bush)
+        for i, k in zip(ii, kk):
+            y = int(top[i, k]) + 1
+            if 0 <= y < LAYERS and cells[i, y, k] == 0:
+                cells[i, y, k] = M['berry_bush']
+        under = land & (rand01(Q, R, self.h + 6) < 0.02) & (bot > CLOUD_SEA + 3) & ~fall
+        ii, kk = np.nonzero(under)
+        for i, k in zip(ii, kk):
+            y = int(bot[i, k]) - 1
+            if y > 0 and cells[i, int(bot[i, k]), k] and cells[i, y, k] == 0:
+                cells[i, y, k] = M['lumen_shard']
+        # mushrooms prefer the shade just under a would-be tree density, and the underside lip
+        shade = plantable & np.isin(realm, (CEDAR, FEN, VERDIGRIS, MEADOW, BASALT))
+        mush = shade & ~planted & (rand01(Q, R, self.h + 77) < 0.018)
+        ii, kk = np.nonzero(mush)
+        for i, k in zip(ii, kk):
+            y = int(top[i, k]) + 1
+            if 0 <= y < LAYERS and cells[i, y, k] == 0:
+                cells[i, y, k] = M['mushroom']
+        # reeds along the water's edge
+        wet = free & np.isin(realm, (FEN, SALTWIND, VERDIGRIS, MEADOW, LAVENDER))
+        # a neighbour in the padded sense isn't available; use pool flag of this column's rim
+        reed = wet & ~planted & (rand01(Q, R, self.h + 78) < np.where(pool, 0.0, 0.04))
+        # prefer columns near a pool: e is not here, but pool neighbours via shift
+        near_pool = pool.copy()
+        near_pool[1:] |= pool[:-1]
+        near_pool[:-1] |= pool[1:]
+        near_pool[:, 1:] |= pool[:, :-1]
+        near_pool[:, :-1] |= pool[:, 1:]
+        reed = wet & near_pool & ~pool & (rand01(Q, R, self.h + 79) < 0.35)
+        ii, kk = np.nonzero(reed)
+        for i, k in zip(ii, kk):
+            y = int(top[i, k]) + 1
+            if 0 <= y < LAYERS and cells[i, y, k] == 0:
+                cells[i, y, k] = M['reeds']
 
     # ------------------------------------------------------------------ features
     @staticmethod

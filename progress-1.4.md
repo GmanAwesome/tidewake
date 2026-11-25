@@ -309,3 +309,10 @@ New skies now spread islands across a much wider range of altitudes, from just o
 The islands themselves are no longer flat slabs. The rim is a short rounded lip, and the underside is an inverted dome that tapers to a teardrop, with the odd stalactite drip. Old skies are unchanged.
 
 Caves no longer punch through hillside faces or leave black gashes on the flanks. Any cave that opens onto the outside is filled back in, the walking surface keeps a solid roof, and a few cobble-framed mouths are cut so the caves can still be entered.
+
+
+## November 25, 2026, 5:38 PM EST — Richer ground cover, and a roomier lesson island
+
+Each landscape now grows a mix of its own plants and stones: grasses, wildflowers, mushrooms, pebbles, shrubs and reeds, in clusters, with patchy ground-cover like heather and moss. The textures are still drawn by the game, not taken from anywhere else. Old skies keep their original scatter.
+
+The lesson island is larger, with a wide packed-earth path and signposts from station to station. The next person is easier to see, and nobody stands inside a hut, a chest, or a waystone any more — they wait in the open beside their work.

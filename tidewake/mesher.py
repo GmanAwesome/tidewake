@@ -99,7 +99,7 @@ def _faces_side(cx, cz, y0, y1, rad, d, col_top, col_bot, emit, shade_bot=0.80):
 
 
 SWAY = np.zeros(256, np.uint8)
-for _k, _v in (('canopy', 60), ('vine', 200), ('sprout', 200), ('bloom', 160), ('berry_bush', 90), ('petals', 120)):
+for _k, _v in (('canopy', 60), ('vine', 200), ('sprout', 200), ('bloom', 160), ('berry_bush', 90), ('petals', 120), ('grass', 180), ('wildflower', 140), ('shrub', 80), ('reeds', 200)):
     SWAY[_ID[_k]] = _v
 
 

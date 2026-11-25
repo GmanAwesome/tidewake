@@ -387,6 +387,49 @@ def test_v2_caves_only_open_at_framed_mouths():
     assert mouths > 0, ('no framed mouths were placed', mouths, breaches, cols)
 
 
+
+def test_v2_biomes_have_richer_ground_cover():
+    from collections import Counter
+    from tidewake.generator import Generator
+    from tidewake import materials as MT
+    kinds = ('grass', 'wildflower', 'mushroom', 'pebble', 'shrub', 'reeds', 'petals',
+             'sprout', 'bloom', 'berry_bush', 'glowcap', 'crystal', 'vine', 'heather')
+    c = Counter()
+    for cq in range(-3, 4):
+        for cr in range(-3, 4):
+            cells, _, _ = Generator(7, {}).generate(cq, cr)
+            for k in kinds:
+                c[k] += int((cells == MT.ID[k]).sum())
+    present = [k for k, n in c.items() if n > 0]
+    assert sum(c.values()) > 200, dict(c)
+    assert len(present) >= 8, present
+    # the new plants actually appear
+    assert c['grass'] > 0 and c['pebble'] > 0
+
+
+def test_tutorial_is_larger_and_npcs_stand_in_the_open():
+    from tidewake.generator import Generator
+    from tidewake import materials as MT, tutorial as T
+    from tidewake.config import CHUNK
+    assert T.RADIUS >= 26
+    g = Generator(1, {'tutorial': True})
+    for q, r, name, *_ in T.NPCS:
+        cq, cr = q // CHUNK, r // CHUNK
+        cells, _, _ = g.generate(cq, cr)
+        lq, lr = q - cq * CHUNK, r - cr * CHUNK
+        stand = int(cells[lq, T.SURF + 1, lr])
+        under = int(cells[lq, T.SURF, lr])
+        assert under != 0, (name, 'has no floor')
+        assert stand == 0, (name, 'is inside', MT.NAMES[stand] if stand else 'air')
+    # signposts mark the path, and the lesson still has its stations
+    signs = 0
+    for cq in range(-3, 4):
+        for cr in range(-3, 4):
+            cells, _, _ = g.generate(cq, cr)
+            signs += int((cells == MT.ID['signpost']).sum())
+    assert signs >= 4
+
+
 if __name__ == '__main__':
     test_tutorial_dialog_only_after_talk()
     print('ok tutorial dialog only after right-click')
@@ -408,4 +451,8 @@ if __name__ == '__main__':
     print('ok island altitude and teardrop hulls')
     test_v2_caves_only_open_at_framed_mouths()
     print('ok caves open only at framed mouths')
+    test_v2_biomes_have_richer_ground_cover()
+    print('ok biomes have richer ground cover')
+    test_tutorial_is_larger_and_npcs_stand_in_the_open()
+    print('ok tutorial is larger and NPCs stand in the open')
     print('ALL 1.4.1 UNIT TESTS PASSED')
