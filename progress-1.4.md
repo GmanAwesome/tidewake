@@ -218,3 +218,8 @@ The third-person figure used to be a blank head with hair all the way around, so
 
 The first-session controls hint was drawn near the top of the screen, right over the tide dial, the wayfinder, and any toast that appeared — and in third person those toasts also fought with the “looking at you” figure. The hint now sits just above the hotbar, and toasts tuck under the top chrome instead of covering the middle of the view.
 
+
+## November 25, 2026, 4:43 PM EST — Buried chambers have light again
+
+A buried chamber often went up without a lamp, because ruined or abandoned rooms skipped the usual light roll, and one hanging lamp was easy to miss in the dark stone. Each chamber now always has a lumen lamp on the ceiling and an ember lamp by the chest, so the room reads as a place you can see, not a black pit at the bottom of the shaft.
+

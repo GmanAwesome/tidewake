@@ -559,7 +559,10 @@ def build_chamber(st, q, r, y):
     st.put(q, r, gy, M['ladder'], 0, force=True)
     # chamber furnishings — rarer loot is the reason to climb down
     st.chest(q + 1, r, floor + 1, LOOT_CHAMBER, 0)
-    st.lamp(q - 1, r, floor + 2)
+    # always two lamps (st.lamp often skipped these in ruined/abandoned rooms,
+    # which left the chamber reading as a dark pit)
+    st.put(q - 1, r, ceil - 1, M['lumen_lamp'], force=True)
+    st.put(q + 1, r, floor + 1, M['ember_lamp'], force=True)
     st.put(q, r + 1, floor + 1, M['waystone'], force=True)
     if st.cond == OVERGROWN:
         st.put(q - 1, r + 1, floor + 1, M['glowcap'], force=True)
