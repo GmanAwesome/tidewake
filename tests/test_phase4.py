@@ -32,3 +32,18 @@ def test_flying_mobs():
     fairy = Mob('fairy', 1, 42, 1)
     fairy.update(0.5, w, p, 0.6, True)
     assert fairy.y > 40 and not fairy.dead
+
+
+def test_new_soundtrack_tracks():
+    from types import SimpleNamespace
+    from tidewake import music
+    from tidewake import audio as A
+    assert music.MUSIC_VERSION == 'v9'
+    for name in ('firstlight', 'undertide', 'rainwake', 'highmere'):
+        assert name in music.VARIANTS and name in music.SONGS
+    assert 'highmere' in A.DAY_SONGS
+    d = SimpleNamespace(music={n: True for n in music.SONGS}, current=None, day_t=0, day_i=0)
+    assert A.Audio.pick(d, 0, 0, 'menu') == 'windward'
+    assert A.Audio.pick(d, 0, 0, 'game', tutorial=True) == 'firstlight'
+    assert A.Audio.pick(d, 0, 0, 'game', water=True) == 'undertide'
+    assert A.Audio.pick(d, 0, 0.2, 'game', rain=True) == 'rainwake'

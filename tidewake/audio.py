@@ -1,6 +1,6 @@
 """Tidewake audio: synthesized sound effects plus the composed soundtrack (tidewake/music.py).
 
-The six songs are procedurally synthesized with numpy. Each is rendered once, in a separate
+The soundtrack is procedurally synthesized with numpy. Each is rendered once, in a separate
 low-priority process, on first launch and cached on disk (keyed by music.cache_key()), then
 loaded from the cache. Playback goes through the SDL mixer (pygame-ce) with a pyglet fallback;
 tracks crossfade by volume ramps so nothing ever starts or stops on a loud sample.
@@ -19,7 +19,7 @@ MUSIC_RATE = 44100
 MUSIC_CHANNELS = 4
 MUSIC_GAIN = 0.32          # the songs are mastered hot; this sits them under the SFX
 FADE_RATE = 0.22           # volume per second -> ~4 s crossfades
-DAY_SONGS = ('lighttide', 'brightreef', 'emberglow')
+DAY_SONGS = ('lighttide', 'brightreef', 'emberglow', 'highmere')
 DAY_SECONDS = 170.0        # rotate daytime songs after about this long
 
 
@@ -331,13 +331,19 @@ class Audio:
         self.sfx_volume, self.music_volume = sounds, music
 
     # ------------------------------------------------------------ soundtrack playback
-    def pick(self, dt, dusk=0.0, mode='game'):
+    def pick(self, dt, dusk=0.0, mode='game', rain=False, tutorial=False, water=False):
         """Which song should be playing now (None if nothing is ready yet)."""
         ready = self.music
         if mode != 'game':
             return 'windward' if 'windward' in ready else None
-        if dusk > 0.6:
+        if tutorial:
+            want = 'firstlight'
+        elif water:
+            want = 'undertide'
+        elif dusk > 0.6:
             want = 'dusktide'
+        elif rain:
+            want = 'rainwake'
         elif dusk > 0.3:
             want = 'emberglow'                                   # evening
         else:
@@ -349,17 +355,17 @@ class Audio:
             return want
         if self.current in ready and self.current != 'windward':
             return self.current
-        for name in DAY_SONGS + ('dusktide',):
+        for name in ('firstlight', 'undertide', 'rainwake') + DAY_SONGS + ('dusktide',):
             if name in ready:
                 return name
         return None
 
-    def update(self, dt, dusk=0.0, mode='game', under=0.0):
+    def update(self, dt, dusk=0.0, mode='game', under=0.0, rain=False, tutorial=False, water=False):
         """Crossfade between songs; the cave layer fades in underground."""
         if not self.enabled:
             return
         try:
-            want = self.pick(dt, dusk, mode)
+            want = self.pick(dt, dusk, mode, rain=rain, tutorial=tutorial, water=water)
             self.current = want
             mv = self.music_volume * MUSIC_GAIN
             under = under if mode == 'game' and 'cave' in self.music else 0.0

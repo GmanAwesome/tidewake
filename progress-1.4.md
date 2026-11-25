@@ -167,3 +167,7 @@ The lesson huts are pale planks now, with glass windows and a lamp inside, so th
 
 Two new creatures share the open air. Skywhales are huge, slow, and peaceful; they drift between islands and only climb if a peak gets in the way. Fairies are tiny glows that hover near flowers, and they come out a little more as dusk comes on. Neither one fights back — they just slip away if you startle them. They stay off the lesson island, like the woolhops.
 
+## November 25, 2026, 4:25 PM EST — More music, in the same family
+
+Four new songs join the procedural soundtrack, and the music cache is now v9 so they build on first listen. Firstlight is a gentle C major piece for the lesson island, with the same public-domain Korobeiniki hint the other songs use. Undertide is slow and watery in F-sharp minor, and comes in when you swim. Rainwake is a soft G minor for rainy weather. Highmere is a brighter A major day song that takes its turn in the daytime rotation. Minecraft and Donkey Kong were style references only — none of their tunes are in here.
+

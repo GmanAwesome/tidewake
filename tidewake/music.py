@@ -190,6 +190,97 @@ VARIANTS.update({
                       verb=0.38, rt=2.6, swing=0.06, perc=0.45, pad=1.0, mel=EMBER, ch=EMBER_CH),
 })
 
+# ---- v9 companion songs: new keys and moods, same family (K cells are public-domain Korobeiniki hints)
+FIRST = dict(   # Firstlight: C major, gentle lesson-island air
+    intro=[(_R, 6), (0, 1), (2, 1), (4, 2), (5, 1), (4, .5), (2, .5), (0, 2), (4, 2)],
+    A=[(0, 1), (2, .5), (4, .5), (5, 1), (4, 1),
+       (2, 1), (0, 1), (2, 2),
+       *_K1(7),
+       (4, 1), (2, .5), (0, .5), (2, 1), (4, 1),
+       *_K2(0),
+       (5, 1), (4, .5), (5, .5), (7, 1), (5, 1),
+       (4, 2), (2, 1), (0, 1)],
+    B=[(5, 2), (4, 1), (2, 1), (0, 2), (4, 2),
+       *_K1(5),
+       (4, 1), (6, 1), (7, 2),
+       (5, 1), (4, 1), (2, 1), (0, 1),
+       (2, 2), (4, 2)])
+FIRST['A2'] = FIRST['A'][:16] + [(5, 1.5), (4, .5), (2, 1), (5, 1), *_K2(4), (5, 1), (7, 1), (4, 2), (0, 2)]
+UNDER = dict(   # Undertide: F# minor, slow and wet
+    intro=[(_R, 4), (0, 2), (2, 2), (3, 2), (2, 1), (0, 1), (-2, 2), (0, 2)],
+    A=[(0, 2), (3, 1), (2, 1),
+       (0, 1.5), (-2, .5), (0, 2),
+       *_K1(5),
+       (3, 2), (2, 1), (0, 1),
+       (2, 1.5), (3, .5), (5, 2),
+       (3, 1), (2, 1), (0, 2),
+       *_K2(0),
+       (0, 2)],
+    B=[(3, 2), (5, 2), (7, 2), (5, 2),
+       *_K1(3),
+       (2, 2), (0, 2),
+       (3, 1), (5, 1), (3, 1), (2, 1),
+       (0, 4)])
+UNDER['A2'] = UNDER['A'][:14] + [(5, 2), (3, 1), (2, 1), (0, 2), (-2, 2), (0, 4), (3, 2), (0, 2)]
+RAIN = dict(    # Rainwake: G minor, soft weather
+    intro=[(_R, 2), (4, 1.5), (3, .5), (2, 2), (0, 2), (2, 1), (3, 1), (4, 2), (2, 2), (0, 2)],
+    A=[(4, 1.5), (3, .5), (2, 1), (0, 1),
+       (2, 1.5), (3, .5), (4, 2),
+       *_K1(5),
+       (4, 1), (2, 1), (0, 1), (2, 1),
+       (3, 2), (2, 1), (0, 1),
+       *_K2(2),
+       (4, 1), (3, 1), (2, 1), (0, 1)],
+    B=[(5, 2), (3, 2), (4, 2), (2, 2),
+       *_K1(7),
+       (5, 1), (4, 1), (2, 2),
+       (0, 2), (2, 2)])
+RAIN['A2'] = RAIN['A'][:16] + [(5, 1.5), (4, .5), (2, 1), (0, 1), (2, 2), (4, 2), (5, 2), (4, 2)]
+HIGH = dict(    # Highmere: A major, open and bright day
+    intro=[(_R, 4), (4, 1), (5, 1), (7, 2), (6, 1), (4, 1), (2, 2), (4, 2), (0, 2)],
+    A=[(4, .5), (5, .5), (7, 1), (7, .5), (9, .5), (7, 1),
+       (5, 1), (4, 1), (2, 2),
+       *_K1(7),
+       (4, 1), (6, 1), (7, 2),
+       *_K2(4),
+       (5, 1), (4, .5), (2, .5), (0, 1), (2, 1),
+       (4, 2), (7, 1), (4, 1)],
+    B=[(9, 2), (7, 1), (5, 1), (4, 2), (2, 2),
+       *_K1(5),
+       (4, 1), (6, 1), (7, 2),
+       (5, 2), (4, 2)])
+HIGH['A2'] = HIGH['A'][:16] + [(5, 1), (7, 1), (9, 1), (7, 1), *_K2(4), (5, 1), (7, 1), (4, 2), (0, 2)]
+for _m in (FIRST, UNDER, RAIN, HIGH):
+    for _k, _v in _m.items():
+        tgt = 16 if _k == 'intro' else 32
+        gap = tgt - sum(d for _, d in _v)
+        if gap > 1e-9:
+            _v.append((_R, gap))
+        assert abs(sum(d for _, d in _v) - tgt) < 1e-9, (_k, sum(d for _, d in _v))
+FIRST_CH = {'intro': [0, 5, 3, 4], 'A': [0, 4, 5, 3, 0, 4, 1, 4], 'A2': [0, 4, 5, 3, 5, 1, 4, 0],
+            'B': [5, 3, 0, 4, 5, 1, 4, 99]}
+UNDER_CH = {'intro': [0, 6, 5, 4], 'A': [0, 6, 5, 3, 0, 6, 4, 0], 'A2': [0, 6, 5, 3, 2, 4, 6, 0],
+            'B': [3, 0, 5, 4, 6, 5, 4, 99]}
+RAIN_CH = {'intro': [0, 6, 5, 4], 'A': [0, 6, 3, 4, 0, 5, 6, 4], 'A2': [0, 6, 3, 4, 5, 1, 4, 0],
+           'B': [5, 3, 0, 4, 6, 5, 4, 99]}
+HIGH_CH = {'intro': [0, 4, 5, 0], 'A': [0, 4, 5, 3, 0, 4, 1, 4], 'A2': [0, 4, 5, 3, 5, 1, 4, 0],
+           'B': [4, 0, 5, 3, 4, 1, 4, 99]}
+VARIANTS.update({
+    'firstlight': dict(root=60, mode=MAJOR, bpm=92, form=(0, 1, 3, 2), bkey=(5, MAJOR), bounce=.5,
+                       lead=('piano', 'ocarina/piano', 'piano+ocarina/ocarina', 'piano/steel+piano', 'x'),
+                       verb=0.34, rt=2.8, swing=0.05, perc=0.35, pad=0.9, mel=FIRST, ch=FIRST_CH),
+    'undertide': dict(root=54, mode=MINOR, bpm=66, form=(0, 1, 3, 2), bkey=(3, MAJOR), bounce=.4,
+                      lead=('flute', 'ocarina/flute', 'flute+ocarina/ocarina', 'piano/flute', 'x'),
+                      verb=0.62, rt=5.5, swing=0.0, perc=0.15, pad=1.2, mel=UNDER, ch=UNDER_CH),
+    'rainwake': dict(root=55, mode=MINOR, bpm=78, form=(0, 1, 3, 2), bkey=(4, MAJOR), bounce=.55,
+                     lead=('piano', 'kalimba/piano', 'piano+kalimba/kalimba', 'ocarina/piano', 'x'),
+                     verb=0.48, rt=3.8, swing=0.04, perc=0.3, pad=1.0, mel=RAIN, ch=RAIN_CH),
+    'highmere': dict(root=69, mode=MAJOR, bpm=114, whim=True, form=(0, 1, 2, 3, 2), bkey=(7, MINOR),
+                     lead=('steel+box', 'glock/steel', 'steel+glock/marimba', 'piano/steel', 'x'),
+                     verb=0.25, rt=1.7, swing=0.08, perc=0.9, pad=0.45, jungle=True, lift=0, mel=HIGH, ch=HIGH_CH),
+})
+
+
 
 def _hz(m):
     return 440.0 * 2 ** ((m - 69) / 12)
@@ -741,8 +832,9 @@ def mix(stems, levels=None, target=.89):
 
 
 # ---- in-game cache: each song is rendered once (in a low-priority worker) and saved
-MUSIC_VERSION = 'v8'
-SONGS = ('windward', 'lighttide', 'dusktide', 'brightreef', 'emberglow', 'cave')
+MUSIC_VERSION = 'v9'
+SONGS = ('windward', 'lighttide', 'dusktide', 'brightreef', 'emberglow', 'cave',
+         'firstlight', 'undertide', 'rainwake', 'highmere')
 
 
 def cache_key():

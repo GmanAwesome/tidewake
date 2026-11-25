@@ -475,6 +475,7 @@ class App(pyglet.window.Window):
                 ses.world.update(ses.player.x, ses.player.z, yaw=ses.player.yaw)
             dusk = TIDE.dusk_amount(ses.phase)
         self.jump_pressed = False
+        self._water = 0.0
         if self.mode == 'game' and self.session:
             self._under_t -= dt
             if self._under_t <= 0:                    # enclosed above and below -> underground
@@ -483,9 +484,21 @@ class App(pyglet.window.Window):
                     self._under = 1.0 if self.session.sky_at(*self.session.player.eye) < 0.3 else 0.0
                 except Exception:
                     self._under = 0.0
+            try:
+                from .hexgrid import cell_at
+                from .materials import ID as _MID
+                ex, ey, ez = self.session.player.eye
+                q, r = cell_at(ex, ez)
+                if self.session.world.get(q, r, math.floor(ey / LAYER)) == _MID['water']:
+                    self._water = 1.0
+            except Exception:
+                self._water = 0.0
         else:
             self._under = 0.0
-        self.audio.update(dt, dusk, 'game' if self.mode == 'game' else 'menu', self._under)
+        rain = bool(self.session and getattr(self.session, 'weather', '') == 'rain')
+        tutorial = bool(self.session and getattr(self.session, 'tutorial', False))
+        self.audio.update(dt, dusk, 'game' if self.mode == 'game' else 'menu', self._under,
+                          rain=rain, tutorial=tutorial, water=self._water > 0.5)
 
     # ------------------------------------------------------------------ draw
     def camera(self):
