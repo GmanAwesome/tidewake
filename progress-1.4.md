@@ -238,3 +238,8 @@ Glimmer at the usual mid setting was quietly disappearing in the daytime, becaus
 
 A scripted play-through now walks the title, the lesson island, a freshly generated sky, and an older 1.3-style sky. It looks for a real tree you can stand under in a generated world (not just the lesson grove), checks that the lesson island stays free of woolhops, and visits a lit buried chamber. Generation of a handful of chunks stays comfortably quick.
 
+
+## November 25, 2026, 4:49 PM EST — The front view needed a closer look
+
+Eyes on the wanderer were too small to read at the usual camera distance, so the “looking at you” view still felt like a blank head. The eyes are larger now, with a little white around a dark pupil, the hair sits further back, and that camera stands closer so a face is actually visible.
+

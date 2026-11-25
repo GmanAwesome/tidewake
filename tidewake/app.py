@@ -540,7 +540,8 @@ class App(pyglet.window.Window):
                 from .entities import solid_at
                 fwd = forward_vector(p.yaw, p.pitch)
                 sign = 1.0 if self.cam_view == 2 else -1.0
-                dist, best = 4.0, (x, y, z)
+                # look-at-you sits closer so the face can actually be read
+                dist, best = (2.6 if self.cam_view == 2 else 4.0), (x, y, z)
                 for i in range(1, 17):
                     tlen = dist * i / 16
                     nx, ny, nz = x + sign * fwd[0] * tlen, y + sign * fwd[1] * tlen, z + sign * fwd[2] * tlen
