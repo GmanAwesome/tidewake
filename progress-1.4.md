@@ -199,3 +199,7 @@ The title screen has a real animated logo now: a pulsing hex crest, wake rings t
 
 Play-test shots for Phase 4 are in `screenshots-final/v1.4-phase4/`: the new animated title and a seed showcase, the brighter lesson huts and the practice door, trees you can walk under, skywhales, fairies, third-person (behind and looking at you), and the dawn after a rest. The version string is 1.4-phase4.
 
+## November 25, 2026, 4:37 PM EST — Phase 4 pre-release posted
+
+Phase 4 is up as a pre-release, so it doesn’t replace 1.3.4 as the usual download. Grab `Tidewake-1.4-phase4-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4-phase4 (about 73 MB). The play-test screenshots are on that page too. This Windows build embeds the Common Controls v6 manifest in the exe (the first Phase 3 zip was missing it; that one has been replaced as well).
+
