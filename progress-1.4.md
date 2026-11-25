@@ -203,3 +203,8 @@ Play-test shots for Phase 4 are in `screenshots-final/v1.4-phase4/`: the new ani
 
 Phase 4 is up as a pre-release, so it doesn’t replace 1.3.4 as the usual download. Grab `Tidewake-1.4-phase4-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4-phase4 (about 73 MB). The play-test screenshots are on that page too. This Windows build embeds the Common Controls v6 manifest in the exe (the first Phase 3 zip was missing it; that one has been replaced as well).
 
+
+## November 25, 2026, 4:42 PM EST — A more whale-like skywhale
+
+Skywhales were reading as a stack of chunky hexes. Their body is longer and flatter now, with a tapered head and tail, thin swept-back fins, a small dorsal ridge, and a horizontal fluke instead of a boxy wing. They still drift the same way; they just look more like a whale in the air.
+

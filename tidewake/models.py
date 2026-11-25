@@ -279,23 +279,27 @@ def _creature(kind, t, walking, color_seed=0.0, hurt=0.0):
                 prisms((-0.24, 0.24), (0.0, 0.0), 0.68, 0.84, 0.06, c * 1.2, c, 0.2))
         return transform(v, sy=squash)
     if kind == 'skywhale':
-        # long pale body, facing -z, with fins and a slow tail sweep
-        tail = math.sin(t * 1.4) * 0.12
-        flap = math.sin(t * 0.9) * 0.08
+        # longer, flatter, whale-like: tapered body, thin pectorals, horizontal fluke
+        tail = math.sin(t * 1.4) * 0.16
+        flap = math.sin(t * 0.9) * 0.06
         skin = np.array([0.78, 0.88, 0.94]) * tint
         belly = np.array([0.94, 0.96, 0.98]) * tint
         mark = np.array([0.62, 0.74, 0.86]) * tint
         eye = np.array([0.12, 0.16, 0.22])
         return cat(
-            prisms(0, 0.15, 0.35, 1.15, 0.42, skin, skin * 0.88),          # shoulders
-            prisms(0, 0.05, 0.20, 1.05, 0.55, skin, belly),                 # mid body
-            prisms(0, -0.55, 0.30, 0.95, 0.32, skin, skin * 0.9),           # neck
-            prisms(0, -0.95, 0.40, 0.88, 0.22, skin, belly),                # head
-            prisms(0, -1.12, 0.52, 0.70, 0.10, mark, mark),                 # snout
-            prisms((-0.12, 0.12), (-1.02, -1.02), 0.68, 0.74, 0.04, eye, eye),
-            prisms((-0.7, 0.7), (0.05, 0.05), 0.55 + flap, 0.72 + flap, 0.28, mark, skin),  # wings
-            prisms(0, 0.70 + tail, 0.40, 0.95, 0.22, skin, mark),           # tail stock
-            prisms((-0.35, 0.35), (1.05 + tail, 1.05 + tail), 0.45, 0.85, 0.08, mark, skin),
+            prisms(0, -1.35, 0.38, 0.78, 0.18, skin, belly),
+            prisms(0, -1.55, 0.48, 0.68, 0.10, skin * 0.96, belly),
+            prisms((-0.16, 0.16), (-1.38, -1.38), 0.62, 0.70, 0.035, eye, eye),
+            prisms(0, -0.85, 0.32, 0.84, 0.26, skin, belly),
+            prisms(0, -0.15, 0.28, 0.86, 0.32, skin, belly),
+            prisms(0, -0.20, 0.20, 0.42, 0.22, belly, belly),
+            prisms(0, 0.50, 0.34, 0.80, 0.22, skin, mark),
+            prisms(0, 0.95 + tail * 0.4, 0.40, 0.72, 0.12, skin, mark),
+            prisms((-0.42, 0.42), (1.28 + tail, 1.28 + tail), 0.52, 0.64, 0.10, mark, skin),
+            prisms(0, 1.42 + tail, 0.50, 0.66, 0.08, mark, skin),
+            prisms((-0.55, 0.55), (-0.15, -0.15), 0.40 + flap, 0.50 + flap, 0.16, mark, skin),
+            prisms((-0.78, 0.78), (0.05, 0.05), 0.38 + flap, 0.46 + flap, 0.10, mark, skin),
+            prisms(0, -0.10, 0.84, 0.98, 0.06, mark, mark),
         )
     if kind == 'fairy':
         flutter = math.sin(t * 18.0) * 0.06
