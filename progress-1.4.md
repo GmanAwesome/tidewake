@@ -248,3 +248,8 @@ Eyes on the wanderer were too small to read at the usual camera distance, so the
 
 The first play-test pass missed a tree in a generated sky, because the wanderer had been left on a bare cinder ridge. The search now looks through the loaded chunks for a trunk and a walkable cell under the leaves, and the tour stands in the Bright Arch grove so the shot is taken under a real canopy in a generated world.
 
+
+## November 25, 2026, 4:51 PM EST — Version 1.4
+
+The version string is 1.4, and a changelog now covers the whole 1.4 work — new landscapes and sliders, structures and blocks, the lesson island, Glimmer, fishing, farming, the Path, skywhales and fairies, the new songs, taller trees, the third-person camera, a dawn after you rest, and the cohesion fixes.
+

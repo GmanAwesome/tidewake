@@ -2108,3 +2108,25 @@ def phase5_fix(app, log, shot, look_at, settled, arg):
     app.cam_view = 0
     app.hide_hud = True
     log('phase5_fix finished')
+
+
+def v14_title(app, log, shot, look_at, settled, arg):
+    """Title and Bright Arch hero for the 1.4 README, after the version bump."""
+    from . import showcase as SC
+    yield 1.2
+    yield lambda: app.backdrop is not None and app.backdrop['world'].busy() == 0
+    yield 1.5
+    yield shot('00_title')
+    SC._index = 1
+    app.start_backdrop()
+    yield 1.0
+    yield lambda: app.backdrop['world'].busy() == 0
+    yield 1.6
+    yield shot('01_title_seed')
+    keep = app.menu
+    app.menu = None
+    app.backdrop['speed'] = 0
+    yield 1.1
+    yield shot('02_hero_sky')
+    app.menu = keep
+    log('v14_title finished')
