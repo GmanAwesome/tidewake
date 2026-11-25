@@ -221,6 +221,16 @@ def tile(mat, side):
         return weave * (np.where(straps, 0.62, 1.0) if side else plaid)
     if mat == 34:           # glowstick: wood grain, glowing tip
         return 1 + 0.1 * np.sin((X * 6 + vnoise(rng, 3) * 0.3) * np.pi * 2), np.where(Y > 0.5, 0.9, 0.3)
+    if mat == 43:           # door: vertical boards, frame, a little window
+        b = boards(rng, 4, vertical=True)
+        frame = (X < 0.12) | (X > 0.88) | (Y < 0.08) | (Y > 0.92)
+        window = (np.abs(X - 0.5) < 0.18) & (Y > 0.48) & (Y < 0.78)
+        out = np.where(frame, 0.55, b)
+        return np.where(window, 1.35, out)
+    if mat == 44:           # ladder: two stiles and rungs
+        stile = (np.abs(X - 0.18) < 0.07) | (np.abs(X - 0.82) < 0.07)
+        rung = (np.abs((Y * 4) % 1 - 0.5) < 0.12) & (X > 0.12) & (X < 0.88)
+        return np.where(stile | rung, boards(rng, 5, vertical=True) * 1.05, 0.35)
     return n(6, 2, 0.06)
 
 

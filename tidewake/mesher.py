@@ -302,6 +302,7 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
             out_o += _prisms(cx[s], cz[s], y0, y1, np.full(n, rad), ct, ct, ct * 0.85, pack(em, sk), mat=m_id)
         if m_id in MT.LIGHTS:
             lights.append(np.stack([cx[s], (ly[s] + 0.6) * LAYER, cz[s], np.full(n, m_id)], 1))
+    out_o += _fittings(mat, Pm, cx, cz, ly, pq, pr, SKY)
     sp = mat == _ID['awake_spire']
     if sp.any():
         lights.append(np.stack([cx[sp], (ly[sp] + 0.5) * LAYER, cz[sp], np.full(sp.sum(), _ID['awake_spire'])], 1))
@@ -341,6 +342,57 @@ def _extras(mf, facing, cx, cz, ytop, open_top, sky):
             mat = _ID['bricks'] if mid == _ID['kiln'] else 0
             out += _prisms(px, pz, ytop[s] + a * LAYER, ytop[s] + b * LAYER, np.full(n, rad), np.tile(col, (n, 1)),
                            np.tile(col, (n, 1)), np.tile(col * 0.85, (n, 1)), pack(0.0, sky[s]), mat=mat)
+    return out
+
+
+
+def _fittings(mat, Pm, cx, cz, ly, pq, pr, SKY):
+    """Doors and ladders: thin, faced fittings, not full hex prisms."""
+    out = []
+    if Pm is None:
+        return out
+    wood = np.array([0.82, 0.62, 0.42])
+    dark = np.array([0.40, 0.28, 0.20])
+    iron = np.array([0.45, 0.42, 0.40])
+    s = mat == _ID['door']
+    if s.any():
+        meta = Pm[pq[s], ly[s], pr[s]].astype(np.int64)
+        face = meta % 8 % 6
+        opened = (meta & 8) != 0
+        base = face * (np.pi / 3)
+        ang = base + np.where(opened, 1.35, 0.0)
+        hinge = base + np.pi / 2
+        dist = np.where(opened, 0.22, 0.18)
+        px = cx[s] + np.cos(ang) * dist + np.where(opened, np.cos(hinge) * 0.30, 0)
+        pz = cz[s] + np.sin(ang) * dist + np.where(opened, np.sin(hinge) * 0.30, 0)
+        n = int(s.sum())
+        y0, y1 = ly[s] * LAYER, (ly[s] + 1) * LAYER
+        E = pack(0.0, SKY[pq[s], ly[s], pr[s]])
+        out += _prisms(px, pz, y0, y1, np.full(n, 0.40), np.tile(wood, (n, 1)), np.tile(wood * 0.9, (n, 1)),
+                       np.tile(dark, (n, 1)), E, mat=_ID['door'], front=face)
+        # a darker strap / handle
+        hx = px + np.cos(ang + np.pi / 2) * 0.22
+        hz = pz + np.sin(ang + np.pi / 2) * 0.22
+        mid = (y0 + y1) * 0.5
+        out += _prisms(hx, hz, mid - 0.06, mid + 0.06, np.full(n, 0.07), np.tile(iron, (n, 1)), np.tile(iron, (n, 1)),
+                       np.tile(iron * 0.8, (n, 1)), E, mat=_ID['door'])
+    s = mat == _ID['ladder']
+    if s.any():
+        meta = Pm[pq[s], ly[s], pr[s]].astype(np.int64)
+        face = meta % 8 % 6
+        ang = face * (np.pi / 3)
+        n = int(s.sum())
+        bx = cx[s] + np.cos(ang) * 0.72
+        bz = cz[s] + np.sin(ang) * 0.72
+        tx, tz = np.cos(ang + np.pi / 2), np.sin(ang + np.pi / 2)
+        y0, y1 = ly[s] * LAYER, (ly[s] + 1) * LAYER
+        E = pack(0.0, SKY[pq[s], ly[s], pr[s]])
+        for sign in (-1.0, 1.0):
+            out += _prisms(bx + tx * 0.28 * sign, bz + tz * 0.28 * sign, y0, y1, np.full(n, 0.055),
+                           np.tile(wood, (n, 1)), np.tile(wood * 0.85, (n, 1)), np.tile(dark, (n, 1)), E, mat=_ID['ladder'])
+        for frac in (0.18, 0.5, 0.82):
+            out += _prisms(bx, bz, y0 + frac * LAYER - 0.04, y0 + frac * LAYER + 0.04, np.full(n, 0.30),
+                           np.tile(wood * 1.05, (n, 1)), np.tile(wood, (n, 1)), np.tile(dark, (n, 1)), E, mat=_ID['ladder'])
     return out
 
 

@@ -21,7 +21,7 @@ HARD = {
     'aetherite_ore': (7.0, 'pick', 4), 'lumen_lamp': (0.6, None, 0), 'glass': (0.5, None, 0),
     'loam': (0.8, 'spade', 0), 'turf': (0.95, 'spade', 0), 'sand': (0.7, 'spade', 0), 'snow': (0.5, 'spade', 0),
     'clay': (0.9, 'spade', 0), 'cloudstuff': (0.6, 'spade', 0), 'fluff_block': (0.6, None, 0),
-    'heartwood': (2.2, 'axe', 0), 'planks': (2.0, 'axe', 0), 'tinker_bench': (2.0, 'axe', 0), 'chest': (2.0, 'axe', 0),
+    'heartwood': (2.2, 'axe', 0), 'planks': (2.0, 'axe', 0), 'tinker_bench': (2.0, 'axe', 0), 'chest': (2.0, 'axe', 0), 'door': (2.0, 'axe', 0), 'ladder': (0.6, 'axe', 0),
     'canopy': (0.35, None, 0), 'crystal': (0.8, 'pick', 0), 'lumen_shard': (0.8, 'pick', 0),
 }
 DEFAULT_HARD = (0.15, None, 0)          # small things snap off instantly
@@ -65,6 +65,7 @@ BLOCK_DESC = {
     'tinker_bench': 'place it, then right-click to craft on a 3x3 grid', 'kiln': 'right-click: smelt ores, cook food',
     'chest': 'right-click to store things', 'bedroll': 'right-click to rest: sets your waking spot, skips the dusk',
     'glowstick': 'a little light', 'lumen_lamp': 'a bright lamp', 'mossrock': 'slowly greens stone around it',
+    'door': 'right-click to open or close; two blocks tall', 'ladder': 'climb it; place it on a wall',
 }
 for i in range(1, MT.N):
     key = MT.NAMES[i].lower().replace(' ', '_')
@@ -215,6 +216,8 @@ for t, m in enumerate(mats):
     recipe([[m, m], [m, S], [None, S]], TOOLS[('axe', t)].id)
     recipe([[m], [S], [S]], TOOLS[('spade', t)].id)
     recipe([[m], [m], [S]], TOOLS[('blade', t)].id)
+recipe([[P, P], [P, P], [P, P]], M['door'], 3)
+recipe([[S, None, S], [S, S, S], [S, None, S]], M['ladder'], 3)
 
 
 def _match_cell(want, have):

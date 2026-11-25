@@ -57,6 +57,9 @@ _M = [
     ('Polished Stone', 'full', (0.90, 0.88, 0.84), (0.80, 0.78, 0.74),   0.0, True,  (1, 0, 0, 0), 'stone'),
     ('Mossy Bricks', 'full', (0.56, 0.70, 0.46),  (0.68, 0.48, 0.42),    0.0, True,  (1, 0, 0, 1), 'stone'),
     ('Lumen Lamp',  'full', (1.00, 0.92, 0.70),   (0.98, 0.84, 0.60),    1.0, True,  (0, 0, 1, 0), 'glass'),
+    # ---- 1.4: doors and ladders (not full cubes; collision is special-cased)
+    ('Door',        'deco', (0.86, 0.68, 0.48),   (0.62, 0.44, 0.30),    0.0, False, (0, 0, 0, 1), 'wood'),
+    ('Ladder',      'deco', (0.78, 0.58, 0.38),   (0.70, 0.50, 0.32),    0.0, False, (0, 0, 0, 1), 'wood'),
 ]
 
 NAMES = [m[0] for m in _M]
@@ -120,3 +123,16 @@ ROSE_BANDS = np.array([(0.93, 0.64, 0.56), (0.97, 0.80, 0.67), (0.84, 0.54, 0.52
                        (0.90, 0.70, 0.60)], np.float32)
 PETAL_COLORS = np.array([(1.0, 0.96, 0.80), (1.0, 0.84, 0.40), (0.70, 0.78, 1.0), (1.0, 0.70, 0.82)], np.float32)
 
+
+
+# Door meta: low 3 bits = facing (0-5), bit 8 = open, bit 16 = top half.
+# Ladder meta: low 3 bits = the face it hangs on.
+
+def is_blocking(world, q, r, y):
+    """Solid for walking/physics. Open doors are passable; closed doors block."""
+    m = world.get(q, r, y)
+    if m < 0:
+        return True
+    if m == ID['door']:
+        return (world.get_meta(q, r, y) & 8) == 0
+    return bool(SOLID[m])
