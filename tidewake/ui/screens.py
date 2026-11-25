@@ -90,11 +90,6 @@ class TitleScreen(Screen):
     def build(self, gui, app, w, h):
         s = gui.s
         t = time.time()
-        if app.backdrop and app.backdrop.get('showcase') is not None:
-            pw, ph = 360 * s, h * 0.68
-            gui.rect(w / 2 - pw / 2, h * 0.33 - 200 * s, pw, ph, (0.10, 0.07, 0.16, 0.28), radius=30 * s)
-            gui.rect(0, 0, w, 52 * s, (0.06, 0.05, 0.10, 0.28))
-            gui.flush()
         ly = h * 0.68
         draw_logo(gui, w / 2, ly, t, s)
         gui.text('a cozy sky of hexagons, tides and sleeping spires',

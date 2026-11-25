@@ -263,3 +263,10 @@ The README is rewritten as a straightforward front page: a clean title hero, a s
 
 1.4 is posted as the usual Latest download, not a pre-release. Grab `Tidewake-1.4-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4 (about 73 MB). The play-test screenshots are on that page too, and the same set lives in `screenshots-final/v1.4/`. This Windows build embeds the Common Controls v6 manifest and the icon in the exe, checked with pefile. Skies from 1.3 still load and keep their old terrain.
 
+
+# 1.4.1
+
+## November 25, 2026, 5:09 PM EST — The title menu no longer has gray boxes
+
+The title screen was drawing a big rounded dark panel behind the buttons, and a bar along the bottom, over the showcase sky. Those were the gray boxes. They are gone, so the menu sits cleanly on the sky.
+
