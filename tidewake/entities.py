@@ -186,28 +186,47 @@ class Mob:
         if not self._blocked(world, nx, self.y, nz):
             self.x, self.z = nx, nz
         elif self.on_ground:
-            up = (math.floor(self.y / LAYER + 0.01) + 1) * LAYER + 0.001
-            if not self._blocked(world, nx, up, nz) and not self._blocked(world, self.x, up, self.z):
-                self.y = up
-                self.x, self.z = nx, nz
-            elif not self._blocked(world, nx, up + LAYER, nz):
-                self.vy = 7.5
+            q, r = cell_at(nx, nz)
+            # step up to the actual floor top of the neighbouring cell, not the next layer line
+            ahead_top = support_top(world, q, r, self.y + LAYER * 1.6, LAYER)
+            if ahead_top is not None and ahead_top > self.y + 0.02:
+                up = ahead_top + 0.001
+                if up - self.y <= LAYER * 1.05 and not self._blocked(world, nx, up, nz) and not self._blocked(world, self.x, up, self.z):
+                    self.y = up
+                    self.x, self.z = nx, nz
+                elif not self._blocked(world, nx, up + 0.05, nz) and up - self.y <= LAYER * 2.1:
+                    self.vy = 7.5
+                else:
+                    self.think = 0
             else:
                 self.think = 0
         ny = self.y + self.vy * dt
-        self.on_ground = False
+        q, r = cell_at(self.x, self.z)
+        # probe just under the feet so a body already sitting on a floor stays there
+        under = support_top(world, q, r, self.y + 0.08, LAYER)
         if self.vy <= 0 and self._blocked(world, self.x, ny, self.z):
-            # snap to the top of the floor we collided with, plus a hair, so we don't oscillate
-            self.y = math.floor((ny + 0.002) / LAYER + 1) * LAYER + 0.002
-            # if still inside (odd geometry), nudge up one layer once
+            # snap to the real top of the floor, not a layer-grid line (that oscillated)
+            top = support_top(world, q, r, max(self.y, ny) + 0.2, LAYER)
+            if top is None:
+                top = math.floor(ny / LAYER + 1) * LAYER
+            self.y = top + 0.001
             if self._blocked(world, self.x, self.y, self.z):
-                self.y = math.floor(self.y / LAYER + 1) * LAYER + 0.002
+                top2 = support_top(world, q, r, self.y + LAYER * 1.5, LAYER)
+                if top2 is not None:
+                    self.y = top2 + 0.001
+            self.vy = 0
+            self.on_ground = True
+        elif self.vy <= 0 and under is not None and (self.y - under) <= 0.10 and (ny - under) <= 0.10:
+            # already standing on the floor: keep the snap, don't clear on_ground and fall
+            self.y = under + 0.001
             self.vy = 0
             self.on_ground = True
         elif self.vy > 0 and self._blocked(world, self.x, ny + 0.05, self.z):
             self.vy = 0
+            self.on_ground = False
         else:
             self.y = ny
+            self.on_ground = False
 
     def hit_test(self, ox, oy, oz, dx, dy, dz, reach):
         """Distance along the ray to this creature's body, or None."""

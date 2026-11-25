@@ -280,3 +280,8 @@ Walking up to someone on the lesson island used to open their speech on its own.
 
 The title screen always used to open on the same showcase (the Lighthouse Cottage) and only then start taking turns. It now picks a random backdrop when the game starts, and it remembers the last one so the next launch starts somewhere else. After that, the usual rotation continues as before.
 
+
+## November 25, 2026, 5:12 PM EST — Creatures no longer bounce in place
+
+Creatures were shaking up and down even on flat ground. Two things were stacking: they snapped to a layer-grid line instead of the real top of the block they were standing on (which could throw them up a whole layer), and then each frame they were treated as off the ground because their feet were already clear of the floor, so gravity pulled them in and the snap threw them back up. They now settle to the actual floor top and a short probe under the feet keeps them there. A frame-by-frame y-trace on still and walking woolhops, at a few frame rates, stays flat after landing.
+
