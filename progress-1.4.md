@@ -316,3 +316,8 @@ Caves no longer punch through hillside faces or leave black gashes on the flanks
 Each landscape now grows a mix of its own plants and stones: grasses, wildflowers, mushrooms, pebbles, shrubs and reeds, in clusters, with patchy ground-cover like heather and moss. The textures are still drawn by the game, not taken from anywhere else. Old skies keep their original scatter.
 
 The lesson island is larger, with a wide packed-earth path and signposts from station to station. The next person is easier to see, and nobody stands inside a hut, a chest, or a waystone any more — they wait in the open beside their work.
+
+
+## November 25, 2026, 5:40 PM EST — Version string is 1.4.1-test
+
+The title and the in-game version line now say 1.4.1-test, ready for a pre-release the player can try before the real 1.4.1.

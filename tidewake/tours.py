@@ -2130,3 +2130,163 @@ def v14_title(app, log, shot, look_at, settled, arg):
     yield shot('02_hero_sky')
     app.menu = keep
     log('v14_title finished')
+
+def phase141(app, log, shot, look_at, settled, arg):
+    """1.4.1 playtest: title, lesson path, island heights, teardrop hulls, caves, doors, textures, plants."""
+    from .hexgrid import center
+    from . import materials as MT
+    from . import gensettings as GS
+    from .config import LAYER
+    from .tutorial import NPCS, SURF, SPAWN
+
+    yield 1.0
+    yield lambda: app.backdrop is not None and app.backdrop['world'].busy() == 0
+    yield 1.2
+    yield shot('00_title')
+
+    app.start_tutorial()
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+
+    # spawn and the path toward Willow, so signposts and open ground read clearly
+    x, z = center(0, 0)
+    p.x, p.z, p.y = x - 2.0, z - 3.5, (SURF + 3.2) * LAYER
+    look_at(p, x + 3.0, (SURF + 1.6) * LAYER, z + 2.0)
+    yield settled()
+    yield 0.7
+    yield shot('01_tutorial_path')
+
+    # Mira's door in the open yard
+    x, z = center(22, -5)
+    p.x, p.z, p.y = x - 4.5, z + 0.2, (SURF + 2.2) * LAYER
+    look_at(p, x, (SURF + 1.6) * LAYER, z)
+    yield settled()
+    yield 0.6
+    yield shot('02_door_open')
+
+    # a new sky for terrain, plants, caves
+    app.create_sky('Phase141', 7, '7', 'dreamer', gen=GS.defaults())
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+
+    g = ses.gen
+    Q, R = np.mgrid[-80:80:2, -80:80:2]
+    col = g.columns(Q, R)
+    land = col['land'] & ~col['skerry']
+    recs = []
+    for a in range(Q.shape[0]):
+        for b in range(Q.shape[1]):
+            if land[a, b] and col['e'][a, b] > 0.08:
+                recs.append((int(Q[a, b]), int(R[a, b]), int(col['top'][a, b]),
+                             int(col['bottom'][a, b]), float(col['com'][a, b])))
+    recs.sort(key=lambda r: r[4])
+    log('com range', recs[0][4] if recs else None, recs[-1][4] if recs else None, 'n', len(recs))
+
+    # look up from a low island toward higher ones
+    if recs:
+        lo = recs[len(recs)//5]
+        q, r, top, bot, com = lo
+        x, z = center(q, r)
+        p.x, p.z, p.y = x + 6.0, z + 8.0, (top + 4) * LAYER
+        look_at(p, x, (top + 18) * LAYER, z - 20)
+        yield settled()
+        yield 0.8
+        yield shot('03_islands_above')
+        # teardrop underside from the side
+        mid = (top + bot) * 0.5
+        p.x, p.z, p.y = x + 16.0, z + 2.0, mid * LAYER
+        look_at(p, x, mid * LAYER, z)
+        yield settled()
+        yield 0.8
+        yield shot('04_teardrop_underside')
+
+    # a meadow close-up for the new plants
+    meadow = None
+    for a in range(Q.shape[0]):
+        for b in range(Q.shape[1]):
+            if land[a, b] and int(col['realm'][a, b]) == 0 and col['e'][a, b] > 0.06:
+                meadow = (int(Q[a, b]), int(R[a, b]), int(col['top'][a, b]))
+                break
+        if meadow:
+            break
+    if meadow:
+        q, r, top = meadow
+        x, z = center(q, r)
+        p.x, p.z, p.y = x + 3.5, z + 4.0, (top + 2.2) * LAYER
+        look_at(p, x, (top + 0.4) * LAYER, z)
+        yield settled()
+        yield 0.7
+        yield shot('05_ground_cover')
+
+    # hunt a cobble-framed cave mouth in loaded chunks
+    mouth = None
+    cobble = MT.ID['cobble']
+    for (cq, cr), ch in list(ses.world.chunks.items()):
+        cells = ch.cells
+        A, Y, B = cells.shape
+        hits = np.argwhere(cells == cobble)
+        if len(hits):
+            a, y, b = hits[len(hits)//2]
+            mouth = (cq * 16 + int(a), cr * 16 + int(b), int(y))
+            break
+    if mouth:
+        q, r, y = mouth
+        x, z = center(q, r)
+        p.x, p.z, p.y = x + 5.0, z + 3.0, (y + 1.2) * LAYER
+        look_at(p, x, (y + 0.6) * LAYER, z)
+        yield settled()
+        yield 0.7
+        yield shot('06_cave_mouth')
+    else:
+        log('no cave mouth in view')
+
+    # heartwood end-grain and a closed mid-hex door, placed at the feet
+    if recs:
+        q, r, top, bot, com = recs[len(recs)//2]
+        ses.world.set(q, r, top + 1, MT.ID['heartwood'], 0, now=True)
+        ses.world.set(q + 2, r, top + 1, MT.ID['door'], 0, now=True)
+        ses.world.set(q + 2, r, top + 2, MT.ID['door'], 16, now=True)
+        # a little wall so the door reads in a doorway
+        ses.world.set(q + 2, r - 1, top + 1, MT.ID['pale_planks'], 0, now=True)
+        ses.world.set(q + 2, r - 1, top + 2, MT.ID['pale_planks'], 0, now=True)
+        ses.world.set(q + 2, r + 1, top + 1, MT.ID['pale_planks'], 0, now=True)
+        ses.world.set(q + 2, r + 1, top + 2, MT.ID['pale_planks'], 0, now=True)
+        x, z = center(q, r)
+        p.x, p.z, p.y = x + 0.1, z + 2.4, (top + 3.4) * LAYER
+        look_at(p, x, (top + 1.15) * LAYER, z)
+        yield settled()
+        yield 0.7
+        yield shot('07_log_end_grain')
+        x, z = center(q + 2, r)
+        p.x, p.z, p.y = x - 3.6, z + 0.2, (top + 2.4) * LAYER
+        look_at(p, x, (top + 1.7) * LAYER, z)
+        yield settled()
+        yield 0.7
+        yield shot('08_door_closed')
+        ses.world.set_meta(q + 2, r, top + 1, 0 | 8)
+        ses.world.set_meta(q + 2, r, top + 2, 16 | 8)
+        from .config import CHUNK
+        ses.world.dirty.add(((q + 2) // CHUNK, r // CHUNK))
+        yield settled()
+        yield 0.5
+        yield shot('09_door_swung_open')
+
+    log('phase141 finished')
