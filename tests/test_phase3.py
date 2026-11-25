@@ -36,3 +36,29 @@ def test_temples_place_waystones():
 
 def test_waystone_save_roundtrip_keys():
     assert G.parse_key(G.key(3, -4, 12)) == (3, -4, 12)
+
+
+def test_fishing_rod_and_catches():
+    from tidewake import items as I, fishing as F, materials as MT
+    import random
+    assert I.ROD.kind == 'rod' and I.ROD.uses == 80
+    assert any(r[1][0] == I.ROD.id for r in I.RECIPES)
+    assert I.SMELT[I.SILVERFIN.id] == I.COOKED_SILVERFIN.id
+    assert I.SMELT[I.GLIMMERFIN.id] == I.COOKED_GLIMMERFIN.id
+    assert F.biome_group(3) == 'frost'
+    assert F.biome_group(8) == 'arid'
+    ff = 0
+    for i in range(200):
+        iid, n, kind = F.roll_catch(3, 0.1, random.Random(i + 9))
+        assert I.get(iid) is not None and n >= 1
+        if kind == 'fish' and iid == I.FROSTFIN.id:
+            ff += 1
+    assert ff > 40
+    # dusk in lumen groves can yield glimmerfin
+    got = False
+    for i in range(300):
+        iid, n, kind = F.roll_catch(7, 0.7, random.Random(i + 3))
+        if iid == I.GLIMMERFIN.id:
+            got = True
+            break
+    assert got

@@ -133,3 +133,7 @@ Glimmer motes are much rarer now. On a mid setting you see about a third of what
 
 You can also craft a waystone (carved stone and Glimmer) or a Glimmer Font (polished stone and Glimmer). At a Font you spend Glimmer for lasting attunements that save with the sky: Keen Reach, Lightfoot, Deep Breath, Mote Sense, and Brightwake.
 
+## November 25, 2026, 3:49 PM EST — Fishing
+
+Craft a fishing rod from three sticks and a scrap of linen, then right-click a still pool. The bobber sits and waits; when it dips, right-click again to reel. Pull too early, wander off, or miss the dip and the fish gets away. What you catch depends on the landscape and the tide — reed minnows in gentle water, saltskippers on the flats, frostfin in Frostglass, duskperch and the rare glimmerfin after the light fades — and sometimes the line brings up treasure instead. Raw fish are a light snack; roast them in a kiln for a proper meal.
+

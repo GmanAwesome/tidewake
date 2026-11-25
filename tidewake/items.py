@@ -125,6 +125,26 @@ for t, tname in enumerate(TIERS):
         TOOLS[(kind, t)] = _new(f'{tname} {kname}', 'tool', tool=(kind, t), uses=TIER_USES[t], color=TIER_COL[t],
                                 color2=(0.66, 0.50, 0.34), model=kind, damage=dmg)
 
+# ---- 1.4 phase 3: fishing
+ROD = _new('Fishing Rod', 'rod', stack=1, uses=80, color=(0.72, 0.56, 0.36),
+           color2=(0.95, 0.92, 0.85), model='rod', desc='right-click a pool: wait for a bite, then reel')
+REED_MINNOW = _new('Reed Minnow', 'food', food=2, color=(0.62, 0.72, 0.48), model='lump', desc='a small greenish fish')
+SILVERFIN = _new('Silverfin', 'food', food=3, color=(0.82, 0.88, 0.92), model='lump')
+DUSKPERCH = _new('Duskperch', 'food', food=3, color=(0.46, 0.38, 0.72), color2=(0.86, 0.70, 0.40), model='lump')
+SALTSKIPPER = _new('Saltskipper', 'food', food=3, color=(0.90, 0.82, 0.62), model='lump')
+MOSS_EEL = _new('Moss Eel', 'food', food=2, color=(0.36, 0.58, 0.40), model='lump')
+FROSTFIN = _new('Frostfin', 'food', food=3, color=(0.78, 0.90, 0.98), model='lump')
+CLOUD_KOI = _new('Cloud Koi', 'food', food=4, color=(0.96, 0.86, 0.82), color2=(0.90, 0.50, 0.48), model='lump')
+GLIMMERFIN = _new('Glimmerfin', 'food', food=4, color=(1.00, 0.88, 0.50), color2=(0.80, 0.70, 1.00), model='lump')
+COOKED_MINNOW = _new('Roast Minnow', 'food', food=5, color=(0.78, 0.58, 0.36), model='lump')
+COOKED_SILVERFIN = _new('Roast Silverfin', 'food', food=7, color=(0.80, 0.56, 0.34), model='lump')
+COOKED_DUSKPERCH = _new('Roast Duskperch', 'food', food=7, color=(0.62, 0.42, 0.30), model='lump')
+COOKED_SALTSKIPPER = _new('Roast Saltskipper', 'food', food=7, color=(0.86, 0.62, 0.38), model='lump')
+COOKED_EEL = _new('Roast Eel', 'food', food=6, color=(0.58, 0.44, 0.28), model='lump')
+COOKED_FROSTFIN = _new('Roast Frostfin', 'food', food=7, color=(0.86, 0.70, 0.48), model='lump')
+COOKED_KOI = _new('Roast Koi', 'food', food=8, color=(0.90, 0.62, 0.40), model='lump')
+COOKED_GLIMMERFIN = _new('Roast Glimmerfin', 'food', food=9, color=(0.98, 0.72, 0.40), color2=(0.80, 0.62, 0.90), model='lump')
+
 
 def get(iid):
     return ITEMS.get(iid)
@@ -311,6 +331,9 @@ recipe([[M['polished_stone'], G_, M['polished_stone']],
         [G_, M['carved_stone'], G_],
         [M['polished_stone'], G_, M['polished_stone']]], M['glimmer_font'])
 
+# ---- 1.4 phase 3: fishing rod
+recipe([[None, None, STICK.id], [None, STICK.id, M['linen']], [STICK.id, None, None]], ROD.id)
+
 
 def _match_cell(want, have):
     if want is None:
@@ -398,7 +421,11 @@ def name_of(v):
 SMELT = {
     M['verdigris_ore']: VERDIGRIS.id, M['silverine_ore']: SILVERINE.id, M['sand']: M['glass'],
     M['clay']: BRICK.id, HOPMEAT.id: ROAST.id, M['stone']: M['polished_stone'], M['heartwood']: EMBERITE.id,
+    REED_MINNOW.id: COOKED_MINNOW.id, SILVERFIN.id: COOKED_SILVERFIN.id, DUSKPERCH.id: COOKED_DUSKPERCH.id,
+    SALTSKIPPER.id: COOKED_SALTSKIPPER.id, MOSS_EEL.id: COOKED_EEL.id, FROSTFIN.id: COOKED_FROSTFIN.id,
+    CLOUD_KOI.id: COOKED_KOI.id, GLIMMERFIN.id: COOKED_GLIMMERFIN.id,
 }
+
 FUEL = {EMBERITE.id: 16.0, M['heartwood']: 6.0, M['planks']: 3.0, STICK.id: 1.0, GLOOM.id: 8.0,
         M['cedar_heartwood']: 6.0, M['pale_heartwood']: 6.0, M['dark_heartwood']: 6.0,
         M['cedar_planks']: 3.0, M['pale_planks']: 3.0, M['dark_planks']: 3.0,

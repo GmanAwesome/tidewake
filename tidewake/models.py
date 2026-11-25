@@ -95,6 +95,14 @@ SPRITES = {
               '..H....',
               '.H.....',
               'H......'],
+    'rod':   ['.......M.',
+              '......M.L',
+              '.....M..L',
+              '....H...L',
+              '...H.....',
+              '..H......',
+              '.H.......',
+              'H........'],
 }
 
 
@@ -171,6 +179,9 @@ def item_model(it):
         cols = {'M': (c1, 0.25 if it.tool and it.tool[1] == 4 else 0.0), 'D': (dark, 0.0), 'H': hcol}
         if it.model == 'stick':
             cols['H'] = (c1, 0.0)
+        if it.model == 'rod':
+            cols['M'] = (c1 * 0.85, 0.0)
+            cols['L'] = (c2, 0.0)
         return sprite(SPRITES[it.model], cols)
     if it.model == 'ingot':
         return cat(prisms(0, 0, -0.12, 0.08, 0.34, c1, c1 * 0.85), prisms(0, 0, 0.08, 0.14, 0.24, c1 * 1.08, c1 * 0.9))

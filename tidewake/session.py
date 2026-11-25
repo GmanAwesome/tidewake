@@ -32,7 +32,7 @@ MAX_HP = 20
 MAX_FOOD = 20
 STARTER = [(I.BERRIES.id, 4), (M['glowstick'], 3)]
 USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door'], M['waystone'], M['glimmer_font']}
-SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick'}
+SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick', 'rod'}
 PASSIVE_REALMS = {
     'woolhop': (0, 1, 5, 3, 7, 8, 9, 10, 14),
     'pebblebeak': (0, 2, 6, 1, 4, 11, 12),
@@ -99,7 +99,7 @@ class Session:
             self.phase = 0.08
             self.play_time = 0.0
             self.created = time.time()
-            self.stats = {'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0}
+            self.stats = {'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0, 'fished': 0}
             self.new_sky = True
             self.hp, self.food = MAX_HP, MAX_FOOD
             self.spawn = None
@@ -128,7 +128,7 @@ class Session:
             self.phase = float(d.get('phase', 0.1))
             self.play_time = float(d.get('play_time', 0))
             self.created = d.get('created', time.time())
-            self.stats = dict({'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0}, **d.get('stats', {}))
+            self.stats = dict({'mined': 0, 'placed': 0, 'motes': 0, 'crafted': 0, 'fished': 0}, **d.get('stats', {}))
             self.new_sky = False
             self.hp = float(d.get('hp', MAX_HP))
             self.food = float(d.get('food', MAX_FOOD))
@@ -170,6 +170,8 @@ class Session:
         self.eat_t = 0.0
         self.particles = np.zeros((0, 12))      # x y z vx vy vz r g b life size homing
         self.motes = []
+        self.fishing = None
+        self._fish_arm = True
         self.jellies = []
         self.mobs = []
         self.drops = []
@@ -492,6 +494,12 @@ class Session:
                 self.target_name = MT.NAMES[m]
         self.cooldown -= dt
         self.eat_t = max(0.0, self.eat_t - dt)
+        if not inp.get('shape'):
+            self._fish_arm = True
+        it_now = self.held_item
+        if self.fishing and (not it_now or it_now.kind != 'rod'):
+            self.fishing = None
+        self._update_fishing(dt)
         if self.carry <= 0:
             if inp.get('gather'):
                 if self.target_mob:
@@ -640,7 +648,7 @@ class Session:
     def _wear_tool(self):
         s = self.held
         it = self.held_item
-        if not s or not it or it.kind != 'tool' or self.dev:
+        if not s or not it or it.kind not in ('tool', 'rod') or self.dev or not it.uses:
             return
         s[2] -= 1
         if s[2] <= 0:
@@ -723,6 +731,10 @@ class Session:
     def use(self):
         p = self.player
         it = self.held_item
+        if self.fishing:
+            return self.use_rod()
+        if it and it.kind == 'rod':
+            return self.use_rod()
         # use a block you're looking at
         if self.target:
             q, r, y = self.target
@@ -856,6 +868,94 @@ class Session:
             else:
                 self.toast('Waking spot set', 'Rest here during the dusk to skip to the light.', 3)
         return True
+
+
+    def use_rod(self):
+        from . import fishing as F
+        if self.fishing:
+            if not self._fish_arm:
+                return True
+            self._fish_arm = False
+            st = self.fishing
+            if st['state'] == 'bite':
+                self._land_catch()
+            else:
+                self.fishing = None
+                self.toast('The fish got away', 'Wait for the bobber to dip, then reel.', 2.5)
+                self.app.audio.play('gather_soft', 0.5)
+            return True
+        # fresh cast
+        if not self._fish_arm:
+            return True
+        hit = self._water_ahead()
+        if not hit:
+            self.toast('Cast into a pool', 'Right-click still water with the rod.', 2.5)
+            return False
+        q, r, y = hit
+        cx, cz = center(q, r)
+        wait, window = F.start_wait()
+        realm = self.world.realm_at(q, r) or 0
+        self.fishing = {'state': 'wait', 't': 0.0, 'wait': wait, 'window': window,
+                        'pos': (cx, (y + 0.92) * LAYER, cz), 'realm': realm, 'cell': (q, r, y)}
+        self._fish_arm = False
+        self.swing = 0.45
+        self.app.audio.play('gather_water', 0.55)
+        return True
+
+    def _water_ahead(self):
+        p = self.player
+        ex, ey, ez = p.eye
+        fx, fy, fz = forward_vector(p.yaw, p.pitch)
+        hit, _prev = raycast(self.world, ex, ey, ez, fx, fy, fz, self.reach_range(), skip_water=False)
+        if hit and self.world.get(*hit) == M['water']:
+            return hit
+        # standing at the rim: the cell you would place into, or just below the look
+        if self.target_prev:
+            q, r, y = self.target_prev
+            if self.world.get(q, r, y) == M['water']:
+                return (q, r, y)
+            if self.world.get(q, r, y - 1) == M['water']:
+                return (q, r, y - 1)
+        return None
+
+    def _update_fishing(self, dt):
+        st = self.fishing
+        if not st:
+            return
+        st['t'] += dt
+        x, y, z = st['pos']
+        # line snaps if you wander off
+        if math.hypot(self.player.x - x, self.player.z - z) > 12:
+            self.fishing = None
+            self.toast('The line snapped', 'Stay close to the bobber.', 2.5)
+            return
+        if st['state'] == 'wait' and st['t'] >= st['wait']:
+            st['state'] = 'bite'
+            st['t'] = 0.0
+            self.app.audio.play('mote', 0.45)
+        elif st['state'] == 'bite' and st['t'] >= st['window']:
+            self.fishing = None
+            self.toast('It got away', 'Reel as soon as the bobber dips.', 2.5)
+
+    def _land_catch(self):
+        from . import fishing as F
+        st = self.fishing
+        self.fishing = None
+        iid, n, kind = F.roll_catch(st['realm'], self.phase)
+        it = I.get(iid)
+        self.give(iid, n)
+        self.stats['fished'] = self.stats.get('fished', 0) + 1
+        self._wear_tool()
+        name = it.name if it else 'something'
+        if kind == 'treasure':
+            self.toast(f'Treasure on the line', f'You pulled up {name}.', 3.5)
+            self.app.audio.play('awaken', 0.4)
+        else:
+            self.toast(f'You caught a {name}', 'Cook it in a kiln for a proper meal.', 3.2)
+            self.app.audio.play('gather_soft', 0.8)
+        x, y, z = st['pos']
+        col = it.color if it else (0.7, 0.8, 0.9)
+        self._spawn(x, y + 0.3, z, col, 8, homing=True)
 
     def use_pail(self, it):
         ex, ey, ez = self.player.eye
@@ -1291,6 +1391,13 @@ class Session:
         if len(P):
             a = np.clip(P[:, 9], 0, 1)
             out.append(np.column_stack([P[:, 0] - cx, P[:, 1] - cy, P[:, 2] - cz, P[:, 6:9], a, P[:, 10] * 1.4]))
+        if self.fishing:
+            bx, by, bz = self.fishing['pos']
+            bite = self.fishing['state'] == 'bite'
+            dip = 0.18 if bite else 0.04 * math.sin(self.time * 3.2)
+            col = (1.0, 0.35, 0.28) if bite else (1.0, 0.92, 0.85)
+            out.append(np.array([[bx - cx, by - dip - cy, bz - cz, col[0], col[1], col[2],
+                                  1.0 if bite else 0.9, 1.15 if bite else 0.7]], dtype=np.float64))
         if self.motes:
             Mo = np.array(self.motes)
             tw = 0.6 + 0.4 * np.sin(Mo[:, 3] * 3.0)

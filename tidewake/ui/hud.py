@@ -36,6 +36,13 @@ def draw_hud(gui, app, ses, w, h):
                     soft_text(gui, 'It longs for: ' + ', '.join(MT.NAMES[x] for x in sp['wants']) +
                               '  (place them around its base)', w / 2, h / 2 - 46 * s, 9.5, (1, 0.92, 0.8, 1), 'center', 'center')
 
+    # fishing prompt
+    if getattr(ses, 'fishing', None):
+        bite = ses.fishing['state'] == 'bite'
+        msg = 'A bite!  Right-click to reel' if bite else 'Waiting…  the bobber will dip'
+        soft_text(gui, msg, w / 2, h / 2 - 48 * s, 12,
+                  (1.0, 0.85, 0.45, 1) if bite else (1, 1, 1, 0.9), 'center', 'center', 'bold')
+
     # mining progress ring
     if ses.mining and ses.mining[1] > 0:
         f = min(1.0, ses.mining[1])
