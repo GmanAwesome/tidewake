@@ -83,7 +83,7 @@ class TitleScreen(Screen):
         if gui.button(x, y - 156 * s, bw, bh, 'Leave'):
             app.quit()
         gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
-        gui.text('Tidewake 1.3.4', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
+        gui.text('Tidewake 1.4-phase1', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
         gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
         sc = app.backdrop.get('showcase') if app.backdrop else None
         if sc is not None:
@@ -464,7 +464,8 @@ class JournalScreen(Screen):
                     gui.text(f'The nearest sleeping spire ({d:.0f} m away) longs for: {want}', x0, y0 - 204 * s, 11, MUTED)
         else:
             rows = [('W A S D / mouse', 'walk and look'), ('Space', 'jump · hold to glide · climb vines'),
-                    ('Shift', 'hurry'), ('Left click (hold)', 'mine · hit creatures'),
+                    ('Shift', 'crouch (sneak, no falling off edges)'), ('Ctrl', 'hurry'),
+                    ('Left click (hold)', 'mine · hit creatures'),
                     ('Right click', 'place · use · eat'), ('1 - 9 / wheel', 'pick a hotbar slot'),
                     ('E', 'backpack and crafting'), ('Q', 'drop the held item'),
                     ('J', 'journal'), ('T', 'tidecall (once learned)'),

@@ -443,8 +443,9 @@ class App(pyglet.window.Window):
                     strafe=ti.get('strafe', (1 if k[key.D] or k[key.RIGHT] else 0) - (1 if k[key.A] or k[key.LEFT] else 0)),
                     jump=ti.get('jump', bool(k[key.SPACE])) if self.menu is None else False,
                     jump_pressed=ti.get('jump_pressed', self.jump_pressed),
-                    down=bool(k[key.LCTRL] or k[key.C]),
-                    hurry=ti.get('hurry', bool(k[key.LSHIFT] or k[key.RSHIFT])),
+                    down=ti.get('down', bool(k[key.C] or (k[key.LSHIFT] and (self.session.player.drifting if self.session else False)))),
+                    hurry=ti.get('hurry', bool(k[key.LCTRL] or k[key.RCTRL])),
+                    crouch=ti.get('crouch', bool(k[key.LSHIFT] or k[key.RSHIFT])),
                     gather=ti.get('gather', mouse.LEFT in self.buttons and self.menu is None),
                     shape=ti.get('shape', mouse.RIGHT in self.buttons and self.menu is None))
                 if self.test_input:
@@ -574,7 +575,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.3.4   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.4-phase1   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

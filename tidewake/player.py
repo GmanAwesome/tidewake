@@ -4,6 +4,7 @@ import math
 
 from . import config as C
 from .config import LAYER, RADIUS, HEIGHT
+from .materials import is_blocking
 from .hexgrid import cell_at, center, DIRS, hex_sdf
 from . import materials as MT
 
@@ -34,6 +35,8 @@ class Player:
         self.fly_speed = C.DRIFT_SPEED
         self.dev_ghost = False          # creatures ignore you (dev mode)
         self.knock = (0.0, 0.0)
+        self.crouching = False
+        self._eye = C.EYE
 
     # ------------------------------------------------------------------ collision
     def _columns(self, x, z):
@@ -46,12 +49,14 @@ class Player:
         return out
 
     def _solid(self, world, q, r, y):
-        m = world.get(q, r, y)
-        return m < 0 or SOLID[m]
+        return is_blocking(world, q, r, y)
+
+    def body_height(self):
+        return C.CROUCH_HEIGHT if self.crouching else HEIGHT
 
     def collides(self, world, x, y, z):
         ly0 = math.floor((y + 0.002) / LAYER)
-        ly1 = math.floor((y + HEIGHT - 0.002) / LAYER)
+        ly1 = math.floor((y + self.body_height() - 0.002) / LAYER)
         for q, r in self._columns(x, z):
             for ly in range(ly0, ly1 + 1):
                 if self._solid(world, q, r, ly):
@@ -60,7 +65,7 @@ class Player:
 
     def touching(self, world, mat):
         ly0 = math.floor((self.y + 0.05) / LAYER)
-        ly1 = math.floor((self.y + HEIGHT * 0.8) / LAYER)
+        ly1 = math.floor((self.y + self.body_height() * 0.8) / LAYER)
         for q, r in self._columns(self.x, self.z):
             for ly in range(ly0, ly1 + 1):
                 if world.get(q, r, ly) == mat:
@@ -80,7 +85,7 @@ class Player:
         return 0
 
     # ------------------------------------------------------------------ movement
-    def update(self, dt, world, fwd, strafe, jump_held, jump_pressed, down_held, hurry):
+    def update(self, dt, world, fwd, strafe, jump_held, jump_pressed, down_held, hurry, crouch=False):
         dt = min(dt, 0.05)
         yaw = math.radians(self.yaw)
         fx, fz = math.sin(yaw), -math.cos(yaw)
@@ -90,15 +95,30 @@ class Player:
         if ml > 1:
             mx, mz = mx / ml, mz / ml
         self.in_water = self.touching(world, _WATER)
-        self.climbing = self.touching(world, _VINE)
+        self.climbing = self.touching(world, _VINE) or self.touching(world, MT.ID['ladder'])
         self.bounced = False
+        want_crouch = bool(crouch) and not self.drifting
+        # only stand up if there's room
+        if self.crouching and not want_crouch:
+            self.crouching = False
+            if self.collides(world, self.x, self.y, self.z):
+                self.crouching = True
+        else:
+            self.crouching = want_crouch
+        tgt = C.CROUCH_EYE if self.crouching else C.EYE
+        self._eye += (tgt - self._eye) * min(1.0, 12.0 * dt)
         if self.drifting:
             sp = self.fly_speed * (1.8 if hurry else 1.0)
             self.vx, self.vz = mx * sp, mz * sp
             self.vy = (sp * 0.7) * ((1 if jump_held else 0) - (1 if down_held else 0))
             self.gliding = False
         else:
-            sp = C.HURRY if hurry else C.WALK
+            if self.crouching:
+                sp = C.CROUCH_SPEED
+            elif hurry:
+                sp = C.HURRY
+            else:
+                sp = C.WALK
             if self.in_water:
                 sp *= 0.6
             self.gliding = (self.can_glide and jump_held and not self.on_ground and self.vy < 0
@@ -157,6 +177,14 @@ class Player:
                 nx = self.x + (v * h if axis == 0 else 0)
                 nz = self.z + (v * h if axis == 2 else 0)
                 if not self.collides(world, nx, self.y, nz):
+                    if self.crouching and (was_ground or self.on_ground) and not self.drifting:
+                        # no walking off edges while crouched
+                        if not self.collides(world, nx, self.y - 0.12, nz):
+                            if axis == 0:
+                                self.vx = 0
+                            else:
+                                self.vz = 0
+                            continue
                     self.x, self.z = nx, nz
                     continue
                 # gently step up one layer if there's room
@@ -201,7 +229,7 @@ class Player:
 
     @property
     def eye(self):
-        return self.x, self.y + C.EYE + self.eye_offset, self.z
+        return self.x, self.y + self._eye + self.eye_offset, self.z
 
 
 def raycast(world, ox, oy, oz, dx, dy, dz, reach, skip_water=False):
