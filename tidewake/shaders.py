@@ -63,6 +63,7 @@ out vec3 v_wp;
 flat out int v_mat;
 flat out int v_front;
 out float v_u;
+out float v_v;
 out vec3 v_col;
 out vec3 v_n;
 out float v_emit;
@@ -79,6 +80,7 @@ void main() {
     v_mat = int(in_mat.x * 255.0 + 0.5);
     v_front = in_mat.z > 0.5 ? 1 : 0;
     v_u = in_mat.w;
+    v_v = in_nrm.w;
     v_wp = v_pos + vec3(u_cam_mod.x, u_cam_y, u_cam_mod.y);
     float sway = in_mat.y;
     if (sway > 0.0 && u_hand < 0.5) {
@@ -104,6 +106,7 @@ in vec3 v_wp;
 flat in int v_mat;
 flat in int v_front;
 in float v_u;
+in float v_v;
 uniform float u_alpha;
 uniform float u_nmat;
 uniform int u_n_glass;
@@ -130,17 +133,31 @@ void main() {
             float side = step(abs(n.y), 0.5);
             vec2 uv;
             if (side > 0.5) {
-                uv = vec2(v_u, v_wp.y / 0.7 + 0.002);          // one tile per face, per layer
+                // one tile per side face, V from the vertex (0 at the bottom of the cell)
+                uv = vec2(v_u, v_v);
             } else {
-                uv = v_wp.xz / 1.5;
+                // hex-local UV: (0.5, 0.5) is the centre of this column, the tile fits the hex
+                float rf = v_wp.z / 1.5;
+                float qf = v_wp.x * 0.57735026919 - rf * 0.5;
+                float xf = qf, zf = rf, yf = -qf - rf;
+                vec3 cr = round(vec3(xf, yf, zf));
+                vec3 ad = abs(cr - vec3(xf, yf, zf));
+                if (ad.x > ad.y && ad.x > ad.z) cr.x = -cr.y - cr.z;
+                else if (ad.y > ad.z) cr.y = -cr.x - cr.z;
+                else cr.z = -cr.x - cr.y;
+                vec2 origin = vec2(1.73205080757 * (cr.x + cr.z * 0.5), 1.5 * cr.z);
+                vec2 loc = v_wp.xz - origin;
+                uv = vec2(loc.x / 1.73205080757 + 0.5, loc.y * 0.5 + 0.5);
             }
             if (v_mat == 11) uv += vec2(u_time * 0.05, u_time * 0.031);
+            // one tile per face: clamp so the top edge stays at V=1 (fract would wrap it to 0)
+            vec2 uv_t = (v_mat == 11) ? fract(uv) : clamp(uv, 0.0, 1.0);
             float k = (v_front == 1) ? (2.0 * u_nmat + float(v_mat)) : float(v_mat * 2) + side;
             vec2 tile = vec2(mod(k, 16.0), floor(k / 16.0));
             vec2 sz = vec2(16.0, u_atlas_rows);
-            vec2 auv = (tile + (fract(uv) * 62.0 + 1.0) / 64.0) / sz;
+            vec2 auv = (tile + (uv_t * 62.0 + 1.0) / 64.0) / sz;
             vec2 g = (62.0 / 64.0) / sz;
-            vec2 tg = textureGrad(u_atlas, auv, dFdx(uv) * g, dFdy(uv) * g).rg;
+            vec2 tg = textureGrad(u_atlas, auv, dFdx(uv_t) * g, dFdy(uv_t) * g).rg;
             albedo *= mix(1.0, tg.r * 2.0, fade * u_detail);
             emit *= mix(1.0, tg.g * 2.0, fade * u_detail);
         }

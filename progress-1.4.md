@@ -290,3 +290,8 @@ Creatures were shaking up and down even on flat ground. Two things were stacking
 
 Lamps were working in some rooms and not others. The light itself was only collected from the nearest forty chunks, and in a cave full of glowcaps a lantern could be dropped from the short list the shader uses. A lamp placed just inside a chunk also failed to remesh anything but the border neighbour. Lights are now gathered from every loaded chunk, real lamps are kept first, the shader prefers a lantern over a closer glowcap, and placing or breaking a lamp dirties every chunk its light can reach.
 
+
+
+## November 25, 2026, 5:17 PM EST — Textures sit in hex space, and log ends are centred
+
+The seams on block tops and sides were not a painted line in most tiles. Tops were mapped from world XZ, so a wrap in the middle of a hex cut through the face, and a log's end-grain rings were off-centre. Sides used world Y divided by 0.7, but a block is 0.85 tall, so a wrap line sat mid-block. Tops now use a UV local to the hex, with (0.5, 0.5) at the column centre, and the tile fits the hex exactly. Sides take V from the vertices, 0 at the bottom of the cell and 1 at the top, and the sample is clamped so the top edge does not wrap back to 0. Heartwood and other wood tops draw their rings in that same hex space so the centre sits on the hex centre. Boards, bricks and grout are still meant to show joints; the mid-face wrap is what is gone.

@@ -16,6 +16,14 @@ def _rng(k):
 Y, X = np.mgrid[0:T, 0:T].astype(np.float64) / T      # 0..1
 
 
+def hex_r():
+    """World-space radius from the hex centre, given the pointy-top bounding-box UV."""
+    lx = (X - 0.5) * np.sqrt(3.0)
+    lz = (Y - 0.5) * 2.0
+    return np.sqrt(lx * lx + lz * lz)
+
+
+
 def vnoise(rng, cells, octaves=1):
     """Tileable smooth value noise in about [-1, 1]."""
     out = np.zeros((T, T))
@@ -150,7 +158,7 @@ def tile(mat, side):
         if side:
             bark = 1 + 0.16 * np.sin((X * 7 + vnoise(rng, 3) * 0.5) * np.pi * 2) * (0.6 + 0.4 * vnoise(rng, 2))
             return bark * n(8, 2, 0.06)
-        r = np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
+        r = hex_r()
         return 1 + 0.08 * np.sin((r * 9 + vnoise(rng, 3) * 0.3) * np.pi * 2)
     if mat == 10:           # canopy
         return leaves(rng, 46 if side else 60)
@@ -198,8 +206,8 @@ def tile(mat, side):
         strands = 1 + 0.18 * np.sin((X * 5 + vnoise(rng, 3) * 0.4) * np.pi * 2)
         return strands * leaves(rng, 40) * 1.05
     if mat in (14, 25):     # bloom, petals: soft petal veins
-        r = np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
-        ang = np.arctan2(Y - 0.5, X - 0.5)
+        r = hex_r()
+        ang = np.arctan2((Y - 0.5) * 2.0, (X - 0.5) * np.sqrt(3.0))
         return (1 + 0.1 * np.cos(ang * 5)) * (1 - 0.1 * r) * n(5, 2, 0.05)
     if mat in (19, 35):     # sprout, berry bush: leaves with veins
         veins = np.where(np.abs(((X + Y * 0.5) * 4) % 1 - 0.5) < 0.04, 0.85, 1.0)
@@ -238,7 +246,7 @@ def tile(mat, side):
         if side:
             bark = 1 + 0.16 * np.sin((X * 7 + vnoise(rng, 3) * 0.5) * np.pi * 2) * (0.6 + 0.4 * vnoise(rng, 2))
             return bark * n(8, 2, 0.06)
-        r = np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
+        r = hex_r()
         return 1 + 0.08 * np.sin((r * 9 + vnoise(rng, 3) * 0.3) * np.pi * 2)
     if style == 'planks':
         return boards(rng, 4)

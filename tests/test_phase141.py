@@ -156,6 +156,75 @@ def test_lamps_are_kept_among_many_glowcaps():
     keys = World._chunks_within(None, 2, 2, 13.0)
     assert (0, 0) in keys and len(keys) >= 4
 
+def _hex_uv(x, z):
+    """Same mapping the chunk shader uses for a top face."""
+    from tidewake.hexgrid import cell_at, center
+    q, r = cell_at(x, z)
+    cx, cz = center(q, r)
+    return (x - cx) / (3 ** 0.5) + 0.5, (z - cz) * 0.5 + 0.5
+
+
+def test_top_uvs_are_hex_centered():
+    from tidewake.hexgrid import center, CORNERS
+    for q, r in ((0, 0), (3, -2), (-4, 7), (11, 11)):
+        cx, cz = center(q, r)
+        u, v = _hex_uv(cx, cz)
+        assert abs(u - 0.5) < 1e-9 and abs(v - 0.5) < 1e-9, (q, r, u, v)
+        for dx, dz in CORNERS:
+            u, v = _hex_uv(cx + dx, cz + dz)
+            assert 0.0 - 1e-9 <= u <= 1.0 + 1e-9
+            assert 0.0 - 1e-9 <= v <= 1.0 + 1e-9
+        # a point halfway to a neighbour stays inside this tile (no mid-hex wrap)
+        u, v = _hex_uv(cx + 0.4, cz)
+        assert 0.0 < u < 1.0 and 0.0 < v < 1.0, (q, r, u, v)
+
+
+def test_side_faces_carry_a_vertical_v():
+    import numpy as np
+    from tidewake.mesher import _faces_side
+    from tidewake.config import LAYER
+    out = _faces_side(
+        np.array([0.0]), np.array([0.0]),
+        np.array([2 * LAYER]), np.array([3 * LAYER]),
+        np.array([1.0]), 0,
+        np.array([[1.0, 1.0, 1.0]]), np.array([[1.0, 1.0, 1.0]]),
+        np.array([0.0]),
+    )
+    v = out['n'][:, 3]
+    y = out['p'][:, 1]
+    assert set(v.tolist()) == {0, 255}
+    assert np.all(v[y == 2 * LAYER] == 0)
+    assert np.all(v[y == 3 * LAYER] == 255)
+
+
+def test_heartwood_rings_are_centered_on_the_hex():
+    import numpy as np
+    from tidewake.texpack import tile, T
+    tex = np.asarray(tile(9, False), dtype=np.float64)
+    if tex.ndim == 3:
+        tex = tex[..., 0]
+    # the pattern is rings around the hex centre, so a small disc at the centre
+    # should be almost one constant, and a ring around it should vary with angle less than with radius
+    cy = cx = T // 2
+    disc = tex[cy - 2:cy + 3, cx - 2:cx + 3]
+    ring = []
+    for a in range(0, 360, 15):
+        rad = np.radians(a)
+        # a world-space circle of radius 0.4 (inside the hex)
+        x = int(round((0.5 + 0.4 / np.sqrt(3.0) * np.cos(rad)) * T))
+        y = int(round((0.5 + 0.4 / 2.0 * np.sin(rad)) * T))
+        x = min(T - 1, max(0, x))
+        y = min(T - 1, max(0, y))
+        ring.append(tex[y, x])
+    # centre-of-mass of contrast should sit near the middle of the tile
+    w = (tex - tex.mean()) ** 2
+    ys, xs = np.indices(tex.shape)
+    wsum = w.sum() + 1e-9
+    com_x = (xs * w).sum() / wsum / (T - 1)
+    com_y = (ys * w).sum() / wsum / (T - 1)
+    assert abs(com_x - 0.5) < 0.08 and abs(com_y - 0.5) < 0.08, (com_x, com_y, disc.mean(), np.std(ring))
+
+
 if __name__ == '__main__':
     test_tutorial_dialog_only_after_talk()
     print('ok tutorial dialog only after right-click')
@@ -165,4 +234,10 @@ if __name__ == '__main__':
     print('ok mob y-trace is stable on the ground')
     test_lamps_are_kept_among_many_glowcaps()
     print('ok lamps stay in the light list')
+    test_top_uvs_are_hex_centered()
+    print('ok top UVs are centred on the hex')
+    test_side_faces_carry_a_vertical_v()
+    print('ok side faces carry a per-layer V')
+    test_heartwood_rings_are_centered_on_the_hex()
+    print('ok heartwood rings are centred on the hex')
     print('ALL 1.4.1 UNIT TESTS PASSED')

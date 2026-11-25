@@ -92,7 +92,8 @@ def _faces_side(cx, cz, y0, y1, rad, d, col_top, col_bot, emit, shade_bot=0.80):
     out['c'][:, :, :3] = np.where(top[None, :, None], ct[:, None, :], cb[:, None, :])
     out['c'][..., 3] = np.clip(np.round(emit * 255), 0, 255)[:, None]
     nx, nz = DIR_NORMALS[d]
-    out['n'][..., 0], out['n'][..., 1], out['n'][..., 2], out['n'][..., 3] = nx * 127.5 + 127.5, 128, nz * 127.5 + 127.5, 255
+    out['n'][..., 0], out['n'][..., 1], out['n'][..., 2] = nx * 127.5 + 127.5, 128, nz * 127.5 + 127.5
+    out['n'][..., 3] = np.where(top[None, :], 255, 0)  # V up the face: 0 at the bottom, 1 at the top
     out['m'][..., 3] = np.array([0, 255, 255, 0, 0, 255], np.uint8)[None, :]     # across-the-face u
     return out.reshape(-1)
 
