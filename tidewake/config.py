@@ -3,7 +3,7 @@ import math
 
 # ---- the hex lattice -------------------------------------------------------
 HEX = 1.0                     # circumradius of one hex cell (world units)
-LAYER = 0.7                   # height of one layer of cells
+LAYER = 0.85                  # height of one layer of cells (taller blocks; player is 2 blocks)
 SQ3 = math.sqrt(3.0)
 CHUNK = 16                    # cells along q and r per chunk (a rhombus of 256 columns)
 LAYERS = 128                  # layers per column
@@ -21,15 +21,19 @@ FOV = 70.0
 
 # ---- the wanderer ----------------------------------------------------------
 RADIUS = 0.32
-HEIGHT = 1.65
-EYE = 1.5
+HEIGHT = 1.66                  # just under 2 blocks, so 2-block doors and tunnels fit
+EYE = 1.48
+CROUCH_HEIGHT = 1.25           # about 1.5 blocks; lower camera, not a crawl
+CROUCH_EYE = 1.05
+CROUCH_SPEED = 1.55
 WALK = 4.6
 HURRY = 7.4
 DRIFT_SPEED = 13.0
 GRAVITY = 24.0
-JUMP = 8.2
+JUMP = 8.6                     # clears one taller block with a little loft
 GLIDE_FALL = 2.2               # max fall speed while gliding
 REACH = 8.0
+FALL_RESPAWN_LAYERS = 10       # drop in from this many layers above land
 
 # ---- time --------------------------------------------------------------------
 TIDE_LENGTH = 720.0            # seconds for a full light -> dusk -> light cycle
