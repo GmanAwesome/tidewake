@@ -108,6 +108,7 @@ class Session:
             self.weather = 'clear'
             self.waystones = {}
             self.attune = []
+            self.achieved = []
             for iid, n in STARTER:
                 self.inv.add(iid, n)
         else:
@@ -147,6 +148,7 @@ class Session:
                           for k, v in d.get('kilns', {}).items()}
             self.waystones = dict(d.get('waystones', {}))
             self.attune = list(d.get('attune', []))
+            self.achieved = list(d.get('achieved', []))
         self.world = World(self.seed, storage, app.renderer, app.pool, view_distance, far_distance,
                           gen_settings=self.gen_settings)
         self.sim = Simulation(self.world, self.seed & 0xFFFF)
@@ -156,9 +158,12 @@ class Session:
             self.waystones = {}
         if not hasattr(self, 'attune'):
             self.attune = []
+        if not hasattr(self, 'achieved'):
+            self.achieved = []
         self.apply_abilities()
         self.apply_attune()
         self.apply_dev()
+        # path unlocks after hooks exist; polled once world is ready
         self.ready = False
         self.target = self.target_prev = None
         self.target_name = ''
@@ -190,6 +195,7 @@ class Session:
         self.hurt_flash = 0.0
         self.food_t = 0.0
         self.regen_t = 0.0
+        self.path_t = 1.0
         self.mob_t = 0.0
         self.dead = False
         self.pos1 = self.pos2 = None
@@ -253,6 +259,7 @@ class Session:
                 rec['attuned'] = True
                 self.app.audio.play('awaken', 0.55)
                 self.toast('The waystone remembers you', 'Find another and you can travel between them.', 4)
+                self.check_path()
                 return
         self.app.set_screen(WaystoneScreen(key))
         self.app.audio.play('chord', 0.45)
@@ -301,7 +308,18 @@ class Session:
         self.apply_attune()
         self.app.audio.play('awaken', 0.6)
         self.toast(title, 'The Font keeps this with the sky.', 3.5)
+        self.check_path()
         return True
+
+    def check_path(self, quiet=False):
+        from . import achievements as A
+        new = A.poll(self)
+        if new and not quiet:
+            rec = A.BY_ID[new[0]]
+            more = f'  (+{len(new) - 1} more)' if len(new) > 1 else ''
+            self.toast('Path: ' + rec[1] + more, rec[5].split('.')[0] + '.', 3.8)
+            self.app.audio.play('chord', 0.35)
+        return new
 
     def toast(self, text, sub='', secs=5.0):
         self.toasts = [t for t in self.toasts if t[0] != text][-1:]
@@ -382,6 +400,7 @@ class Session:
             top = self.world.column_top(q, r)
             if top is not None and top >= 0:
                 p.y = (top + 1) * LAYER + 0.001
+        self.check_path(quiet=True)
         self.ready = True
 
     def _chunk_loaded(self, c):
@@ -535,6 +554,10 @@ class Session:
         if self.autosave <= 0:
             self.autosave = C.AUTOSAVE
             self.save()
+        self.path_t = getattr(self, 'path_t', 0) - dt
+        if self.path_t <= 0:
+            self.path_t = 1.6
+            self.check_path()
 
     # ------------------------------------------------------------------ health and food
     def _survival(self, dt, inp, moving):
@@ -693,6 +716,7 @@ class Session:
                 drops = F.harvest(m, harvest_meta)
                 if harvest_meta >= F.STAGES - 1:
                     self.stats['farmed'] = self.stats.get('farmed', 0) + 1
+                    self.check_path()
             else:
                 drops = I.drops_for(m)
             for iid, n in drops:
@@ -805,6 +829,9 @@ class Session:
         if not self.dev:
             self.inv.take_from(self.hot)
         self.stats['placed'] += 1
+        if mat in (M['door'], M['ladder']):
+            self.stats['doors'] = self.stats.get('doors', 0) + 1
+        self.check_path()
         if mat in LIVING:
             self.sim.wake(q, r, y, 0.5)
         self.sim.wake_around(q, r, y)
@@ -836,11 +863,15 @@ class Session:
             self.world.set_meta(*other, (omt & ~8) | (new & 8) | (omt & 16))
             self.world.dirty.add((other[0] // C.CHUNK, other[1] // C.CHUNK))
         self.app.audio.play('step_wood', 0.7)
+        self.stats['doors'] = self.stats.get('doors', 0) + 1
+        self.check_path()
 
     def use_block(self, q, r, y, m):
         from .ui import inventory_ui as IU
         key = f'{q},{r},{y}'
         if m == M['tinker_bench']:
+            self.stats['tinker'] = self.stats.get('tinker', 0) + 1
+            self.check_path()
             self.app.set_screen(IU.CraftScreen(3))
         elif m == M['chest']:
             if key not in self.chests:
@@ -894,6 +925,7 @@ class Session:
             self.toast('The hoe needs soil', 'Turf, loam, packed earth or heather will do.', 2.2)
             return False
         self.world.set(q, r, y, M['farmland'], 0, now=True)
+        self.stats['tilled'] = self.stats.get('tilled', 0) + 1
         self.sim.wake(q, r, y, 8.0)
         self._wear_tool()
         self.swing = 0.45
@@ -1015,6 +1047,7 @@ class Session:
         it = I.get(iid)
         self.give(iid, n)
         self.stats['fished'] = self.stats.get('fished', 0) + 1
+        self.check_path()
         self._wear_tool()
         name = it.name if it else 'something'
         if kind == 'treasure':
@@ -1061,6 +1094,7 @@ class Session:
                 if s[1] <= 0:
                     grid_slots[i] = None
         self.stats['crafted'] += 1
+        self.check_path()
 
     # ------------------------------------------------------------------ creatures and drops
     def _update_mobs(self, dt):
@@ -1199,6 +1233,8 @@ class Session:
                             sl[2] = [res, 1, 0 if uses is None else uses]
                         else:
                             sl[2][1] += 1
+                        self.stats['smelted'] = self.stats.get('smelted', 0) + 1
+                        self.check_path()
                 else:
                     k['prog'] = 0
             else:
@@ -1786,7 +1822,7 @@ class Session:
                 'chests': {k: v.to_list() for k, v in self.chests.items()},
                 'kilns': {k: {'slots': v['slots'].to_list(), 'burn': v['burn'], 'burn_max': v['burn_max'], 'prog': v['prog']}
                           for k, v in self.kilns.items()},
-                'waystones': self.waystones, 'attune': list(self.attune)}
+                'waystones': self.waystones, 'attune': list(self.attune), 'achieved': list(self.achieved)}
 
     def save(self):
         if self.storage:

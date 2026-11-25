@@ -348,6 +348,9 @@ class App(pyglet.window.Window):
                 ses.toast('Tidecall is not yours yet', 'Wake three spires to learn it.', 2.5)
         elif symbol in (key.J, key.TAB):
             self.set_screen(S.JournalScreen())
+        elif symbol == key.P:
+            from .ui.systems import PathScreen
+            self.set_screen(PathScreen())
         elif symbol in (key.SLASH, key.ENTER, key.NUM_ENTER):
             self.swallow_text = symbol != key.SLASH
             self.set_screen(S.WhisperScreen('/' if symbol == key.SLASH else ''))

@@ -141,3 +141,7 @@ Craft a fishing rod from three sticks and a scrap of linen, then right-click a s
 
 A hoe (two sticks and any stone) turns turf, loam, packed earth or heather into a tilled bed. Plant grain, root or duskberry seeds on it; the plants grow through four stages, faster in the light and faster still if a pool is close by. Ripe skywheat, sweetroot and berry bushes give food and more seeds — pick them early and you may only get the seed back. Three ears of skywheat bake into a loaf at the tinker bench, and sweetroot roasts in the kiln. Turning turf, breaking petals or digging loam sometimes turns up seeds to start with, and unused dry beds slowly rest back to loam.
 
+## November 25, 2026, 3:55 PM EST — The Path (achievement tree)
+
+Press P, or open The Path from the rest menu, to see a tree of goals for this sky. Each node tells you what to do and how — mining, crafting, the kiln, doors and ladders, catching Glimmer, waystones and the Font, fishing, farming, and waking a spire. What you have already done is remembered with the sky, and a little note appears when a new step is earned.
+

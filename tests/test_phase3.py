@@ -82,3 +82,36 @@ def test_farming_hoe_seeds_and_harvest():
     assert all(i != I.WHEAT.id for i, _ in young)
     from tidewake.sim import LIVING
     assert MT.ID['farmland'] in LIVING and MT.ID['skywheat'] in LIVING
+
+
+def test_achievement_tree():
+    from tidewake import achievements as A
+    assert len(A.NODES) >= 10
+    assert all(len(n) == 7 for n in A.NODES)
+    assert A.NODES[0][0] == 'first' and A.NODES[0][2] is None
+    ids = [n[0] for n in A.NODES]
+    assert len(ids) == len(set(ids))
+    for nid, title, parent, col, row, how, chk in A.NODES:
+        assert title and how and callable(chk)
+        if parent:
+            assert parent in A.BY_ID
+
+    class Fake:
+        stats = {'mined': 30, 'crafted': 1, 'tinker': 1, 'smelted': 0, 'placed': 0, 'doors': 0,
+                 'motes': 0, 'fished': 0, 'tilled': 0, 'farmed': 0}
+        play_time = 0
+        waystones = {}
+        attune = []
+        awakened = []
+        achieved = []
+
+    s = Fake()
+    new = A.poll(s)
+    assert 'first' in s.achieved and 'gather' in s.achieved and 'craft' in s.achieved
+    assert 'tinker' in s.achieved
+    assert 'kiln' not in s.achieved
+    assert 'shrine' not in s.achieved
+    s.waystones = {'0,0,4': {'name': 'Lumen shrine', 'attuned': True}}
+    s.stats['motes'] = 1
+    A.poll(s)
+    assert 'wander' in s.achieved and 'shrine' in s.achieved

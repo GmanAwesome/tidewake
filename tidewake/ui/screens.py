@@ -401,9 +401,12 @@ class RestScreen(Screen):
             app.set_screen(None)
         if gui.button(x, y - 52 * s, bw, bh, 'Journal'):
             app.set_screen(JournalScreen(self))
-        if gui.button(x, y - 104 * s, bw, bh, 'Settings'):
+        if gui.button(x, y - 104 * s, bw, bh, 'The Path'):
+            from .systems import PathScreen
+            app.set_screen(PathScreen(self))
+        if gui.button(x, y - 156 * s, bw, bh, 'Settings'):
             app.set_screen(SettingsScreen(self))
-        if gui.button(x, y - 156 * s, bw, bh, 'Save and leave'):
+        if gui.button(x, y - 208 * s, bw, bh, 'Save and leave'):
             app.quit_to_title()
 
 
@@ -492,7 +495,8 @@ class JournalScreen(Screen):
                     ('Left click (hold)', 'mine · hit creatures'),
                     ('Right click', 'place · use · eat'), ('1 - 9 / wheel', 'pick a hotbar slot'),
                     ('E', 'backpack and crafting'), ('Q', 'drop the held item'),
-                    ('J', 'journal'), ('T', 'tidecall (once learned)'),
+                    ('J', 'journal'), ('P', 'the Path (goals and how-to)'),
+                    ('T', 'tidecall (once learned)'),
                     ('Enter or /', 'type a command (/help)'), ('F1 · F2 · F3', 'hide HUD · snapshot · details'),
                     ('F4', 'dev mode on / off'), ('F5', 'admin panel (dev mode)'),
                     ('F · N · [ ]', 'dev: fly · noclip · fly speed'), ('Esc', 'rest (pause)')]
