@@ -228,3 +228,8 @@ A buried chamber often went up without a lamp, because ruined or abandoned rooms
 
 Turning cave amount and cave size all the way up used to Swiss-cheese the islands: the walking surface held, but the cliffs opened into a lace of holes. The top of those sliders is a little gentler now, rooms stay rooms instead of eating everything, and a solid shell is kept around the outside of each island so caves can still open wide inside without turning the land into cheese.
 
+
+## November 25, 2026, 4:45 PM EST — A balance pass on Glimmer, food and fishing
+
+Glimmer at the usual mid setting was quietly disappearing in the daytime, because the target count was rounded down to zero. Mid-rarity skies now keep a light daytime trickle, and dusk still feels like the richer time to gather. Fishing bites stay open a little longer, so a fair hook is easier to catch. Food was already in a sensible place: a full bar lasts around half an hour of walking, and a handful of berries or a roast is a real meal, so that was left alone.
+

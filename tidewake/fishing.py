@@ -7,7 +7,7 @@ from . import tide as TIDE
 
 # seconds to first bite, and how long the bite window stays open
 WAIT = (2.2, 7.5)
-BITE = (0.85, 1.35)
+BITE = (1.1, 1.7)
 
 
 def biome_group(realm):

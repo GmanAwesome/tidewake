@@ -121,6 +121,49 @@ def test_max_caves_do_not_swiss_cheese_islands():
     assert hi['mouths_per_col'] < 0.55, f'max caves lace the cliffs: {hi}'
 
 
+
+
+def test_glimmer_and_survival_balance():
+    import math
+    from tidewake.generator import Generator
+    from tidewake import fishing as F
+    from tidewake import items as I
+    from tidewake.session import MAX_FOOD
+    g = Generator(1, {})
+    assert 0.28 <= g.glimmer_mul <= 0.40
+    # mid rarity must still allow a daytime mote (int() used to floor this to 0)
+    want_day = int(math.ceil((1 + 5 * 0.0) * g.glimmer_mul - 1e-9))
+    want_dusk = int(math.ceil((1 + 5 * 1.0) * g.glimmer_mul - 1e-9))
+    assert want_day >= 1 and want_dusk >= want_day
+    rare = Generator(1, {'glimmer_rarity': 100})
+    common = Generator(1, {'glimmer_rarity': 0})
+    assert rare.glimmer_mul < g.glimmer_mul < common.glimmer_mul
+    # fishing: a bite stays open long enough to be fair, wait is still short
+    assert F.BITE[0] >= 1.0 and F.BITE[1] <= 2.5
+    assert F.WAIT[1] <= 10
+    # food: a full bar lasts several minutes of walking, meals restore a useful chunk
+    walk_drain = (1 / 50.0) * 0.5
+    minutes = (MAX_FOOD / walk_drain) / 60.0
+    assert 20 <= minutes <= 60, minutes
+    assert I.BERRIES.food >= 3 and I.ROAST.food >= 6 and I.PIE.food >= 8
+
+
+def test_old_worlds_still_generate():
+    from tidewake.generator import Generator
+    import numpy as np
+    v1 = Generator(7)          # no settings: legacy 1.3 skies
+    v2 = Generator(7, {})
+    assert v1.version == 1 and v2.version == 2
+    a, _, _ = v1.generate(0, 0)
+    b, _, _ = v1.generate(0, 0)
+    c, _, _ = v2.generate(0, 0)
+    assert (a == b).all()
+    assert a.shape == c.shape
+    assert (a != 0).any() and (c != 0).any()
+    # v1 and v2 of the same seed are not the same land
+    assert not (a == c).all()
+
+
 if __name__ == '__main__':
     test_skywhale_is_longer_than_it_is_chunky()
     print('ok skywhale silhouette is long and flat')
@@ -130,4 +173,8 @@ if __name__ == '__main__':
     print('ok buried chamber is lit')
     test_max_caves_do_not_swiss_cheese_islands()
     print('ok max caves keep a solid shell')
+    test_glimmer_and_survival_balance()
+    print('ok glimmer, food and fishing balance')
+    test_old_worlds_still_generate()
+    print('ok old worlds still generate')
     print('ALL PHASE5 UNIT TESTS PASSED')

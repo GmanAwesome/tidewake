@@ -1601,7 +1601,8 @@ class Session:
         dusk = TIDE.dusk_amount(self.phase)
         gmul = getattr(self.gen, 'glimmer_mul', 1.0)
         sense = 'sense' in getattr(self, 'attune', [])
-        want = int((1 + 5 * dusk) * gmul * (1.35 if sense else 1.0))
+        # ceil so mid-rarity still yields a daytime trickle (int() used to floor to 0)
+        want = int(math.ceil((1 + 5 * dusk) * gmul * (1.35 if sense else 1.0) - 1e-9))
         if getattr(self, 'tutorial', False):
             want = max(want, 4)
         while len(self.motes) < want and random.random() < dt * (1.2 if sense else 0.8) * max(0.12, gmul):
