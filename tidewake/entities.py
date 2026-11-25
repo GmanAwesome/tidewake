@@ -10,6 +10,7 @@ import random
 import numpy as np
 
 from .config import LAYER, CLOUD_SEA
+from .materials import is_blocking
 from .hexgrid import cell_at, center
 from . import materials as MT
 from . import items as I
@@ -29,8 +30,7 @@ SCALE = {'brute': 1.7}
 
 def solid_at(world, x, y, z):
     q, r = cell_at(x, z)
-    m = world.get(q, r, math.floor(y / LAYER))
-    return m < 0 or SOLID[m]
+    return is_blocking(world, q, r, math.floor(y / LAYER))
 
 
 class Mob:
@@ -100,8 +100,11 @@ class Mob:
                 self.vx = self.vz = 0
                 self.yaw = (self.yaw + 150) % 360
                 self.think = 1.0
-        self.vy -= 24.0 * dt
-        self.vy = max(self.vy, -30)
+        if not self.on_ground:
+            self.vy -= 24.0 * dt
+            self.vy = max(self.vy, -30)
+        else:
+            self.vy = min(self.vy, 0.0)
         self._move(world, dt)
         if self.y < CLOUD_SEA * LAYER - 4:
             self.dead = True
@@ -130,9 +133,11 @@ class Mob:
         ny = self.y + self.vy * dt
         self.on_ground = False
         if self.vy <= 0 and self._blocked(world, self.x, ny, self.z):
-            self.y = math.floor((ny + 0.002) / LAYER + 1) * LAYER
+            # snap to the top of the floor we collided with, plus a hair, so we don't oscillate
+            self.y = math.floor((ny + 0.002) / LAYER + 1) * LAYER + 0.002
+            # if still inside (odd geometry), nudge up one layer once
             if self._blocked(world, self.x, self.y, self.z):
-                self.y += LAYER
+                self.y = math.floor(self.y / LAYER + 1) * LAYER + 0.002
             self.vy = 0
             self.on_ground = True
         elif self.vy > 0 and self._blocked(world, self.x, ny + 0.05, self.z):
