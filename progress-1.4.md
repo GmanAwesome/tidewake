@@ -243,3 +243,8 @@ A scripted play-through now walks the title, the lesson island, a freshly genera
 
 Eyes on the wanderer were too small to read at the usual camera distance, so the “looking at you” view still felt like a blank head. The eyes are larger now, with a little white around a dark pupil, the hair sits further back, and that camera stands closer so a face is actually visible.
 
+
+## November 25, 2026, 4:50 PM EST — A real under-canopy shot
+
+The first play-test pass missed a tree in a generated sky, because the wanderer had been left on a bare cinder ridge. The search now looks through the loaded chunks for a trunk and a walkable cell under the leaves, and the tour stands in the Bright Arch grove so the shot is taken under a real canopy in a generated world.
+

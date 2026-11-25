@@ -1746,43 +1746,47 @@ def phase4_fix(app, log, shot, look_at, settled, arg):
     log('phase4_fix finished')
 
 
-def _find_under_canopy(ses, origin=None, reach=64):
+def _find_under_canopy(ses, origin=None, reach=80):
     """A walkable ground cell beside a trunk, with canopy at least 3 layers overhead."""
     WOOD = {M['heartwood'], M['cedar_heartwood'], M['pale_heartwood'], M['dark_heartwood']}
     LEAF = {M['canopy']}
     pq, pr = origin or cell_at(ses.player.x, ses.player.z)
-    for rad in range(0, reach + 1):
-        cells = [(pq, pr)] if rad == 0 else list(ring(pq, pr, rad))
-        for aq, ar in cells:
-            top = ses.world.column_top(aq, ar)
-            if top is None:
+    trunks = []
+    for ch in list(ses.world.chunks.values()):
+        hits = np.argwhere(np.isin(ch.cells, list(WOOD)))
+        for a, y, b in hits:
+            q = ch.cq * CHUNK + int(a)
+            r = ch.cr * CHUNK + int(b)
+            if abs(q - pq) + abs(r - pr) > reach * 2:
                 continue
-            trunk_y = None
-            leaf_y = None
-            for y in range(top, max(0, top - 18), -1):
-                mat = ses.world.get(aq, ar, y)
-                if mat in LEAF and leaf_y is None:
-                    leaf_y = y
-                if mat in WOOD:
-                    trunk_y = y
+            trunks.append((q, r, int(y)))
+    trunks.sort(key=lambda t: abs(t[0] - pq) + abs(t[1] - pr))
+    for aq, ar, trunk_y in trunks:
+        leaf_y = None
+        for y in range(trunk_y + 1, trunk_y + 14):
+            if ses.world.get(aq, ar, y) in LEAF:
+                leaf_y = y
+                break
+        if leaf_y is None:
+            continue
+        for dq, dr in list(DIRS) + [(0, 0)]:
+            nq, nr = aq + dq, ar + dr
+            gt = ses.world.column_top(nq, nr)
+            if gt is None:
+                continue
+            cap = ses.world.get(nq, nr, gt)
+            if cap in WOOD or cap in LEAF:
+                continue
+            overhead = None
+            for y in range(gt + 3, gt + 14):
+                if ses.world.get(nq, nr, y) in LEAF or (nq == aq and ses.world.get(aq, ar, y) in LEAF):
+                    overhead = y
                     break
-            if trunk_y is None or leaf_y is None:
-                continue
-            for dq, dr in list(DIRS) + [(0, 0)]:
-                nq, nr = aq + dq, ar + dr
-                gt = ses.world.column_top(nq, nr)
-                if gt is None:
-                    continue
-                cap = ses.world.get(nq, nr, gt)
-                if cap in WOOD or cap in LEAF:
-                    continue
-                overhead = None
-                for y in range(gt + 3, gt + 12):
-                    if ses.world.get(nq, nr, y) in LEAF or ses.world.get(aq, ar, y) in LEAF:
-                        overhead = y
-                        break
-                if overhead is not None:
-                    return nq, nr, gt, aq, ar, overhead
+            # also accept canopy on the trunk column hanging over this neighbor
+            if overhead is None and leaf_y >= gt + 3:
+                overhead = leaf_y
+            if overhead is not None:
+                return nq, nr, gt, aq, ar, overhead
     return None
 
 
@@ -1865,10 +1869,15 @@ def phase5(app, log, shot, look_at, settled, arg):
 
     # a new generated sky — stand under a real canopy before flying off
     app.set_screen(None)
-    app.create_sky('Phase 5', 1729, '1729', 'dreamer')
+    seed = seed_from_text('bright-arch')
+    app.create_sky('Phase 5', seed, 'bright-arch', 'dreamer')
     yield lambda: app.mode == 'game' and app.session and app.session.ready
     ses = app.session
     p = ses.player
+    # the Bright Arch grove (lavender trees you can walk under)
+    tx, tz = center(-63, 22)
+    p.x, p.z = tx, tz
+    p.y = 49 * LAYER
     yield settled()
     ses.dev = True
     p.drifting = True
@@ -2015,3 +2024,87 @@ def phase5(app, log, shot, look_at, settled, arg):
     yield 1.0
     yield shot('10_legacy_sky')
     log('phase5 finished')
+
+
+def phase5_fix(app, log, shot, look_at, settled, arg):
+    """Retake under-canopy, closer whales, and a readable front face in a generated grove."""
+    import time as _t
+    from .entities import Mob
+    from . import items as I
+
+    app.started = _t.perf_counter() - 60
+    yield 0.8
+    seed = seed_from_text('bright-arch')
+    app.create_sky('Phase 5 Fix', seed, 'bright-arch', 'dreamer')
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    tx, tz = center(-63, 22)
+    p.x, p.z = tx, tz
+    p.y = 49 * LAYER
+    p.drifting = True
+    p.noclip = True
+    ses.dev = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    app.cam_view = 0
+    p.update = lambda *a, **k: None
+    ses.phase = 0.12
+    yield settled()
+
+    found = _find_under_canopy(ses, (-63, 22), 80)
+    if found:
+        nq, nr, gt, aq, ar, overhead = found
+        tx, tz = center(aq, ar)
+        gx, gz = center(nq, nr)
+        p.x = gx + (gx - tx) * 0.2
+        p.z = gz + (gz - tz) * 0.2
+        p.y = (gt + 1) * LAYER + 0.05
+        look_at(p, tx, (overhead + 0.15) * LAYER, tz)
+        log('under_canopy', found)
+        yield settled()
+        yield 1.1
+        yield shot('05_under_canopy')
+        stand = (p.x, p.y, p.z, nq, nr, gt)
+    else:
+        log('no tree found')
+        stand = (p.x, p.y, p.z, -63, 22, 48)
+
+    # whales in profile, close enough to read the long silhouette
+    bx, bz = center(-63, 22)
+    p.x, p.z = bx - 2, bz + 14
+    p.y = 62 * LAYER
+    ses.mobs = [
+        Mob('skywhale', bx + 8, 60 * LAYER, bz + 2),
+        Mob('skywhale', bx + 18, 63 * LAYER, bz - 6),
+    ]
+    ses.mobs[0].yaw = 280
+    ses.mobs[1].yaw = 260
+    look_at(p, bx + 12, 61 * LAYER, bz - 1)
+    yield settled()
+    yield 1.0
+    yield shot('06_skywhales')
+    ses.mobs = []
+
+    # face and third person on the grove floor
+    sx, sy, sz, nq, nr, gt = stand
+    p.x, p.z = sx, sz
+    p.y = (gt + 1) * LAYER + 0.05
+    ses.inv.clear()
+    ses.inv.add(I.TOOLS[('pick', 2)].id, 1)
+    ses.hot = 0
+    p.yaw = 30
+    p.pitch = -6
+    app.cam_view = 1
+    app.hide_hud = False
+    ses.toasts = []
+    app.started = _t.perf_counter() - 60
+    yield 0.9
+    yield shot('07_third_person')
+    app.cam_view = 2
+    yield 0.8
+    yield shot('08_looking_at_you')
+    app.cam_view = 0
+    app.hide_hud = True
+    log('phase5_fix finished')
