@@ -1519,3 +1519,228 @@ def phase3_fix(app, log, shot, look_at, settled, arg):
     yield shot('09_path')
     app.set_screen(None)
     log('phase3_fix finished')
+
+
+def phase4(app, log, shot, look_at, settled, arg):
+    """Title logo, a seed showcase, brighter lesson huts, flyers, tall trees, third person, dawn."""
+    from . import tutorial as TUT
+    from . import showcase as SC
+    from .entities import Mob
+    from . import items as I
+
+    yield 1.2
+    yield lambda: app.backdrop is not None and app.backdrop['world'].busy() == 0
+    yield 1.4
+    yield shot('00_title')
+
+    SC._index = 1
+    app.start_backdrop()
+    yield 1.0
+    yield lambda: app.backdrop['world'].busy() == 0
+    yield 1.6
+    yield shot('01_title_seed')
+    keep = app.menu
+    app.menu = None
+    app.backdrop['speed'] = 0
+    yield 1.1
+    yield shot('02_showcase_sky')
+    app.menu = keep
+
+    app.start_tutorial()
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = False
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+
+    # brighter huts: look into Tess and Cole's rooms
+    tx, tz = center(9, 2)
+    p.x, p.z = tx - 1.0, tz + 7.0
+    p.y = (TUT.SURF + 3.8) * LAYER
+    look_at(p, tx + 1.2, (TUT.SURF + 1.6) * LAYER, tz - 0.4)
+    yield 0.8
+    yield shot('03_lesson_huts')
+
+    # practice door, slightly ajar in its frame
+    tx, tz = center(13, -1)
+    p.x, p.z = tx - 3.4, tz + 2.6
+    p.y = (TUT.SURF + 3.4) * LAYER
+    look_at(p, tx + 0.3, (TUT.SURF + 2.0) * LAYER, tz)
+    yield 0.8
+    yield shot('04_practice_door')
+
+    # quiet lesson island (no woolhops), trees you can walk under
+    tx, tz = center(5, -2)
+    p.x, p.z = tx - 4.5, tz + 6.5
+    p.y = (TUT.SURF + 2.2) * LAYER
+    look_at(p, tx, (TUT.SURF + 3.5) * LAYER, tz)
+    yield 0.8
+    yield shot('05_lesson_trees')
+
+    # a new sky for flyers, tall trees, third person, dawn
+    app.set_screen(None)
+    app.create_sky('Phase 4', 1729, '1729', 'dreamer')
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = True
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    ses.phase = 0.12
+    ses.mobs = [m for m in ses.mobs if m.kind in ('skywhale', 'fairy')]
+
+    # place two skywhales in front of the camera
+    q, r = cell_at(p.x, p.z)
+    tx, tz = p.x + 18, p.z - 8
+    p.y = p.y + 14
+    ses.mobs.append(Mob('skywhale', tx, p.y - 1.5, tz))
+    ses.mobs.append(Mob('skywhale', tx + 10, p.y + 2.0, tz - 6))
+    ses.mobs[-2].yaw = 220
+    ses.mobs[-1].yaw = 200
+    look_at(p, tx + 4, p.y, tz - 2)
+    yield settled()
+    yield 1.0
+    yield shot('06_skywhales')
+
+    # fairies at dusk, near the player, glowing
+    ses.phase = 0.48
+    ses.mobs = [m for m in ses.mobs if m.kind == 'skywhale']
+    fx, fz = p.x + 3.5, p.z + 1.2
+    for i, (dx, dz, dy) in enumerate(((-0.8, 1.2, 0.4), (1.1, 0.6, 0.8), (0.2, -0.9, 0.3), (1.8, 1.6, 1.1))):
+        ses.mobs.append(Mob('fairy', fx + dx, p.y - 6 + dy, fz + dz))
+    p.y = p.y - 5
+    look_at(p, fx, p.y - 0.2, fz)
+    yield 0.9
+    yield shot('07_fairies')
+
+    # walkable canopy: find a nearby tree and stand under it
+    WOOD = {M['heartwood'], M['cedar_heartwood'], M['pale_heartwood'], M['dark_heartwood']}
+    pq, pr = cell_at(p.x, p.z)
+    found = None
+    for rad in range(1, 40):
+        for aq, ar in ring(pq, pr, rad):
+            top = ses.world.column_top(aq, ar)
+            if top is None:
+                continue
+            if ses.world.get(aq, ar, top + 1) in WOOD:
+                found = (aq, ar, top)
+                break
+        if found:
+            break
+    if found:
+        aq, ar, top = found
+        tx, tz = center(aq, ar)
+        # stand a couple cells off the trunk, look through the under-canopy
+        p.x, p.z = tx + 2.6, tz + 2.2
+        p.y = (top + 1) * LAYER + 0.05
+        look_at(p, tx, (top + 5.5) * LAYER, tz)
+        log('tree', found)
+        yield settled()
+        yield 0.9
+        yield shot('08_under_canopy')
+    else:
+        log('no tree found')
+
+    # third person, holding a crafted pick
+    ses.inv.clear()
+    ses.inv.add(I.TOOLS[('pick', 2)].id, 1)
+    ses.hot = 0
+    app.cam_view = 1
+    app.hide_hud = False
+    p.y = (ses.world.column_top(*cell_at(p.x, p.z)) + 1) * LAYER + 0.05
+    p.pitch = -12
+    # camera behind: look slightly down at the figure
+    yield 0.8
+    yield shot('09_third_person')
+    app.cam_view = 2
+    yield 0.7
+    yield shot('10_third_person_front')
+    app.cam_view = 1
+    app.hide_hud = True
+
+    # dawn sleep transition (mid fade-in)
+    ses.sleeping = {'stage': 'dawn', 't': 0.8}
+    ses.phase = 0.88
+    yield 0.4
+    yield shot('11_dawn_sleep')
+    ses.sleeping = None
+    ses.phase = 0.0
+    log('phase4 finished')
+
+
+
+def phase4_fix(app, log, shot, look_at, settled, arg):
+    """Clearer skywhales and a cleaner third-person shot in the light."""
+    from .entities import Mob
+    from . import items as I
+    app.create_sky('Phase 4 fix', 1729, '1729', 'dreamer')
+    yield lambda: app.mode == 'game' and app.session and app.session.ready
+    ses = app.session
+    p = ses.player
+    yield settled()
+    ses.dev = True
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    ses.toasts = []
+    ses.last_tide_name = 'Lighttide'
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    app.hide_hud = True
+    p.update = lambda *a, **k: None
+    ses.mobs = []
+    # stand in open air looking at a pair of drifting whales
+    p.x, p.y, p.z = p.x, p.y + 18, p.z
+    ses.mobs.append(Mob('skywhale', p.x + 10, p.y - 1.0, p.z - 16))
+    ses.mobs.append(Mob('skywhale', p.x + 22, p.y + 3.0, p.z - 22))
+    ses.mobs[-2].yaw = 40
+    ses.mobs[-1].yaw = 20
+    look_at(p, p.x + 14, p.y + 0.5, p.z - 18)
+    yield settled()
+    yield 1.0
+    yield shot('06_skywhales')
+
+    # fairies over a grassy shelf at early dusk, close up
+    ses.phase = 0.42
+    ses.mobs = []
+    top = ses.world.column_top(*cell_at(p.x, p.z)) or int(p.y / LAYER)
+    p.y = (top + 3) * LAYER
+    fx, fy, fz = p.x + 3.0, p.y + 0.2, p.z - 2.0
+    for dx, dz, dy in ((-0.6, 0.8, 0.2), (0.9, 0.3, 0.5), (0.1, -0.7, 0.15), (1.4, 1.1, 0.7)):
+        ses.mobs.append(Mob('fairy', fx + dx, fy + dy, fz + dz))
+    look_at(p, fx, fy + 0.2, fz)
+    yield 0.9
+    yield shot('07_fairies')
+
+    # third person on open ground, holding a pick, no toasts
+    ses.phase = 0.10
+    ses.last_tide_name = 'Lighttide'
+    ses.toasts = []
+    ses.mobs = []
+    ses.inv.clear()
+    ses.inv.add(I.TOOLS[('pick', 2)].id, 1)
+    ses.hot = 0
+    top = ses.world.column_top(*cell_at(p.x, p.z)) or int(p.y / LAYER)
+    p.x, p.z = p.x, p.z
+    p.y = (top + 1) * LAYER + 0.05
+    p.pitch = -8
+    p.yaw = 200
+    app.cam_view = 1
+    app.hide_hud = False
+    yield 0.8
+    yield shot('09_third_person')
+    app.cam_view = 2
+    yield 0.7
+    yield shot('10_third_person_front')
+    log('phase4_fix finished')

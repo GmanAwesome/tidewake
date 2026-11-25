@@ -119,7 +119,7 @@ def generate_chunk(cq, cr):
 
     # trees for the mining lesson
     for q, r in ((4, -2), (6, -2), (5, 0), (3, -3)):
-        _tree(cells, meta, cq, cr, q, r, 5)
+        _tree(cells, meta, cq, cr, q, r, 7)
 
     # Tess's hut: a tiny plank room with a bench and a chest
     _hut(cells, meta, cq, cr, 8, 1, M['tinker_bench'])

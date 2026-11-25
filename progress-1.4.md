@@ -195,3 +195,7 @@ The main menu no longer shows just the lighthouse cottage. It now takes turns th
 
 The title screen has a real animated logo now: a pulsing hex crest, wake rings that swell and fade, and the Tidewake wordmark drawn letter by letter so the name itself breathes. A gold tide-line sits under it. Menu type is a little larger and clearer — titles use the display face more confidently, and the buttons have more room. The version string is 1.4-phase4.
 
+## November 25, 2026, 4:35 PM EST — Phase 4 play-test shots
+
+Play-test shots for Phase 4 are in `screenshots-final/v1.4-phase4/`: the new animated title and a seed showcase, the brighter lesson huts and the practice door, trees you can walk under, skywhales, fairies, third-person (behind and looking at you), and the dawn after a rest. The version string is 1.4-phase4.
+
