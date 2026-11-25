@@ -87,3 +87,9 @@ Screenshot: `screenshots-final/v1.4-phase2a/10_thick_island.png` (a cut through 
 Caves under new islands are more open and less like a single narrow worm. You’ll find winding tunnels, wider rooms of a few different sizes, the occasional tall fissure, and longer “highways” that stitch chambers together. Cave amount and Cave size on the new-sky screen change how often they appear and how roomy they feel.
 
 Screenshot: `screenshots-final/v1.4-phase2a/10_thick_island.png` and `12_cave.png`.
+
+## November 25, 2026, 2:58 PM EST — Eight new landscapes
+
+Eight new biomes join the original eight, using existing blocks with new colors, plants and layouts (no new block types yet). The real-world-inspired ones are Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires and Chalk Barrens. The fictional ones are Starfall Veil, Cloudstep Isles and Verdigris Canyons. Each has its own turf color, trees or crystals, and a little gameplay flavor (wood, clay, ores, high overlooks, and so on).
+
+Screenshots: `screenshots-final/v1.4-phase2a/01_lavender_downs.png` through `08_verdigris_canyons.png`.

@@ -114,11 +114,20 @@ ORES = [ID['emberite_ore'], ID['verdigris_ore'], ID['silverine_ore'], ID['aether
 
 # ---- realms (biomes) -----------------------------------------------------------
 REALMS = ['Meadow Isles', 'Amberwood', 'Rose Mesas', 'Frostglass', 'Basalt Steps', 'Mossfen', 'Duneglass',
-          'Lumen Grove']
+          'Lumen Grove',
+          # 1.4: eight new landscapes (existing materials, new palettes and flora)
+          'Saltwind Flats', 'Cedar Highlands', 'Lavender Downs', 'Cinder Spires',
+          'Chalk Barrens', 'Starfall Veil', 'Cloudstep Isles', 'Verdigris Canyons']
+N_REALMS = len(REALMS)
 REALM_TURF = np.array([(0.56, 0.80, 0.44), (0.82, 0.76, 0.46), (0.72, 0.78, 0.48), (0.93, 0.96, 1.0),
-                       (0.47, 0.66, 0.47), (0.40, 0.62, 0.36), (0.88, 0.82, 0.58), (0.62, 0.50, 0.86)], np.float32)
+                       (0.47, 0.66, 0.47), (0.40, 0.62, 0.36), (0.88, 0.82, 0.58), (0.62, 0.50, 0.86),
+                       # saltwind, cedar, lavender, cinder, chalk, starfall, cloudstep, verdigris
+                       (0.78, 0.74, 0.58), (0.30, 0.48, 0.34), (0.72, 0.58, 0.82), (0.22, 0.20, 0.20),
+                       (0.90, 0.88, 0.78), (0.28, 0.24, 0.48), (0.82, 0.90, 0.94), (0.22, 0.58, 0.50)], np.float32)
 REALM_CANOPY = np.array([(0.42, 0.70, 0.40), (0.93, 0.66, 0.38), (0.62, 0.74, 0.40), (0.48, 0.66, 0.62),
-                         (0.38, 0.58, 0.40), (0.50, 0.72, 0.42), (0.78, 0.80, 0.46), (0.84, 0.56, 0.92)], np.float32)
+                         (0.38, 0.58, 0.40), (0.50, 0.72, 0.42), (0.78, 0.80, 0.46), (0.84, 0.56, 0.92),
+                         (0.62, 0.66, 0.40), (0.22, 0.40, 0.28), (0.86, 0.56, 0.78), (0.28, 0.22, 0.22),
+                         (0.70, 0.78, 0.58), (0.62, 0.48, 0.90), (0.70, 0.86, 0.88), (0.18, 0.62, 0.48)], np.float32)
 ROSE_BANDS = np.array([(0.93, 0.64, 0.56), (0.97, 0.80, 0.67), (0.84, 0.54, 0.52), (0.98, 0.88, 0.76),
                        (0.90, 0.70, 0.60)], np.float32)
 PETAL_COLORS = np.array([(1.0, 0.96, 0.80), (1.0, 0.84, 0.40), (0.70, 0.78, 1.0), (1.0, 0.70, 0.82)], np.float32)

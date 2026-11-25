@@ -229,7 +229,7 @@ def grow_tree(world, q, r, top, realm, rng):
     world.set(q, r, top + 1, wood)
     for y in range(top + 2, top + hgt + 1):
         put(q, r, y, wood)
-    if realm == 3:
+    if realm in (3, 9, 14):  # frost, cedar, cloudstep firs
         for i, y in enumerate(range(top + 3, top + hgt + 2)):
             disk(y, max(0, 2 - i // 2), leaf)
     else:
