@@ -49,6 +49,40 @@ def veil(gui, w, h, a=0.35):
 
 
 # ---------------------------------------------------------------------- title
+
+def draw_logo(gui, cx, cy, t, s, word='Tidewake', size=64):
+    """Animated wordmark: a pulsing crest, expanding wake rings, and letters that breathe."""
+    # wake rings that swell and fade, like a tide spreading through hexes
+    for k in range(3):
+        phase = (t * 0.28 + k / 3.0) % 1.0
+        rad = (22 + 70 * phase) * s
+        a = max(0.0, 0.5 * (1.0 - phase) ** 1.2)
+        gui.hexagon(cx, cy + 10 * s, rad, (1, 1, 1, 0), border=(0.98, 0.90, 0.72, a), border_w=2.2 * s)
+    # crest: six hexes around a bright core, each bobbing on its own tide
+    for i, (dx, dy, c) in enumerate([(-1, 0, ELEMENT_COLORS[0]), (1, 0, ELEMENT_COLORS[1]),
+                                     (-0.5, 0.866, ELEMENT_COLORS[2]), (0.5, 0.866, ELEMENT_COLORS[3]),
+                                     (-0.5, -0.866, ELEMENT_COLORS[0]), (0.5, -0.866, ELEMENT_COLORS[1])]):
+        r = 11 * s
+        pulse = 1.0 + 0.08 * math.sin(t * 1.6 + i * 0.9)
+        gui.hexagon(cx + dx * r * 1.85, cy + 58 * s + dy * r * 1.85 + math.sin(t * 1.25 + i) * 2.4 * s,
+                    r * pulse, (*c[:3], 0.96), border=(1, 1, 1), border_w=1.8 * s)
+    gui.hexagon(cx, cy + 58 * s, 12 * s * (1.0 + 0.06 * math.sin(t * 2.0)), (1, 1, 1, 0.95),
+                border=(0.98, 0.88, 0.70), border_w=2.2 * s)
+    # wordmark, one letter at a time so the name itself moves
+    widths = [gui.text_width(ch, size, font='title') for ch in word]
+    gap = 1.5 * s
+    total = sum(widths) + gap * (len(word) - 1)
+    x = cx - total / 2
+    for i, ch in enumerate(word):
+        bob = math.sin(t * 1.7 + i * 0.45) * 3.2 * s
+        gui.text(ch, x + 2.5 * s, cy - 6 * s + bob, size, (0.18, 0.12, 0.32, 0.40), font='title')
+        gui.text(ch, x, cy - 2 * s + bob, size, WHITE, font='title')
+        x += widths[i] + gap
+    # a thin gold tide-line under the name
+    lw = total * (0.72 + 0.08 * math.sin(t * 1.1))
+    gui.rect(cx - lw / 2, cy - 36 * s, lw, 2.2 * s, (0.98, 0.86, 0.62, 0.85), 2 * s)
+
+
 class TitleScreen(Screen):
     def __init__(self):
         self.splash = random.choice(SPLASHES)
@@ -57,37 +91,33 @@ class TitleScreen(Screen):
         s = gui.s
         t = time.time()
         if app.backdrop and app.backdrop.get('showcase') is not None:
-            pw, ph = 330 * s, h * 0.62                # soft card behind logo + buttons keeps the menu readable
-            gui.rect(w / 2 - pw / 2, h * 0.36 - 180 * s, pw, ph, (0.12, 0.08, 0.20, 0.22), radius=26 * s)
-            gui.rect(0, 0, w, 44 * s, (0.08, 0.06, 0.12, 0.22))
+            pw, ph = 360 * s, h * 0.68
+            gui.rect(w / 2 - pw / 2, h * 0.33 - 200 * s, pw, ph, (0.10, 0.07, 0.16, 0.28), radius=30 * s)
+            gui.rect(0, 0, w, 52 * s, (0.06, 0.05, 0.10, 0.28))
             gui.flush()
-        # logo: a gentle bobbing word with a hexagon cluster
-        ly = h * 0.70 + math.sin(t * 0.8) * 4 * s
-        for i, (dx, dy, c) in enumerate([(-1, 0, ELEMENT_COLORS[0]), (1, 0, ELEMENT_COLORS[1]), (-0.5, 0.866, ELEMENT_COLORS[2]),
-                                         (0.5, 0.866, ELEMENT_COLORS[3]), (0, 0, (1, 1, 1))]):
-            r = 13 * s
-            gui.hexagon(w / 2 + dx * r * 1.8, ly + 64 * s + dy * r * 1.8 + math.sin(t * 1.3 + i) * 2 * s, r,
-                        (*c[:3], 0.95), border=(1, 1, 1), border_w=2 * s)
-        gui.text('Tidewake', w / 2 + 3 * s, ly - 4 * s, 54, (0.25, 0.18, 0.40, 0.35), 'center', 'center', font='title')
-        gui.text('Tidewake', w / 2, ly, 54, WHITE, 'center', 'center', font='title')
-        gui.text('a cozy sky of hexagons, tides and sleeping spires', w / 2, ly - 46 * s, 13, (1, 1, 1, 0.92), 'center', 'center')
+        ly = h * 0.68
+        draw_logo(gui, w / 2, ly, t, s)
+        gui.text('a cozy sky of hexagons, tides and sleeping spires',
+                 w / 2, ly - 58 * s, 13, (1, 1, 1, 0.88), 'center', 'center', font='body')
         gui.flush()
-        bw, bh = 250 * s, 42 * s
+        bw, bh = 268 * s, 44 * s
         x = w / 2 - bw / 2
-        y = h * 0.36
-        if gui.button(x, y, bw, bh, 'Wander', primary=True, size=14):
+        y = h * 0.34
+        gap = 54 * s
+        if gui.button(x, y, bw, bh, 'Wander', primary=True, size=15):
             app.set_screen(SkiesScreen(app))
-        if gui.button(x, y - 52 * s, bw, bh, 'Learn to play'):
+        if gui.button(x, y - gap, bw, bh, 'Learn to play', size=14):
             app.start_tutorial()
-        if gui.button(x, y - 104 * s, bw, bh, 'Settings'):
+        if gui.button(x, y - 2 * gap, bw, bh, 'Settings', size=14):
             app.set_screen(SettingsScreen(self))
-        if gui.button(x, y - 156 * s, bw, bh, 'How to play'):
+        if gui.button(x, y - 3 * gap, bw, bh, 'How to play', size=14):
             app.set_screen(JournalScreen(self, tab=0, help_only=True))
-        if gui.button(x, y - 208 * s, bw, bh, 'Leave'):
+        if gui.button(x, y - 4 * gap, bw, bh, 'Leave', size=14):
             app.quit()
-        gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
-        gui.text('Tidewake 1.4-phase3', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))
-        gui.text('Python + ModernGL. Every sound and shape is made by code.', w - 14 * s, 12 * s, 9, (1, 1, 1, 0.7), 'right')
+        gui.text(self.splash, w / 2, 30 * s, 12, (1, 1, 1, 0.86), 'center', 'center', font='body')
+        gui.text('Tidewake 1.4-phase4', 16 * s, 14 * s, 10, (1, 1, 1, 0.72), font='bold')
+        gui.text('Python + ModernGL. Every sound and shape is made by code.',
+                 w - 16 * s, 14 * s, 10, (1, 1, 1, 0.72), 'right', font='body')
         sc = app.backdrop.get('showcase') if app.backdrop else None
         if sc is not None:
             label = ('A sky from the new generator  ·  ' if getattr(sc, 'kind', '') == 'seed'
@@ -112,7 +142,7 @@ class SkiesScreen(Screen):
         pw, ph = min(760 * s, w - 40 * s), min(560 * s, h - 40 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
-        gui.text('Your Skies', w / 2, py + ph - 36 * s, 22, INK, 'center', 'center', font='title')
+        gui.text('Your Skies', w / 2, py + ph - 38 * s, 26, INK, 'center', 'center', font='title')
         gui.text('Each sky is its own endless archipelago.', w / 2, py + ph - 62 * s, 10, MUTED, 'center', 'center')
         top, bottom = py + ph - 82 * s, py + 76 * s
         row_h = 74 * s
@@ -189,7 +219,7 @@ class NewSkyScreen(Screen):
         pw, ph = min(1080 * s, w - 24 * s), min(680 * s, h - 20 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
-        gui.text('Dream a New Sky', px + 28 * s, py + ph - 28 * s, 22, INK, 'left', 'center', font='title')
+        gui.text('Dream a New Sky', px + 28 * s, py + ph - 30 * s, 26, INK, 'left', 'center', font='title')
         if gui.button(px + pw - 148 * s, py + ph - 46 * s, 120 * s, 32 * s, 'Reset', size=11):
             self.gen = GS.defaults()
             if gui.sound:
@@ -343,7 +373,7 @@ class SettingsScreen(Screen):
         pw, ph = min(860 * s, w - 30 * s), min(520 * s, h - 30 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
-        gui.text('Settings', w / 2, py + ph - 38 * s, 22, INK, 'center', 'center', font='title')
+        gui.text('Settings', w / 2, py + ph - 40 * s, 26, INK, 'center', 'center', font='title')
         cw = (pw - 3 * 26 * s) / 2
         rh, gap = 40 * s, 10 * s
         x1, x2 = px + 26 * s, px + 52 * s + cw
@@ -395,7 +425,7 @@ class RestScreen(Screen):
         s = gui.s
         veil(gui, w, h, 0.35)
         ses = app.session
-        gui.text('Resting', w / 2, h * 0.74, 30, WHITE, 'center', 'center', font='title')
+        gui.text('Resting', w / 2, h * 0.74, 34, WHITE, 'center', 'center', font='title')
         gui.text(f'{ses.name}  ·  {len(ses.awakened)} spires awake  ·  {int(ses.play_time // 60)} min wandered',
                  w / 2, h * 0.74 - 40 * s, 11, (1, 1, 1, 0.9), 'center', 'center')
         gui.flush()
@@ -429,7 +459,7 @@ class JournalScreen(Screen):
         pw, ph = min(920 * s, w - 30 * s), min(600 * s, h - 30 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
-        gui.text('Journal', px + 30 * s, py + ph - 42 * s, 22, INK, 'left', 'center', font='title')
+        gui.text('Journal', px + 30 * s, py + ph - 44 * s, 26, INK, 'left', 'center', font='title')
         tw = 104 * s
         for i, name in enumerate(self.TABS):
             tx = px + pw - 30 * s - (len(self.TABS) - i) * (tw + 8 * s)

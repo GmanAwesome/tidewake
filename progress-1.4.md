@@ -191,3 +191,7 @@ In Dreamer mode (and while dev mode is on), a middle-click takes an item out of 
 
 The main menu no longer shows just the lighthouse cottage. It now takes turns through that build and a handful of strong seeds run on the current generator — Bright Arch, Saltwind Bay, Windward Isle, Ember Croft, Sky 4096 and Hardy 1729. Each one orbits for a little while, then the next sky fades into place.
 
+## November 25, 2026, 4:31 PM EST — A new mark, and typography to match
+
+The title screen has a real animated logo now: a pulsing hex crest, wake rings that swell and fade, and the Tidewake wordmark drawn letter by letter so the name itself breathes. A gold tide-line sits under it. Menu type is a little larger and clearer — titles use the display face more confidently, and the buttons have more room. The version string is 1.4-phase4.
+
