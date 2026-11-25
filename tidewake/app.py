@@ -206,14 +206,26 @@ class App(pyglet.window.Window):
             self.backdrop['world'].close()
             self.backdrop = None
 
-    def create_sky(self, name, seed, seed_text, mode, gen=None):
+    def create_sky(self, name, seed, seed_text, mode, gen=None, tutorial=False):
         folder = SkyStorage.unique_folder(self.skies_dir, name)
         st = SkyStorage(self.skies_dir, folder)
         from . import gensettings as GS
         ses = Session(self, st, create=dict(name=name, seed=seed, seed_text=seed_text, mode=mode,
-                                           gen=GS.normalize(gen)),
+                                           gen=GS.normalize(gen), tutorial=tutorial),
                       view_distance=self.settings['view_distance'], far_distance=self.settings['far_distance'])
         self.begin(ses, 'Dreaming ' + name)
+
+    def start_tutorial(self):
+        """Open the lesson island, or dream a fresh one if none is saved yet."""
+        for row in SkyStorage.list_skies(self.skies_dir):
+            try:
+                d = SkyStorage(self.skies_dir, row['folder']).load()
+            except Exception:
+                continue
+            if d.get('tutorial'):
+                self.open_sky(row['folder'])
+                return
+        self.create_sky('The Lesson', 1, 'lesson', 'wanderer', tutorial=True)
 
     def open_sky(self, folder):
         ses = Session(self, SkyStorage(self.skies_dir, folder), view_distance=self.settings['view_distance'], far_distance=self.settings['far_distance'])

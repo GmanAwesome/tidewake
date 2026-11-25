@@ -77,11 +77,13 @@ class TitleScreen(Screen):
         y = h * 0.36
         if gui.button(x, y, bw, bh, 'Wander', primary=True, size=14):
             app.set_screen(SkiesScreen(app))
-        if gui.button(x, y - 52 * s, bw, bh, 'Settings'):
+        if gui.button(x, y - 52 * s, bw, bh, 'Learn to play'):
+            app.start_tutorial()
+        if gui.button(x, y - 104 * s, bw, bh, 'Settings'):
             app.set_screen(SettingsScreen(self))
-        if gui.button(x, y - 104 * s, bw, bh, 'How to play'):
+        if gui.button(x, y - 156 * s, bw, bh, 'How to play'):
             app.set_screen(JournalScreen(self, tab=0, help_only=True))
-        if gui.button(x, y - 156 * s, bw, bh, 'Leave'):
+        if gui.button(x, y - 208 * s, bw, bh, 'Leave'):
             app.quit()
         gui.text(self.splash, w / 2, 26 * s, 11, (1, 1, 1, 0.85), 'center', 'center')
         gui.text('Tidewake 1.4-phase2b', 14 * s, 12 * s, 9, (1, 1, 1, 0.7))

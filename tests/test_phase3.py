@@ -115,3 +115,29 @@ def test_achievement_tree():
     s.stats['motes'] = 1
     A.poll(s)
     assert 'wander' in s.achieved and 'shrine' in s.achieved
+
+
+def test_tutorial_island():
+    from tidewake.generator import Generator
+    from tidewake import materials as MT, tutorial as T
+    g = Generator(1, {'tutorial': True})
+    assert g.tutorial
+    counts = {k: 0 for k in ('waystone', 'glimmer_font', 'water', 'farmland', 'skywheat',
+                             'tinker_bench', 'kiln', 'door', 'ladder', 'chest', 'bedroll', 'heartwood')}
+    for cq in range(-2, 3):
+        for cr in range(-2, 3):
+            cells, _, _ = g.generate(cq, cr)
+            for k in counts:
+                counts[k] += int((cells == MT.ID[k]).sum())
+    far, _, _ = g.generate(8, 8)
+    assert int((far > 0).sum()) == 0
+    assert counts['waystone'] >= 2 and counts['glimmer_font'] >= 1
+    assert counts['skywheat'] >= 1 and counts['farmland'] >= 6
+    assert counts['door'] >= 2 and counts['ladder'] >= 3
+    assert counts['chest'] == 6 and counts['tinker_bench'] == 1
+    assert counts['water'] >= 7 and counts['heartwood'] >= 8
+    assert len(T.NPCS) == 8
+    names = [n[2] for n in T.NPCS]
+    assert 'Willow' in names and 'Finn' in names and 'Lumen' in names
+    g2 = Generator(1, {})
+    assert not g2.tutorial

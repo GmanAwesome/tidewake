@@ -35,6 +35,7 @@ def smoothstep(a, b, x):
 class Generator:
     def __init__(self, seed, settings=None):
         self.seed = seed
+        self.tutorial = bool(isinstance(settings, dict) and settings.get('tutorial'))
         # v1: skies saved before 1.4-phase2a (no sliders). v2: new worlds, sliders saved with the sky.
         self.settings = GS.normalize(settings) if settings is not None else None
         self.version = 2 if self.settings is not None else 1
@@ -333,6 +334,9 @@ class Generator:
     # ------------------------------------------------------------------ chunks
     def generate(self, cq, cr):
         """-> cells (CHUNK, LAYERS, CHUNK) uint8, meta (same) uint8, realm (CHUNK, CHUNK) uint8"""
+        if self.tutorial:
+            from . import tutorial as TUT
+            return TUT.generate_chunk(cq, cr)
         P = 4                                   # margin for features that spill across chunk edges
         q0, r0 = cq * CHUNK, cr * CHUNK
         qs = np.arange(q0 - P, q0 + CHUNK + P, dtype=np.int64)

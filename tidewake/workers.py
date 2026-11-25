@@ -25,7 +25,8 @@ def init_worker():
 
 
 def _gen(seed, settings=None):
-    key = (int(seed), None if settings is None else GS.fingerprint(settings))
+    tut = bool(isinstance(settings, dict) and settings.get('tutorial'))
+    key = (int(seed), None if settings is None else GS.fingerprint(settings), tut)
     g = _gens.get(key)
     if g is None:
         if len(_gens) > 6:

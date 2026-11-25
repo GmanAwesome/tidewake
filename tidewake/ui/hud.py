@@ -36,6 +36,21 @@ def draw_hud(gui, app, ses, w, h):
                     soft_text(gui, 'It longs for: ' + ', '.join(MT.NAMES[x] for x in sp['wants']) +
                               '  (place them around its base)', w / 2, h / 2 - 46 * s, 9.5, (1, 0.92, 0.8, 1), 'center', 'center')
 
+    # lesson-island talk bubble
+    npc = ses.nearby_talk() if hasattr(ses, 'nearby_talk') else None
+    if npc:
+        lines = npc.get('lines') or ()
+        if lines:
+            i = int(npc.get('line', 0)) % len(lines)
+            text = lines[i]
+            bw, bh = min(520 * s, w - 40 * s), 72 * s
+            bx, by = w / 2 - bw / 2, h / 2 - 130 * s
+            gui.rect(bx, by, bw, bh, (1, 1, 1, 0.94), 14 * s, border=ACCENT, border_w=1.6 * s)
+            soft_text(gui, npc['name'], bx + 16 * s, by + bh - 16 * s, 11, ACCENT, 'left', 'center', 'bold')
+            gui.text(text, bx + 16 * s, by + bh - 34 * s, 10, INK, 'left', 'top', width=bw - 32 * s)
+            if len(lines) > 1:
+                gui.text('Right-click to hear more', bx + bw - 16 * s, by + 12 * s, 8, MUTED, 'right', 'center')
+
     # fishing prompt
     if getattr(ses, 'fishing', None):
         bite = ses.fishing['state'] == 'bite'

@@ -145,3 +145,7 @@ A hoe (two sticks and any stone) turns turf, loam, packed earth or heather into 
 
 Press P, or open The Path from the rest menu, to see a tree of goals for this sky. Each node tells you what to do and how — mining, crafting, the kiln, doors and ladders, catching Glimmer, waystones and the Font, fishing, farming, and waking a spire. What you have already done is remembered with the sky, and a little note appears when a new step is earned.
 
+## November 25, 2026, 4:00 PM EST — Tutorial island
+
+The title screen has a Learn to play button. It opens a small hand-built island called The Lesson, separate from the wandering skies. Friendly people stand along a path and talk in simple bubbles — walking and looking, mining a grove, a tinker bench, a kiln, doors and ladders, a fishing dock, a little farm, and a Glimmer shrine with two waystones and a Font. Chests at each stop hold what you need, a few practice motes drift by the shrine, and gloomlings stay away. If you already started the lesson, the same island is waiting for you.
+

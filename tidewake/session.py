@@ -42,6 +42,10 @@ PASSIVE_REALMS = {
 
 def find_spawn(gen):
     """Land a short walk from the nearest spire, so there's something to wonder about right away."""
+    if getattr(gen, 'tutorial', False):
+        from . import tutorial as TUT
+        q, r, top = TUT.SPAWN
+        return q, r, top, None
     sp = None
     for radius in (1, 2, 4):
         cands = [s for s in gen.spires_near(0, 0, radius)]
@@ -85,7 +89,10 @@ class Session:
             self.seed = create['seed']
             self.seed_text = create.get('seed_text', '')
             self.mode = create.get('mode', 'wanderer')
+            self.tutorial = bool(create.get('tutorial'))
             self.gen_settings = GS.normalize(create.get('gen'))
+            if self.tutorial:
+                self.gen_settings = dict(self.gen_settings or GS.defaults(), tutorial=True)
             self.gen = Generator(self.seed, self.gen_settings)
             q, r, top, sp = find_spawn(self.gen)
             x, z = center(q, r)
@@ -118,6 +125,9 @@ class Session:
             self.seed_text = d.get('seed_text', '')
             self.mode = d.get('mode', 'wanderer')
             self.gen_settings = GS.normalize(d['gen']) if d.get('gen') is not None else None
+            self.tutorial = bool(d.get('tutorial'))
+            if self.tutorial:
+                self.gen_settings = dict(self.gen_settings or GS.defaults(), tutorial=True)
             self.gen = Generator(self.seed, self.gen_settings)
             p = d['player']
             self.player = Player(p['x'], p['y'], p['z'], p.get('yaw', 0), p.get('pitch', 0))
@@ -160,6 +170,8 @@ class Session:
             self.attune = []
         if not hasattr(self, 'achieved'):
             self.achieved = []
+        if not hasattr(self, 'tutorial'):
+            self.tutorial = bool(getattr(self.gen, 'tutorial', False))
         self.apply_abilities()
         self.apply_attune()
         self.apply_dev()
@@ -175,6 +187,8 @@ class Session:
         self.eat_t = 0.0
         self.particles = np.zeros((0, 12))      # x y z vx vy vz r g b life size homing
         self.motes = []
+        self.npcs = []
+        self.talk = None
         self.fishing = None
         self._fish_arm = True
         self.jellies = []
@@ -400,6 +414,19 @@ class Session:
             top = self.world.column_top(q, r)
             if top is not None and top >= 0:
                 p.y = (top + 1) * LAYER + 0.001
+        if getattr(self, 'tutorial', False):
+            from . import tutorial as TUT
+            from .inventory import Inventory
+            TUT.fill_tutorial_chests(self)
+            if not self.npcs:
+                self.npcs = TUT.npc_records()
+            if self.new_sky:
+                self.spawn = (self.player.x, self.player.y, self.player.z)
+                self.toast('A quiet lesson island',
+                           'Walk with W A S D. Talk to the people you meet — right-click them, or just walk close.', 7)
+            for q, r in ((2, 6), (3, 6), (4, 6), (2, 7), (3, 7), (4, 7)):
+                self.sim.wake(q, r, TUT.SURF, 4.0)
+                self.sim.wake(q, r, TUT.SURF + 1, 3.0)
         self.check_path(quiet=True)
         self.ready = True
 
@@ -504,8 +531,19 @@ class Session:
                 self.target_mob = mob
         if self.target_mob:
             self.target = self.target_prev = None
+        self.target_npc = None
+        for npc in getattr(self, 'npcs', []):
+            tnp = self._npc_hit(npc, ex, ey, ez, fx, fy, fz, 5.0)
+            if tnp is not None and tnp < bd:
+                bd = tnp
+                self.target_npc = npc
+        if self.target_npc:
+            self.target = self.target_prev = None
+            self.target_mob = None
         self.target_name = ''
-        if self.target_mob:
+        if self.target_npc:
+            self.target_name = self.target_npc['name']
+        elif self.target_mob:
             self.target_name = self.target_mob.kind.capitalize()
         elif self.target:
             m = self.world.get(*self.target)
@@ -521,7 +559,9 @@ class Session:
         self._update_fishing(dt)
         if self.carry <= 0:
             if inp.get('gather'):
-                if self.target_mob:
+                if getattr(self, 'target_npc', None):
+                    self.mining = None
+                elif self.target_mob:
                     if self.cooldown <= 0:
                         self.attack(self.target_mob)
                         self.cooldown = 0.45
@@ -763,6 +803,8 @@ class Session:
     def use(self):
         p = self.player
         it = self.held_item
+        if getattr(self, 'target_npc', None):
+            return self.talk_npc(self.target_npc)
         if self.fishing:
             return self.use_rod()
         if it and it.kind == 'rod':
@@ -913,6 +955,39 @@ class Session:
         return True
 
 
+
+    def _npc_hit(self, npc, ox, oy, oz, dx, dy, dz, reach):
+        cx, cy, cz = npc['x'], npc['y'] + 0.7, npc['z']
+        rad = 0.55
+        lx, ly, lz = cx - ox, cy - oy, cz - oz
+        t = lx * dx + ly * dy + lz * dz
+        if t < 0 or t > reach + rad:
+            return None
+        d2 = lx * lx + ly * ly + lz * lz - t * t
+        if d2 > rad * rad:
+            return None
+        return max(0.0, t - math.sqrt(max(0.0, rad * rad - d2)))
+
+    def talk_npc(self, npc):
+        lines = npc.get('lines') or ()
+        if not lines:
+            return False
+        npc['line'] = (npc.get('line', 0) + 1) % len(lines) if self.talk == npc['name'] else 0
+        self.talk = npc['name']
+        self.app.audio.play('chord', 0.25)
+        return True
+
+    def nearby_talk(self):
+        """The closest lesson NPC within a few steps, for a talk bubble."""
+        if not getattr(self, 'npcs', None):
+            return None
+        p = self.player
+        best, bd = None, 5.5
+        for npc in self.npcs:
+            d = math.sqrt((npc['x'] - p.x) ** 2 + (npc['z'] - p.z) ** 2 + (npc['y'] - p.y) ** 2)
+            if d < bd:
+                best, bd = npc, d
+        return best
 
     def use_hoe(self):
         from . import farming as F
@@ -1108,7 +1183,7 @@ class Session:
             hostile = [m for m in self.mobs if m.hostile]
             if len(passive) < 9:
                 self._try_spawn(False)
-            if dusk > 0.55 and not peaceful and len(hostile) < 6:
+            if dusk > 0.55 and not peaceful and not getattr(self, 'tutorial', False) and len(hostile) < 6:
                 self._try_spawn(True)
         self._mob_tick = getattr(self, '_mob_tick', 0) + 1
         for i, mob in enumerate(self.mobs):
@@ -1244,6 +1319,12 @@ class Session:
         """Creatures and dropped items as one VERT array (camera-relative)."""
         parts = []
         p = self.player
+        for npc in getattr(self, 'npcs', []):
+            v = MD.guide(npc['color'], self.time)
+            # face the wanderer
+            yaw = math.degrees(math.atan2(p.x - npc['x'], -(p.z - npc['z'])))
+            parts.append(MD.transform(v, yaw_deg=yaw,
+                                      offset=(npc['x'] - cam[0], npc['y'] - cam[1], npc['z'] - cam[2])))
         fx, fz = math.sin(math.radians(p.yaw)), -math.cos(math.radians(p.yaw))
         for mob in self.mobs:
             dx, dz = mob.x - cam[0], mob.z - cam[2]
@@ -1416,6 +1497,8 @@ class Session:
         gmul = getattr(self.gen, 'glimmer_mul', 1.0)
         sense = 'sense' in getattr(self, 'attune', [])
         want = int((1 + 5 * dusk) * gmul * (1.35 if sense else 1.0))
+        if getattr(self, 'tutorial', False):
+            want = max(want, 4)
         while len(self.motes) < want and random.random() < dt * (1.2 if sense else 0.8) * max(0.12, gmul):
             ang = random.uniform(0, 2 * math.pi)
             dist = random.uniform(4, 16)
@@ -1423,7 +1506,13 @@ class Session:
             y = p.y + random.uniform(0.6, 4.0)
             q, r = cell_at(x, z)
             if self.world.get(q, r, math.floor(y / LAYER)) == 0:
-                self.motes.append([x, y, z, random.uniform(0, 6.3), random.uniform(18, 40), dusk > 0.45])
+                gold = dusk > 0.45
+                if getattr(self, 'tutorial', False):
+                    from . import tutorial as TUT
+                    sx, sy, sz = TUT.shrine_pos()
+                    x, y, z = sx + random.uniform(-3, 3), sy + random.uniform(0.2, 1.6), sz + random.uniform(-3, 3)
+                    gold = True
+                self.motes.append([x, y, z, random.uniform(0, 6.3), random.uniform(18, 40), gold])
         keep = []
         ex, ey, ez = p.x, p.y + 0.9, p.z
         for m in self.motes:
@@ -1822,7 +1911,8 @@ class Session:
                 'chests': {k: v.to_list() for k, v in self.chests.items()},
                 'kilns': {k: {'slots': v['slots'].to_list(), 'burn': v['burn'], 'burn_max': v['burn_max'], 'prog': v['prog']}
                           for k, v in self.kilns.items()},
-                'waystones': self.waystones, 'attune': list(self.attune), 'achieved': list(self.achieved)}
+                'waystones': self.waystones, 'attune': list(self.attune), 'achieved': list(self.achieved),
+                'tutorial': bool(getattr(self, 'tutorial', False))}
 
     def save(self):
         if self.storage:

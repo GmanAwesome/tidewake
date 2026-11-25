@@ -287,3 +287,19 @@ def set_sky(v, sky):
     a = out['c'][:, 3].astype(np.int32)
     out['c'][:, 3] = (a // 16) * 16 + int(round(max(0.0, min(1.0, sky)) * 15))
     return out
+
+
+def guide(color, t=0.0):
+    """A friendly lesson-island person: feet at y=0, about a block and a half tall."""
+    c = np.array(color)
+    cloth = c * 0.92
+    skin = np.array([0.90, 0.74, 0.62])
+    hair = c * 0.55 + np.array([0.15, 0.10, 0.12])
+    bob = math.sin(t * 2.2) * 0.015
+    return cat(
+        prisms((-0.09, 0.09), (0.02, 0.02), 0.0, 0.42, 0.07, cloth * 0.8, cloth * 0.8),
+        prisms(0, 0.02, 0.40, 1.05 + bob, 0.22, cloth, cloth * 0.9),
+        prisms(0, 0.00, 1.05 + bob, 1.32 + bob, 0.16, skin, skin * 0.92),
+        prisms(0, 0.00, 1.24 + bob, 1.40 + bob, 0.17, hair, hair),
+        prisms((-0.28, 0.28), (0.02, 0.02), 0.70 + bob, 1.00 + bob, 0.06, cloth, cloth * 0.9),
+    )
