@@ -2290,3 +2290,31 @@ def phase141(app, log, shot, look_at, settled, arg):
         yield shot('09_door_swung_open')
 
     log('phase141 finished')
+
+
+def showcases141(app, log, shot, look_at, settled, arg):
+    """Two clear angles of every 1.4.1 title showcase (player builds, then seed skies)."""
+    from . import showcase as SC
+    items = SC.catalog()
+    keep = app.menu
+    for i, (kind, payload) in enumerate(items):
+        SC._index = i
+        app.start_backdrop()
+        yield 0.8
+        yield lambda: app.backdrop and app.backdrop['world'].busy() == 0 and app.backdrop['world'].busy_lod() == 0
+        yield 0.8
+        b = app.backdrop
+        sc = b['showcase']
+        b['speed'] = 0.0
+        a0, a1 = SC.orbit_span(sc)
+        span = a1 - a0
+        angs = (a0 + span * 0.22, a0 + span * 0.72)
+        slug = sc.name.lower().replace(' ', '_').replace("'", '').replace('-', '_')
+        log('showcase', i, kind, sc.name, 'seed', sc.seed_text, 'site', sc.q, sc.r, sc.top, 'cam', sc.camera)
+        app.menu = None
+        for k, ang in enumerate(angs, 1):
+            b['ang'] = ang
+            yield 1.3
+            yield shot(f'{slug}_{k}')
+        app.menu = keep
+    log('showcases141 finished')

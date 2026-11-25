@@ -430,11 +430,40 @@ def test_tutorial_is_larger_and_npcs_stand_in_the_open():
     assert signs >= 4
 
 
+
+def test_showcase_camera_paths_stay_clear():
+    """Every title-showcase orbit stays out of solids (including leaves) and does not hide the subject for long."""
+    from tidewake import showcase as SC
+    from tidewake import gensettings as GS
+    items = SC.catalog()
+    builds = 0
+    for kind, payload in items:
+        if kind == 'json':
+            sc = SC.Showcase.load(payload)
+            builds += 1
+            assert sc.gen is not None, sc.name + ' must use generator v2'
+        else:
+            data = dict(payload)
+            data.setdefault('kind', 'seed')
+            data.setdefault('blocks', [])
+            if data.get('gen') is None:
+                data['gen'] = GS.normalize({})
+            sc = SC.Showcase(data)
+        world = SC.stamped_world(sc)
+        rep = SC.path_report(sc, world, n=96)
+        assert not rep['clips'], f"{sc.name} camera clips solids at angles {rep['clips'][:6]}"
+        limit = max(2, 0.22 * rep['n'])
+        assert len(rep['hides']) <= limit, f"{sc.name} hidden behind terrain for {len(rep['hides'])}/{rep['n']} samples"
+    assert builds >= 6, f'need at least 6 player builds, found {builds}'
+
+
 if __name__ == '__main__':
     test_tutorial_dialog_only_after_talk()
     print('ok tutorial dialog only after right-click')
     test_title_showcase_launch_avoids_last()
     print('ok title showcase shuffles at launch')
+    test_showcase_camera_paths_stay_clear()
+    print('ok showcase camera paths stay clear of solids')
     test_mob_y_trace_does_not_shake()
     print('ok mob y-trace is stable on the ground')
     test_lamps_are_kept_among_many_glowcaps()

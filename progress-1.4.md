@@ -326,3 +326,14 @@ The title and the in-game version line now say 1.4.1-test, ready for a pre-relea
 ## November 25, 2026, 5:42 PM EST — 1.4.1-test is up as a pre-release
 
 The play-test build is at https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.1-test (not Latest; 1.4 stays the recommended download). The Windows zip is `Tidewake-1.4.1-test-Windows.zip`, about 73 MB, with the Common Controls v6 manifest and icon checked by pefile. After screenshots are in `screenshots-final/v1.4.1/` and also attached to the release.
+
+
+## November 25, 2026, 5:56 PM EST — Title showcases, now with real player builds
+
+The title screen needed more than one cottage, and the orbit was allowed to fly through leaves and hills. There are now eight hand-built scenes on the new (v2) generator, each meant to look like a player made them: the Lighthouse Cottage rebuilt on a Saltwind cape (seed keeper-of-tides, 79, 3), a fen-side Cliffside Tavern (tavern-cliff, 115, -2), a Windmill Farm with wheat and a little house (salt-wind-bay, 103, -1), a Sky-boat Dock on Windward Isle (168, -35), a High Keep up on a Cloudstep shelf (lantern-point, -62, -24), a Rose Temple and garden above Saltwind Bay (67, 25), a Cedar Treehouse at Ember Croft (74, 123), and a Twin Isles Bridge spanning a short gap (twin-isles, -95, 21 to -87, 21). They use the 1.4 roster — glass, lamps, doors, ladders, slabs, cloth, farmland, decorations.
+
+Each orbit was sampled all the way around (including leaves). If the path clipped a hill or hid the build, the camera was raised, shifted, or limited to a clear arc. The windmill, and a couple of the seed-only skies, use a clear arc so they never duck through a neighbouring canopy. The six seed-only skies stay as extras, with their sites moved onto the current generator so the camera isn't aimed at a vanished hill. Launch still picks a random showcase and skips the one from last time.
+
+A unit test now stamps every showcase and checks the camera path for solid cells.
+
+
