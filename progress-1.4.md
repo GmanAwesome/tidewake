@@ -120,3 +120,10 @@ The block list is much bigger now: cedar, pale and dark woods (and their planks)
 
 New skies can now grow points of interest that feel like they belong on the islands. A small framework places modular pieces with rules for slope, island thickness, biome and spacing, then weathers them as intact, abandoned, ruined or overgrown (debris, lamps, vines, loot). There are three families to start: settlements (a single hut up to a little village with paths, a well and a shed), ruins (a temple, a ring of standing stones, or a buried chamber with rarer things in the chest), and a sky boat moored at an island edge with a walkway back to land. Each one gives you a reason to stop — a bed, a bench or kiln, or a chest of supplies. Older skies are unchanged.
 
+
+## November 25, 2026, 3:25 PM EST — Pre-release posted
+
+Phase 2b is up as a pre-release, so it doesn’t replace 1.3.4 as the usual download. Grab `Tidewake-1.4-phase2b-Windows.zip` from https://github.com/GmanAwesome/tidewake/releases/tag/v1.4-phase2b (about 73 MB). The play-test screenshots are on that page too (block palette, glass, a village, a temple, standing stones, a buried chamber, and a sky boat).
+
+Older skies still use the previous generator and have no generated structures. Brand-new skies get the new blocks in the world, the new recipes, and the settlements, ruins and sky boats.
+
