@@ -7,7 +7,7 @@ Only cells that might change are tracked ("active"), a few dozen per step.
 import random
 
 from .config import CLOUD_SEA, LAYERS
-from .hexgrid import DIRS
+from .hexgrid import DIRS, hex_distance
 from . import materials as MT
 
 M = MT.ID
@@ -33,8 +33,52 @@ class Simulation:
         for dq, dr in [(0, 0)] + DIRS:
             for dy in (-1, 0, 1):
                 m = w.get(q + dq, r + dr, y + dy)
-                if m in LIVING:
+                if m in LIVING or m == M['canopy']:
                     self.wake(q + dq, r + dr, y + dy, 0.2)
+
+    def wake_leaves(self, q, r, y, delay=0.4):
+        """Start decay checks on nearby canopy after a log (or leaf) is removed."""
+        for dq in range(-5, 6):
+            for dr in range(-5, 6):
+                if hex_distance(0, 0, dq, dr) > 5:
+                    continue
+                for dy in range(-5, 6):
+                    if self.world.get(q + dq, r + dr, y + dy) == M['canopy']:
+                        self.wake(q + dq, r + dr, y + dy, delay)
+
+    def _leaf_supported(self, q, r, y, reach=4):
+        """True if this canopy cell is connected to heartwood through other leaves."""
+        w = self.world
+        seen = {(q, r, y)}
+        stack = [(q, r, y, 0)]
+        while stack:
+            cq, cr, cy, d = stack.pop()
+            if w.get(cq, cr, cy) == M['heartwood']:
+                return True
+            if d >= reach:
+                continue
+            for dq, dr in DIRS + [(0, 0)]:
+                for dy in (-1, 0, 1):
+                    if dq == 0 and dr == 0 and dy == 0:
+                        continue
+                    n = (cq + dq, cr + dr, cy + dy)
+                    if n in seen:
+                        continue
+                    m = w.get(*n)
+                    if m in (M['canopy'], M['heartwood']):
+                        seen.add(n)
+                        stack.append((*n, d + 1))
+        return False
+
+    def _tick_leaf(self, q, r, y):
+        if self.world.get(q, r, y) != M['canopy']:
+            return None
+        if self._leaf_supported(q, r, y):
+            return None
+        # unsupported: vanish and nudge neighbours so the canopy withers outward
+        self.world.set(q, r, y, 0, 0)
+        self.wake_leaves(q, r, y, 0.25)
+        return None
 
     def step(self, dt, dusk, budget=48):
         if not self.active:
@@ -52,7 +96,10 @@ class Simulation:
                 break
             n += 1
             del self.active[key]
-            again = self._tick(*key, light, dusk)
+            if self.world.get(*key) == M['canopy']:
+                again = self._tick_leaf(*key)
+            else:
+                again = self._tick(*key, light, dusk)
             if again is not None:
                 self.active[key] = again
 

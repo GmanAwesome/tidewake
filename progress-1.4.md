@@ -57,3 +57,9 @@ Screenshot: `screenshots-final/v1.4-phase1/01_scale_door.png` and `03_doors.png`
 Ladders are craftable too: an H-shape of sticks at the bench makes three of them. Place a ladder against a wall and it hangs there with the rungs toward you. Climb it the same way you climb vines — hold jump to go up, and you can come down it as well.
 
 Screenshot: `screenshots-final/v1.4-phase1/04_ladder.png` and `05_ladder_wall.png`.
+
+## November 25, 2026, 2:40 PM EST — Leaf decay
+
+Leaves no longer float forever after you chop a tree. If a canopy block can't reach a log (heartwood) through other leaves, within about four blocks, it withers away. Chopping a trunk or leaves wakes the nearby canopy, so a tree comes down naturally from the cut outward.
+
+Screenshot: `screenshots-final/v1.4-phase1/06_leaves_before.png` and `07_leaves_after.png` (same view, before and after the trunk was removed).
