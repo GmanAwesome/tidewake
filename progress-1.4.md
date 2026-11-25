@@ -253,3 +253,8 @@ The first play-test pass missed a tree in a generated sky, because the wanderer 
 
 The version string is 1.4, and a changelog now covers the whole 1.4 work — new landscapes and sliders, structures and blocks, the lesson island, Glimmer, fishing, farming, the Path, skywhales and fairies, the new songs, taller trees, the third-person camera, a dawn after you rest, and the cohesion fixes.
 
+
+## November 25, 2026, 4:53 PM EST — A proper GitHub page for 1.4
+
+The README is rewritten as a straightforward front page: a clean title hero, a short pitch, a features overview with screenshots, Windows install (extract the zip, double-click the exe), a controls table, a link to the changelog, and credits that note the music is original and that Korobeiniki is public domain. The pre-release notes are gone. Screenshot originals for the release live in `screenshots-final/v1.4/`; the images the README uses are in `docs/v1.4/`.
+
