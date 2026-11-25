@@ -26,11 +26,11 @@ ABILITIES = [('Glide', 'Hold Space while falling to glide on the wind.'),
              ('Tidecall', 'Press T to call the next tide early.')]
 INITIAL_META = {M['water']: 4, M['vine']: 8, M['crystal']: 0, M['bloom']: 4, M['mossrock']: 5, M['sprout']: 0}
 NEEDS_GROUND = {M['sprout'], M['bloom'], M['crystal'], M['berry_bush'], M['glowstick'], M['bedroll'], M['petals'],
-                M['glowcap']}
+                M['glowcap'], M['door']}
 MAX_HP = 20
 MAX_FOOD = 20
 STARTER = [(I.BERRIES.id, 4), (M['glowstick'], 3)]
-USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll']}
+USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door']}
 SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick'}
 PASSIVE_REALMS = {
     'woolhop': (0, 1, 5, 3, 7), 'pebblebeak': (0, 2, 6, 1, 4), 'mossback': (5, 4, 3, 7),
@@ -339,8 +339,7 @@ class Session:
         if self.carry > 0:
             self.carry -= dt
             if self.carry <= 0.6 and self.carry + dt > 0.6:
-                p.x, p.y, p.z = p.last_safe
-                p.y += 0.01
+                p.x, p.y, p.z = self._sky_drop(*p.last_safe)
                 p.vx = p.vy = p.vz = 0
             inp = dict(inp, fwd=0, strafe=0, jump=False, jump_pressed=False)
         if self.hold:
@@ -349,7 +348,8 @@ class Session:
             inp = dict(inp, fwd=0, strafe=0, jump=False, jump_pressed=False)
             p.vy = 0
         else:
-            p.update(dt, self.world, inp['fwd'], inp['strafe'], inp['jump'], inp['jump_pressed'], inp['down'], inp['hurry'])
+            p.update(dt, self.world, inp['fwd'], inp['strafe'], inp['jump'], inp['jump_pressed'], inp['down'], inp['hurry'],
+                     crouch=inp.get('crouch', False))
         if p.bounced:
             self.app.audio.play('bounce', 0.8)
         if p.landed:
@@ -468,13 +468,20 @@ class Session:
             self.mining = None
             self.app.on_faded(why)
 
+    def _sky_drop(self, x, y, z):
+        """Return a position high above land at (x, z), so falling off the world is a drop-in, not a hard snap."""
+        q, r = cell_at(x, z)
+        top = self.world.column_top(q, r)
+        if top is None or top < 0:
+            top = max(0, int(y / LAYER))
+        return x, (top + C.FALL_RESPAWN_LAYERS) * LAYER + 0.01, z
+
     def respawn(self):
         p = self.player
         if self.spawn:
-            p.x, p.y, p.z = self.spawn
+            p.x, p.y, p.z = self._sky_drop(*self.spawn)
         else:
-            p.x, p.y, p.z = p.last_safe
-        p.y += 0.01
+            p.x, p.y, p.z = self._sky_drop(*p.last_safe)
         p.vx = p.vy = p.vz = 0
         self.hp = MAX_HP
         self.food = max(self.food, 12)
@@ -549,7 +556,15 @@ class Session:
             self.app.audio.play('gather_stone', 0.8)
 
     def break_cell(self, q, r, y, m, drop=True):
+        other = None
+        if m == M['door']:
+            mt = self.world.get_meta(q, r, y)
+            other = (q, r, y - 1 if (mt & 16) else y + 1)
         self.world.set(q, r, y, 0, 0, now=True)
+        if other and self.world.get(*other) == M['door']:
+            self.world.set(*other, 0, 0, now=True)
+        if m in (M['heartwood'], M['canopy']):
+            self.sim.wake_leaves(q, r, y, 0.35)
         above = self.world.get(q, r, y + 1)
         cx, cz = center(q, r)
         if above > 0 and MT.IS_DECO[above] and above in NEEDS_GROUND:
@@ -639,21 +654,37 @@ class Session:
         if mat in NEEDS_GROUND and not (below > 0 and MT.SOLID[below]):
             self.toast(MT.NAMES[mat] + ' needs solid ground beneath it', '', 2.0)
             return False
-        if MT.SOLID[mat] and not p.noclip:
-            lo, hi = math.floor((p.y + 0.01) / LAYER), math.floor((p.y + C.HEIGHT) / LAYER)
+        if (MT.SOLID[mat] or mat == M['door']) and not p.noclip:
+            lo, hi = math.floor((p.y + 0.01) / LAYER), math.floor((p.y + p.body_height()) / LAYER)
             if lo <= y <= hi and (q, r) in p._columns(p.x, p.z):
                 return False
             for mob in self.mobs:
                 if cell_at(mob.x, mob.z) == (q, r) and math.floor(mob.y / LAYER) <= y <= math.floor((mob.y + mob.height) / LAYER):
                     return False
         meta0 = INITIAL_META.get(mat, 0)
-        if mat in (M['tinker_bench'], M['kiln'], M['chest']):
-            # face the front (drawer, firebox, latch) towards you
+        if mat in (M['tinker_bench'], M['kiln'], M['chest'], M['door'], M['ladder']):
+            # face the front (drawer, firebox, latch, door, rungs) towards you
             from .hexgrid import DIR_NORMALS
             cx_, cz_ = center(q, r)
             vx, vz = p.x - cx_, p.z - cz_
             meta0 = max(range(6), key=lambda d: DIR_NORMALS[d][0] * vx + DIR_NORMALS[d][1] * vz)
+            if mat == M['ladder']:
+                meta0 = (meta0 + 3) % 6          # hang against the wall, rungs face you
+        if mat == M['door']:
+            if y + 1 >= C.LAYERS or self.world.get(q, r, y + 1) not in (0, M['water'], M['petals']):
+                self.toast('The doorway is blocked', 'Doors need two empty cells, one above the other.', 2.0)
+                return False
+        if mat == M['ladder']:
+            from .hexgrid import DIRS as _DIRS
+            dq, dr = _DIRS[meta0 % 6]
+            # the face the ladder hangs on is the one toward the block you clicked, i.e. opposite the look
+            back = self.world.get(q - dq, r - dr, y)
+            if not (back > 0 and MT.SOLID[back]):
+                # try the clicked face: meta already faces the player, so the wall is behind the ladder
+                pass
         self.world.set(q, r, y, mat, meta0, now=True)
+        if mat == M['door']:
+            self.world.set(q, r, y + 1, mat, meta0 | 16, now=True)
         if not self.dev:
             self.inv.take_from(self.hot)
         self.stats['placed'] += 1
@@ -671,6 +702,24 @@ class Session:
         self._check_spires(q, r, y)
         return True
 
+    def _toggle_door(self, q, r, y):
+        mt = self.world.get_meta(q, r, y)
+        opened = (mt & 8) == 0
+        other = (q, r, y - 1 if (mt & 16) else y + 1)
+        # don't open into a solid block
+        if opened:
+            from .materials import is_blocking
+            # the door stays in its cell; opening only changes collision of this cell
+            pass
+        new = (mt ^ 8)
+        self.world.set_meta(q, r, y, new)
+        self.world.dirty.add((q // C.CHUNK, r // C.CHUNK))
+        if self.world.get(*other) == M['door']:
+            omt = self.world.get_meta(*other)
+            self.world.set_meta(*other, (omt & ~8) | (new & 8) | (omt & 16))
+            self.world.dirty.add((other[0] // C.CHUNK, other[1] // C.CHUNK))
+        self.app.audio.play('step_wood', 0.7)
+
     def use_block(self, q, r, y, m):
         from .ui import inventory_ui as IU
         key = f'{q},{r},{y}'
@@ -685,6 +734,8 @@ class Session:
             if key not in self.kilns:
                 self.kilns[key] = {'slots': Inventory(3), 'burn': 0.0, 'burn_max': 1.0, 'prog': 0.0}
             self.app.set_screen(IU.KilnScreen(self.kilns[key]))
+        elif m == M['door']:
+            self._toggle_door(q, r, y)
         elif m == M['bedroll']:
             cx, cz = center(q, r)
             self.spawn = (cx, (y + 1) * LAYER + 0.01, cz)
@@ -868,10 +919,12 @@ class Session:
                         inp[1] -= 1
                         if inp[1] <= 0:
                             sl[0] = None
-                        if out is None:
-                            sl[2] = [res, 1, I.get(res).uses]
+                        out_now = sl[2]
+                        if out_now is None:
+                            uses = I.get(res).uses
+                            sl[2] = [res, 1, 0 if uses is None else uses]
                         else:
-                            out[1] += 1
+                            sl[2][1] += 1
                 else:
                     k['prog'] = 0
             else:
@@ -924,9 +977,10 @@ class Session:
                                 offset=tuple(fwd * 0.55 + right * 0.38 - up * (0.42 + bob)))
         v = MD.cached_item(it.id)
         if it.model in SPRITE_HELD:
-            v = MD.transform(v, yaw_deg=p.yaw - 75, pitch_deg=p.pitch, roll_deg=-25 - sw * 55, scale=0.42, offset=tuple(pos))
+            # sprite tools are drawn handle-down in XY; rotate so the head points along the look vector
+            v = MD.transform(v, yaw_deg=p.yaw + 18, pitch_deg=p.pitch - 50 - sw * 70, roll_deg=-8 + sw * 12, scale=0.42, offset=tuple(pos))
         else:
-            v = MD.transform(v, yaw_deg=p.yaw + 30, pitch_deg=p.pitch - 15 - sw * 30, scale=0.24, offset=tuple(pos))
+            v = MD.transform(v, yaw_deg=p.yaw + 12, pitch_deg=p.pitch - 18 - sw * 40, scale=0.24, offset=tuple(pos))
         return v
 
     # ------------------------------------------------------------------ spires
@@ -1142,14 +1196,32 @@ class Session:
         if J is not None:
             out.append(J)
         if self.weather == 'rain' and self.app.settings['motes'] is not None:
-            rng = np.random.default_rng(int(self.time * 30))
-            n = 500
-            ph = (np.arange(n) * 0.6180339 + self.time * 1.7) % 1.0
-            rx = (np.arange(n) * 7.13 % 1.0 - 0.5) * 36 + (cx % 36) * 0
-            rz = (np.arange(n) * 3.77 % 1.0 - 0.5) * 36
-            ry = 14 - ph * 20
-            out.append(np.column_stack([rx, ry, rz, np.full(n, 0.80), np.full(n, 0.86), np.full(n, 1.0),
-                                        np.full(n, 0.35), np.full(n, 0.12)]))
+            n = 520
+            i = np.arange(n)
+            # unique seeds per drop, not a regular lattice
+            sx = np.sin(i * 12.9898) * 43758.5453
+            sz = np.sin(i * 78.233) * 23421.631
+            fx, fz = (sx % 1.0) * 40 - 20, (sz % 1.0) * 40 - 20
+            # fall + horizontal wind drift (each drop has its own wind and wobble)
+            wind = 1.6
+            speed = 11.0 + (np.sin(i * 3.7) % 1.0) * 4.0
+            life = 22.0
+            tt = self.time * speed + i * 5.17
+            ph = (tt / life) % 1.0
+            wobble = np.sin(self.time * 6.0 + i * 0.37) * 0.18 + np.sin(self.time * 11.0 + i * 1.1) * 0.08
+            rx = cx + fx + ph * wind * 2.2 + wobble
+            rz = cz + fz + ph * wind * 0.9 + np.sin(self.time * 5.0 + i * 0.51) * 0.14
+            ry = cy + 16 - ph * life
+            # short wind-tilted streaks so the rain reads against the sky
+            tilt_x = wind * 2.2 / life * 1.2
+            tilt_z = wind * 0.9 / life * 1.2
+            parts = []
+            for step, alpha, size in ((0.0, 0.55, 0.70), (0.45, 0.38, 0.55), (0.90, 0.22, 0.42)):
+                parts.append(np.column_stack([
+                    rx - cx - tilt_x * step, ry - cy + step, rz - cz - tilt_z * step,
+                    np.full(n, 0.82), np.full(n, 0.90), np.full(n, 1.0),
+                    np.full(n, alpha), np.full(n, size)]))
+            out.append(np.concatenate(parts))
         for s in self.beams:
             sx, sz = center(s['q'], s['r'])
             base = (s['top'] + 1 + s['height']) * LAYER

@@ -21,3 +21,21 @@ Screenshot: `screenshots-final/v1.4-phase1/08_kiln_counts.png` (sand, fuel and g
 Woolhops and other creatures were bouncing up and down in place. Gravity was still being applied after they had already landed, so they kept sinking into the ground and popping back up. They now rest on the surface when they're standing, and only fall when they're actually in the air.
 
 Screenshot: `screenshots-final/v1.4-phase1/11_mob.png` (a woolhop standing calmly on the grass).
+
+## November 25, 2026, 2:38 PM EST — Rain
+
+Rain used to fall in stiff, perfectly straight lines that lined up with the hex grid, so it looked like a cage of water. Drops now start at their own scattered places around you, drift with a little wind, and each one wobbles slightly. They also draw as short streaks, so a shower is easy to see against the sky.
+
+Screenshot: `screenshots-final/v1.4-phase1/09_rain.png`.
+
+## November 25, 2026, 2:38 PM EST — Held tools
+
+A pick or hatchet in your hand was pointed off to the side, not toward the block you were aiming at. Tools now line up with your look, and the swing pitches the head forward the way you'd actually strike.
+
+Screenshot: `screenshots-final/v1.4-phase1/10_held_tool.png`.
+
+## November 25, 2026, 2:38 PM EST — Falling off the world
+
+If you walked off an island, the clouds used to set you down right on the grass, which felt like a hard teleport. They now carry you back high in the air (ten layers above the land) so you drop in and land on your feet.
+
+Screenshot: `screenshots-final/v1.4-phase1/12_fall_respawn.png` (the view from that high drop-in).
