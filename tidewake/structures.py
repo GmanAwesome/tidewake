@@ -476,9 +476,9 @@ def build_stones(st, q, r, y):
         st.vines_on(sq, sr, y + 1, h)
     # center altar: a reason to visit
     st.put(q, r, y, M['carved_stone'] if st.cond != OVERGROWN else M['mossrock'], force=True)
-    st.put(q, r, y + 1, M['plinth'], force=True)
-    if st.chance(0.6) or st.cond == INTACT:
-        st.put(q, r, y + 2, M['lumen_shard'] if st.chance(0.5) else st.pal['lamp'], force=True)
+    st.put(q, r, y + 1, M['waystone'] if st.cond != RUINED or st.chance(0.7) else M['plinth'], force=True)
+    if st.chance(0.45) or st.cond == INTACT:
+        st.put(q, r + 1, y + 1, M['lumen_shard'] if st.chance(0.5) else st.pal['lamp'], force=True)
     if st.chance(0.55):
         st.chest(q + 1, r, y + 1, LOOT_STONES, 0)
     if st.cond in (OVERGROWN, RUINED, ABANDONED):
@@ -511,7 +511,7 @@ def build_temple(st, q, r, y):
         st.column(q + a, r + b, y1 + 1, 3 if st.cond != RUINED else 2, st.pal['brick'])
     # altar and loot — the reason to visit
     st.put(q, r, y1, M['plinth'], force=True)
-    st.put(q, r, y1 + 1, M['plinth'], force=True)
+    st.put(q, r, y1 + 1, M['waystone'], force=True)
     st.put(q, r, y1 + 2, st.pal['lamp'] if st.cond != RUINED else M['lumen_shard'], force=True)
     st.chest(q, r - 1, y1 + 1, LOOT_TEMPLE, 0)
     if st.cond == INTACT:
@@ -560,7 +560,7 @@ def build_chamber(st, q, r, y):
     # chamber furnishings — rarer loot is the reason to climb down
     st.chest(q + 1, r, floor + 1, LOOT_CHAMBER, 0)
     st.lamp(q - 1, r, floor + 2)
-    st.put(q, r + 1, floor + 1, M['plinth'], force=True)
+    st.put(q, r + 1, floor + 1, M['waystone'], force=True)
     if st.cond == OVERGROWN:
         st.put(q - 1, r + 1, floor + 1, M['glowcap'], force=True)
         st.put(q + 1, r - 1, floor + 1, M['vine'], force=True)

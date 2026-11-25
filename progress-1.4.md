@@ -127,3 +127,9 @@ Phase 2b is up as a pre-release, so it doesn’t replace 1.3.4 as the usual down
 
 Older skies still use the previous generator and have no generated structures. Brand-new skies get the new blocks in the world, the new recipes, and the settlements, ruins and sky boats.
 
+## November 25, 2026, 3:46 PM EST — Glimmer rarer, waystones, and the Font
+
+Glimmer motes are much rarer now. On a mid setting you see about a third of what you used to, and even a "common" slider is tighter. Catch them at dusk, or spend one at a waystone so the shrine remembers you. After that, right-click any attuned waystone to travel to another you have found. Temples, standing stones, and deep chambers already hold one.
+
+You can also craft a waystone (carved stone and Glimmer) or a Glimmer Font (polished stone and Glimmer). At a Font you spend Glimmer for lasting attunements that save with the sky: Keen Reach, Lightfoot, Deep Breath, Mote Sense, and Brightwake.
+

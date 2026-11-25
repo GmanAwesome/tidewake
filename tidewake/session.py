@@ -31,7 +31,7 @@ NEEDS_GROUND = {M['sprout'], M['bloom'], M['crystal'], M['berry_bush'], M['glows
 MAX_HP = 20
 MAX_FOOD = 20
 STARTER = [(I.BERRIES.id, 4), (M['glowstick'], 3)]
-USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door']}
+USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door'], M['waystone'], M['glimmer_font']}
 SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick'}
 PASSIVE_REALMS = {
     'woolhop': (0, 1, 5, 3, 7, 8, 9, 10, 14),
@@ -106,6 +106,8 @@ class Session:
             self.dev = self.mode == 'dreamer'
             self.hot = 0
             self.weather = 'clear'
+            self.waystones = {}
+            self.attune = []
             for iid, n in STARTER:
                 self.inv.add(iid, n)
         else:
@@ -143,12 +145,19 @@ class Session:
             self.kilns = {k: {'slots': Inventory(3).load(v.get('slots', [])), 'burn': float(v.get('burn', 0)),
                               'burn_max': float(v.get('burn_max', 1)), 'prog': float(v.get('prog', 0))}
                           for k, v in d.get('kilns', {}).items()}
+            self.waystones = dict(d.get('waystones', {}))
+            self.attune = list(d.get('attune', []))
         self.world = World(self.seed, storage, app.renderer, app.pool, view_distance, far_distance,
                           gen_settings=self.gen_settings)
         self.sim = Simulation(self.world, self.seed & 0xFFFF)
         self.sim.on_tree = self._grow_tree
         self.world.on_chunk_loaded = self._chunk_loaded
+        if not hasattr(self, 'waystones'):
+            self.waystones = {}
+        if not hasattr(self, 'attune'):
+            self.attune = []
         self.apply_abilities()
+        self.apply_attune()
         self.apply_dev()
         self.ready = False
         self.target = self.target_prev = None
@@ -216,6 +225,81 @@ class Session:
         self.toast('Dev mode on' if on else 'Dev mode off',
                    'F fly · N noclip · [ ] speed · F5 admin panel · instant break, endless items' if on else
                    'Back to wandering: mining takes time and things cost items.', 4)
+
+    def apply_attune(self):
+        self.player.speed_mul = 1.12 if 'lightfoot' in self.attune else 1.0
+
+    def reach_range(self):
+        return C.REACH + (6 if self.dev else 0) + (1.5 if 'reach' in self.attune else 0)
+
+    def _use_waystone(self, q, r, y):
+        from . import glimmer as G
+        from .ui.systems import WaystoneScreen
+        key = G.key(q, r, y)
+        rec = self.waystones.get(key)
+        if rec is None:
+            rec = {'name': self._waystone_name(q, r), 'attuned': False}
+            self.waystones[key] = rec
+        if not rec['attuned']:
+            if self.dev:
+                rec['attuned'] = True
+            elif self.inv.count(I.GLIMMER.id) < 1:
+                self.toast('The shrine is quiet', 'It wants 1 Glimmer to remember you.', 3)
+                return
+            else:
+                self.inv.remove(I.GLIMMER.id, 1)
+                rec['attuned'] = True
+                self.app.audio.play('awaken', 0.55)
+                self.toast('The waystone remembers you', 'Find another and you can travel between them.', 4)
+                return
+        self.app.set_screen(WaystoneScreen(key))
+        self.app.audio.play('chord', 0.45)
+
+    def _waystone_name(self, q, r):
+        names = ('Amber', 'Cinder', 'Hollow', 'Lumen', 'Mire', 'Nimbus',
+                 'Pebble', 'Reed', 'Salt', 'Thorn', 'Verdant', 'Wisp')
+        base = names[(int(q) * 17 + int(r) * 31) % len(names)] + ' shrine'
+        used = {v.get('name') for v in self.waystones.values()}
+        if base not in used:
+            return base
+        n = 2
+        while f'{base} {n}' in used:
+            n += 1
+        return f'{base} {n}'
+
+    def travel_to_waystone(self, key):
+        from . import glimmer as G
+        rec = self.waystones.get(key)
+        if not rec or not rec.get('attuned'):
+            return False
+        q, r, y = G.parse_key(key)
+        cx, cz = center(q, r)
+        dest = (cx, (y + 1) * LAYER + 0.05, cz)
+        p = self.player
+        p.x, p.y, p.z = dest
+        p.vx = p.vy = p.vz = 0
+        p.last_safe = dest
+        self.hold = True
+        self.app.audio.play('whoosh', 0.7)
+        self.toast('The shrine carries you', rec.get('name', ''), 3)
+        return True
+
+    def buy_attunement(self, aid):
+        from . import glimmer as G
+        rec = next((a for a in G.ATTUNEMENTS if a[0] == aid), None)
+        if rec is None or aid in self.attune:
+            return False
+        _, title, cost, _ = rec
+        if not self.dev and self.inv.count(I.GLIMMER.id) < cost:
+            self.toast('Not enough Glimmer', f'{title} wants {cost}.', 2.5)
+            return False
+        if not self.dev:
+            self.inv.remove(I.GLIMMER.id, cost)
+        self.attune.append(aid)
+        self.apply_attune()
+        self.app.audio.play('awaken', 0.6)
+        self.toast(title, 'The Font keeps this with the sky.', 3.5)
+        return True
 
     def toast(self, text, sub='', secs=5.0):
         self.toasts = [t for t in self.toasts if t[0] != text][-1:]
@@ -384,7 +468,7 @@ class Session:
         # aim: blocks and creatures
         ex, ey, ez = p.eye
         fx, fy, fz = forward_vector(p.yaw, p.pitch)
-        reach = C.REACH + (6 if self.dev else 0)
+        reach = self.reach_range()
         self.target, self.target_prev = raycast(self.world, ex, ey, ez, fx, fy, fz, reach, skip_water=True)
         bd = 1e9
         if self.target:
@@ -450,12 +534,15 @@ class Session:
             self.hp, self.food = MAX_HP, MAX_FOOD
             return
         drain = 1 / 50.0 + (1 / 30.0 if inp.get('hurry') and moving > 0.5 else 0)
+        if 'breath' in getattr(self, 'attune', []):
+            drain *= 0.7
         self.food = max(0.0, self.food - drain * dt * 0.5)
         self.regen_t += dt
         if self.regen_t > 3.0:
             self.regen_t = 0
             if self.food >= 14 and self.hp < MAX_HP:
-                self.hp = min(MAX_HP, self.hp + 1)
+                extra = 1 if 'brightwake' in getattr(self, 'attune', []) else 0
+                self.hp = min(MAX_HP, self.hp + 1 + extra)
                 self.food = max(0, self.food - 0.4)
             elif self.food <= 0 and self.hp > 2:
                 self.hp -= 1
@@ -668,7 +755,7 @@ class Session:
                 if cell_at(mob.x, mob.z) == (q, r) and math.floor(mob.y / LAYER) <= y <= math.floor((mob.y + mob.height) / LAYER):
                     return False
         meta0 = INITIAL_META.get(mat, 0)
-        if mat in (M['tinker_bench'], M['kiln'], M['chest'], M['door'], M['ladder']):
+        if mat in (M['tinker_bench'], M['kiln'], M['chest'], M['door'], M['ladder'], M['waystone'], M['glimmer_font']):
             # face the front (drawer, firebox, latch, door, rungs) towards you
             from .hexgrid import DIR_NORMALS
             cx_, cz_ = center(q, r)
@@ -747,6 +834,12 @@ class Session:
             self.app.set_screen(IU.KilnScreen(self.kilns[key]))
         elif m == M['door']:
             self._toggle_door(q, r, y)
+        elif m == M['waystone']:
+            self._use_waystone(q, r, y)
+        elif m == M['glimmer_font']:
+            from .ui.systems import FontScreen
+            self.app.set_screen(FontScreen())
+            self.app.audio.play('chord', 0.5)
         elif m == M['bedroll']:
             cx, cz = center(q, r)
             self.spawn = (cx, (y + 1) * LAYER + 0.01, cz)
@@ -768,7 +861,7 @@ class Session:
         ex, ey, ez = self.player.eye
         fx, fy, fz = forward_vector(self.player.yaw, self.player.pitch)
         if it.id == I.PAIL.id:
-            hit, prev = raycast(self.world, ex, ey, ez, fx, fy, fz, C.REACH)
+            hit, prev = raycast(self.world, ex, ey, ez, fx, fy, fz, self.reach_range())
             if hit and self.world.get(*hit) == M['water']:
                 self.world.set(*hit, 0, 0, now=True)
                 self.sim.wake_around(*hit)
@@ -1115,8 +1208,9 @@ class Session:
         p = self.player
         dusk = TIDE.dusk_amount(self.phase)
         gmul = getattr(self.gen, 'glimmer_mul', 1.0)
-        want = int((4 + 14 * dusk) * gmul)
-        while len(self.motes) < want and random.random() < dt * 3 * max(0.2, gmul):
+        sense = 'sense' in getattr(self, 'attune', [])
+        want = int((1 + 5 * dusk) * gmul * (1.35 if sense else 1.0))
+        while len(self.motes) < want and random.random() < dt * (1.2 if sense else 0.8) * max(0.12, gmul):
             ang = random.uniform(0, 2 * math.pi)
             dist = random.uniform(4, 16)
             x, z = p.x + math.cos(ang) * dist, p.z + math.sin(ang) * dist
@@ -1128,12 +1222,12 @@ class Session:
         ex, ey, ez = p.x, p.y + 0.9, p.z
         for m in self.motes:
             m[3] += dt
-            m[4] -= dt
+            m[4] -= dt * (0.6 if sense else 1.0)
             m[0] += math.sin(m[3] * 0.7) * 0.4 * dt
             m[2] += math.cos(m[3] * 0.5) * 0.4 * dt
             m[1] += math.sin(m[3] * 1.3) * 0.25 * dt
             d = math.sqrt((m[0] - ex) ** 2 + (m[1] - ey) ** 2 + (m[2] - ez) ** 2)
-            if d < 1.5 and m[5]:
+            if d < (2.2 if sense else 1.5) and m[5]:
                 self.inv.add(I.GLIMMER.id, 1)
                 self.stats['motes'] += 1
                 self.app.audio.play('mote', 0.7)
@@ -1247,9 +1341,12 @@ class Session:
         return np.concatenate(out).astype('f4')
 
     def extra_lights(self, cam):
-        """Point lights for motes near the camera."""
+        """Point lights for motes near the camera, plus Brightwake's soft glow."""
         cx, cy, cz = cam
         L = [(m[0] - cx, m[1] - cy, m[2] - cz, M['lantern']) for m in self.motes[:6] if m[5]]
+        if 'brightwake' in getattr(self, 'attune', []):
+            p = self.player
+            L.append((p.x - cx, p.y + 0.9 - cy, p.z - cz, M['glimmer_font']))
         return [np.array(L)] if L else []
 
     # ------------------------------------------------------------------ commands (whisper box)
@@ -1511,7 +1608,8 @@ class Session:
                 'dev': self.dev, 'hot': self.hot, 'weather': self.weather, 'inventory': self.inv.to_list(),
                 'chests': {k: v.to_list() for k, v in self.chests.items()},
                 'kilns': {k: {'slots': v['slots'].to_list(), 'burn': v['burn'], 'burn_max': v['burn_max'], 'prog': v['prog']}
-                          for k, v in self.kilns.items()}}
+                          for k, v in self.kilns.items()},
+                'waystones': self.waystones, 'attune': list(self.attune)}
 
     def save(self):
         if self.storage:

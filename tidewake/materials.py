@@ -132,7 +132,11 @@ _M = [
     ('Thatch Slab',     'slab', (0.82, 0.68, 0.36),  (0.72, 0.58, 0.28),   0.0, True,  (0, 0, 0, 1), 'leaf'),
     ('Shingles Slab',   'slab', (0.70, 0.38, 0.32),  (0.62, 0.32, 0.28),   0.0, True,  (1, 0, 0, 0), 'stone'),
     ('Polished Stone Slab','slab', (0.90, 0.88, 0.84), (0.80, 0.78, 0.74), 0.0, True, (1, 0, 0, 0), 'stone'),
+    # ---- 1.4 phase 3: glimmer stations
+    ('Waystone',      'full', (0.86, 0.80, 0.98),  (0.62, 0.56, 0.78),   0.55, True, (0, 0, 1, 0), 'stone'),
+    ('Glimmer Font',  'full', (1.00, 0.90, 0.58),  (0.72, 0.62, 0.78),   0.85, True, (0, 0, 1, 0), 'glass'),
 ]
+
 
 
 NAMES = [m[0] for m in _M]
@@ -189,6 +193,8 @@ LIGHTS = {
     ID['starstone']: ((0.50, 0.40, 0.90), 4.0),
     ID['polished_starstone']: ((0.55, 0.45, 0.95), 5.0),
     ID['starstone_tiles']: ((0.50, 0.40, 0.90), 4.0),
+    ID['waystone']: ((0.75, 0.65, 1.0), 10.0),
+    ID['glimmer_font']: ((1.0, 0.84, 0.45), 12.0),
 }
 ORES = [ID['emberite_ore'], ID['verdigris_ore'], ID['silverine_ore'], ID['aetherite_ore']]
 WOODS = {ID['heartwood'], ID['cedar_heartwood'], ID['pale_heartwood'], ID['dark_heartwood']}
@@ -275,6 +281,10 @@ def _tex_style(name, kind):
         return 'cloth'
     if n == 'heather':
         return 'heather'
+    if 'waystone' in n:
+        return 'waystone'
+    if 'font' in n:
+        return 'font'
     if kind == 'slab':
         return _tex_style(name[:-5] if name.lower().endswith(' slab') else name, 'full')
     return ''

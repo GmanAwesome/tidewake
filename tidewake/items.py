@@ -80,6 +80,8 @@ BLOCK_DESC = {
     'door': 'right-click to open or close; two blocks tall', 'ladder': 'climb it; place it on a wall',
     'ember_lamp': 'a warm lamp', 'aether_lamp': 'a dusky lamp', 'verdigris_lamp': 'a teal lamp',
     'heather': 'lavender downs packing; a soft purple block',
+    'waystone': 'right-click: attune with Glimmer, then travel between shrines',
+    'glimmer_font': 'right-click: spend Glimmer on lasting attunements',
 }
 for i in range(1, MT.N):
     key = MT.NAMES[i].lower().replace(' ', '_')
@@ -300,6 +302,14 @@ for _full, _slab in (
     (M['polished_stone'], M['polished_stone_slab']),
 ):
     recipe([[_full, _full, _full]], _slab, 6)
+
+# ---- 1.4 phase 3: glimmer stations
+recipe([[M['carved_stone'], M['carved_stone'], M['carved_stone']],
+        [M['carved_stone'], G_, M['carved_stone']],
+        [M['carved_stone'], M['carved_stone'], M['carved_stone']]], M['waystone'])
+recipe([[M['polished_stone'], G_, M['polished_stone']],
+        [G_, M['carved_stone'], G_],
+        [M['polished_stone'], G_, M['polished_stone']]], M['glimmer_font'])
 
 
 def _match_cell(want, have):

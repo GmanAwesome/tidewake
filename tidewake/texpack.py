@@ -321,6 +321,17 @@ def tile(mat, side):
     if style == 'glass':
         streak = 1 + 0.04 * np.sin((X * 2 + Y * 7) * np.pi * 2)
         return streak * bevel(0.06) * n(3, 2, 0.02)
+    if style == 'waystone':
+        band = np.where((np.abs(Y - 0.5) < 0.05) | (Y < 0.08) | (Y > 0.92), 0.72, 1.0)
+        rune = ((np.abs(X - 0.5) < 0.08) & (Y > 0.2) & (Y < 0.8)) | ((X - 0.5) ** 2 + (Y - 0.62) ** 2 < 0.04)
+        glow = np.where(rune, 0.85, 0.15)
+        return band * np.where(rune, 1.35, 1.0) * n(5, 2, 0.04) * bevel(0.07), glow
+    if style == 'font':
+        bowl = ((X - 0.5) ** 2 + ((Y - 0.55) * 0.8) ** 2 < 0.28 ** 2) & (Y > 0.28)
+        rim = bowl & ~(((X - 0.5) ** 2 + ((Y - 0.55) * 0.8) ** 2 < 0.20 ** 2) & (Y > 0.34))
+        out = np.where(rim, 0.7, np.where(bowl, 1.35, 0.85)) * n(4, 2, 0.05)
+        glow = np.where(bowl & ~rim, 0.9, 0.1)
+        return out, glow
     return n(6, 2, 0.06)
 
 

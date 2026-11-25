@@ -81,7 +81,8 @@ class Generator:
             self.water_mul = GS.scale(s, 'water', 0.15, 1.0, 2.0)
             self.flatness = s['flatness'] / 100.0
             self.cave_size = GS.scale(s, 'cave_size', 0.55, 1.0, 1.85)
-            self.glimmer_mul = GS.scale(s, 'glimmer_rarity', 2.1, 1.0, 0.28)
+            # 1.4-phase3: Glimmer is substantially rarer at every slider setting
+            self.glimmer_mul = GS.scale(s, 'glimmer_rarity', 0.70, 0.32, 0.10)
         else:
             self.tree_mul = 1.0
             self.water_mul = 1.0

@@ -37,6 +37,7 @@ class Player:
         self.knock = (0.0, 0.0)
         self.crouching = False
         self._eye = C.EYE
+        self.speed_mul = 1.0
 
     # ------------------------------------------------------------------ collision
     def _columns(self, x, z):
@@ -118,6 +119,7 @@ class Player:
                 sp = C.HURRY
             else:
                 sp = C.WALK
+            sp *= getattr(self, 'speed_mul', 1.0)
             if self.in_water:
                 sp *= 0.6
             self.gliding = (self.can_glide and jump_held and not self.on_ground and self.vy < 0
