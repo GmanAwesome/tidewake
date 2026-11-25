@@ -372,4 +372,8 @@ Generating and meshing 49 chunks took about 4.5–5 ms each on v3, no slower tha
 
 The eight player builds and the seed-only title skies now sit on generator v3. The Sky-boat Dock has a much larger boat (a long wide hull, a tall mast and a broad linen sail) and a cleared quay, the Twin Isles Bridge is a 20-hex crossing with wider abutments and a longer covered mid-span, and tree-clearing now removes every kind of heartwood, so leftover trunks no longer stand in the Lighthouse Cottage's inland view (the clear radius there is also wider). Every orbit still passes the camera-path test.
 
+## November 25, 2026, 6:51 PM EST — 1.4.2-test pre-release is ready
+
+The version line is 1.4.2-test. After shots are in `screenshots-final/v1.4.2/`: comparable views at the five playtest sites, a look-up at the tall islands, a look-down from a 292 cliff edge on the high island (lower isles visible far below), and elevated wide shots of the hills, ridges, and sky gaps. Title showcases were photographed on v3 as well. This goes out as a pre-release so 1.4.1 stays Latest.
+
 

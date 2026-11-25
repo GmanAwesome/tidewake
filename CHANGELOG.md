@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.2-test — 25 November 2026
+
+A pre-release for playtesting. 1.4.1 remains the current (Latest) release. Skies from 1.4 and 1.4.1 keep their original terrain. These changes apply to new skies (generator v3).
+
+### Worlds
+
+- Neighbouring islands at different heights are separated by sky, instead of sharing a tall vertical wall. The old 30–60-layer seams are gone in the metric test (2,533 such neighbouring pairs in 1.4.1 over the playtest windows, none in v3).
+- Some island surfaces now reach layer 300, with a wide spread from low shelves in the thirties up to those peaks. The world column height is 360; older 128-layer chunks grow on load. You still spawn on mid-height land.
+- Large islands have real relief: rolling hills, ridges, peaks, valleys, and mesas with eroded slopes, in mostly 1–2-layer steps.
+
+### Presentation
+
+- The eight hand-built title scenes sit on the new generator. The Sky-boat Dock is a larger, easier-to-spot boat with a cleared quay, the Twin Isles Bridge is a longer crossing, and leftover trunks are cleared from the Lighthouse Cottage's inland angle. Camera paths are still checked for clipping.
+
+Windows builds still embed a Common Controls v6 manifest and the app icon in the exe.
+
+
 ## 1.4.1 — 25 November 2026
 
 A polish release on top of 1.4. Skies from 1.3 still load and keep their original terrain. These changes apply to new skies.

@@ -2364,3 +2364,208 @@ def phase142_before(app, log, shot, look_at, settled, arg):
         yield 0.9
         yield shot(f'{name}_wide')
     log('phase142_before finished')
+
+
+def phase142_after(app, log, shot, look_at, settled, arg):
+    """Comparable afters on v3, plus a look-up at tall islands and a view down from ~300."""
+    import math
+    from .hexgrid import cell_at, center
+    from .config import LAYER
+    seed = -1740201319
+    yield 0.8
+    app.create_sky('After 142', seed, str(seed), 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    log('spawn', p.x, p.y, p.z, 'top', ses.world.column_top(*cell_at(p.x, p.z)))
+
+    p.drifting = True
+
+    def park(x, z, yaw, pitch):
+        """Move the camera so the world starts loading this column."""
+        p.x, p.z = float(x), float(z)
+        p.y = 330 * LAYER
+        p.vy = 0
+        p.yaw, p.pitch = yaw, pitch
+
+    def snap(x, z, yaw, pitch, up=2.2):
+        q, r = cell_at(x, z)
+        top = ses.world.column_top(q, r)
+        if top is None or top < 0:
+            top = 60
+        p.x, p.z = float(x), float(z)
+        p.y = top * LAYER + up
+        p.vy = 0
+        p.yaw, p.pitch = yaw, pitch
+        log('stand', x, z, 'qr', q, r, 'top', top, 'yaw', yaw, 'pitch', pitch)
+        return top
+
+    def goto(x, z, yaw, pitch, up=2.2):
+        park(x, z, yaw, pitch)
+        yield settled()
+        yield 0.5
+        top = snap(x, z, yaw, pitch, up)
+        yield settled()
+        yield 0.8
+        return top
+
+    sites = [
+        ('chalk_barrens', -3246, -1298),
+        ('cinder_spires', -2296, 223),
+        ('rose_mesas', 1376, 1522),
+        ('lumen_grove', 1383, 1647),
+        ('cloudstep_isles', 411, 2057),
+    ]
+    views = ((0, -8), (90, -8), (180, -6), (270, -10), (45, -18))
+    for name, x, z in sites:
+        for i, (yaw, pitch) in enumerate(views):
+            yield from goto(x, z, yaw, pitch)
+            yield shot(f'{name}_{i}')
+        yield from goto(x, z, 120, -16, up=8)
+        yield shot(f'{name}_wide')
+
+    # from a mid island, look up at the 300-high peak (q -192, r -224)
+    px, pz = center(-192, -224)
+    vx, vz = center(-59, -224)
+    yaw = math.degrees(math.atan2(px - vx, -(pz - vz))) % 360
+    t = yield from goto(vx, vz, yaw, 16, up=2.4)
+    log('lookup from', t, 'toward peak')
+    yield 0.4
+    yield shot('tall_islands_lookup')
+    yield from goto(vx, vz, yaw, 8, up=10)
+    yield shot('tall_islands_lookup_wide')
+
+    t = yield from goto(px, pz, 40, -28, up=2.2)
+    log('lookdown from', t)
+    yield 0.4
+    yield shot('peak300_lookdown')
+    yield from goto(px, pz, 200, -18, up=3.0)
+    yield shot('peak300_lookdown_2')
+    log('phase142_after finished')
+
+
+def phase142_showcases(app, log, shot, look_at, settled, arg):
+    """Two clear angles of every 1.4.2 title showcase on generator v3."""
+    from . import showcase as SC
+    items = SC.catalog()
+    keep = app.menu
+    for i, (kind, payload) in enumerate(items):
+        SC._index = i
+        app.start_backdrop()
+        yield 0.8
+        yield lambda: app.backdrop and app.backdrop['world'].busy() == 0 and app.backdrop['world'].busy_lod() == 0
+        yield 0.8
+        b = app.backdrop
+        sc = b['showcase']
+        b['speed'] = 0.0
+        a0, a1 = SC.orbit_span(sc)
+        span = a1 - a0
+        angs = (a0 + span * 0.22, a0 + span * 0.72)
+        slug = sc.name.lower().replace(' ', '_').replace("'", '').replace('-', '_')
+        log('showcase', i, kind, sc.name, 'seed', sc.seed_text, 'site', sc.q, sc.r, sc.top, 'cam', sc.camera)
+        app.menu = None
+        for k, ang in enumerate(angs, 1):
+            b['ang'] = ang
+            yield 1.3
+            yield shot(f'{slug}_{k}')
+        app.menu = keep
+    log('phase142_showcases finished')
+
+
+def phase142_heights(app, log, shot, look_at, settled, arg):
+    """Retake the ~300 look-down from a cliff edge, plus elevated wide afters."""
+    import math
+    from .hexgrid import center, cell_at
+    from .config import LAYER
+    seed = -1740201319
+    yield 0.8
+    app.create_sky('After 142', seed, str(seed), 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.6
+    ses = app.session
+    p = ses.player
+    p.drifting = True
+    app.hide_hud = False
+
+    def park(x, z, y, yaw, pitch):
+        p.x, p.z, p.y = float(x), float(z), float(y)
+        p.vy = p.vx = p.vz = 0
+        p.yaw, p.pitch = yaw, pitch
+
+    def snap_edge(q, r, yaw, pitch, up=3.0):
+        x, z = center(q, r)
+        park(x, z, 330 * LAYER, yaw, pitch)
+        yield settled()
+        yield 0.5
+        top = ses.world.column_top(q, r)
+        if top is None or top < 0:
+            top = 292
+        park(x, z, top * LAYER + up, yaw, pitch)
+        log('edge', q, r, 'top', top, 'yaw', yaw, 'pitch', pitch)
+        yield settled()
+        yield 0.9
+        return top
+
+    # Saltwind rim of the high island (few trees), looking out over the drop
+    yield from snap_edge(-213, -201, 150.0, -35, up=3.2)
+    yield shot('peak300_lookdown')
+    yield from snap_edge(-213, -201, 165.0, -38, up=3.4)
+    yield shot('peak300_lookdown_2')
+
+    # Elevated wide 1: fly above the high cinder shelf and look out over the gaps
+    cx, cz = -2296.0, 223.0
+    park(cx, cz, 330 * LAYER, 120, -12)
+    yield settled()
+    yield 0.6
+    q, r = cell_at(cx, cz)
+    top = ses.world.column_top(q, r) or 292
+    # sit well above the surface, pitched down so hills, ridges and lower shelves read
+    park(cx - 18, cz + 10, (top + 48) * LAYER, 125, -32)
+    log('aerial cinder from', top + 48)
+    yield settled()
+    yield 1.0
+    yield shot('aerial_wide_1')
+
+    # Elevated wide 2: off the ~300 island, looking back so the peak and lower shelves show
+    px, pz = center(-237, -245)
+    park(px + 70, pz + 90, 250 * LAYER, 210, -28)
+    log('aerial peak approach')
+    yield settled()
+    yield 1.0
+    yield shot('aerial_wide_2')
+    log('phase142_heights finished')
+
+
+def phase142_aerial2(app, log, shot, look_at, settled, arg):
+    """Second elevated after: above the ~300 island, looking down at ridges and lower shelves."""
+    from .hexgrid import center, cell_at
+    from .config import LAYER
+    yield 0.6
+    app.create_sky('After 142', -1740201319, '-1740201319', 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    ses = app.session
+    p = ses.player
+    p.drifting = True
+    # stand off the high island's south-east rim, well ABOVE the 294 surface
+    qx, qz = center(-213, -201)
+    p.x, p.z = qx + 55, qz + 40
+    p.y = 350 * LAYER
+    p.vy = p.vx = p.vz = 0
+    # look back at the high island and down toward the lower shelves
+    p.yaw, p.pitch = 300.0, -30.0
+    yield settled()
+    yield 1.0
+    yield shot('aerial_wide_2')
+    # a second try from farther back and a little lower so more land fills the frame
+    p.x, p.z = qx + 85, qz + 25
+    p.y = 340 * LAYER
+    p.yaw, p.pitch = 290.0, -28.0
+    yield settled()
+    yield 1.0
+    yield shot('aerial_wide_2b')
+    log('phase142_aerial2 finished')
+
