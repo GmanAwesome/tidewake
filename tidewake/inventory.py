@@ -65,7 +65,11 @@ class Inventory:
 
     def load(self, data):
         for i, s in enumerate(data[:len(self.slots)]):
-            self.slots[i] = [int(s[0]), int(s[1]), int(s[2]) if len(s) > 2 else 0] if s and I.get(int(s[0])) else None
+            if not s or not I.get(int(s[0])):
+                self.slots[i] = None
+            else:
+                uses = int(s[2]) if len(s) > 2 and s[2] is not None else 0
+                self.slots[i] = [int(s[0]), int(s[1]), uses]
         return self
 
 

@@ -23,12 +23,12 @@ def draw_icon(gui, app, iid, x, y, size, alpha=1.0):
         gui.hexagon(x + size / 2, y + size / 2, size * 0.35, (*col, alpha), border=(1, 1, 1), border_w=1.5 * gui.s)
 
 
-def draw_stack(gui, app, slot, x, y, size, show_count=True):
+def draw_stack(gui, app, slot, x, y, size, show_count=True, always=False):
     if not slot:
         return
     draw_icon(gui, app, slot[0], x + size * 0.08, y + size * 0.08, size * 0.84)
     it = I.get(slot[0])
-    if show_count and slot[1] > 1:
+    if show_count and (slot[1] > 1 or always):
         gui.text(str(slot[1]), x + size - 4 * gui.s, y + 9 * gui.s, 10, (0.15, 0.1, 0.25, 0.8), 'right', 'center', font='bold')
         gui.text(str(slot[1]), x + size - 5 * gui.s, y + 10 * gui.s, 10, WHITE, 'right', 'center', font='bold')
     if it and it.kind == 'tool' and it.uses and slot[2] < it.uses:
@@ -74,12 +74,12 @@ class SlotScreen(Screen):
     def __init__(self):
         self.tip = None
 
-    def slot(self, gui, app, slots, i, x, y, size, on_click=None, take_only=False):
+    def slot(self, gui, app, slots, i, x, y, size, on_click=None, take_only=False, show_count=True, always_count=False):
         s = gui.s
         hover = gui.inside(x, y, size, size)
         gui.rect(x, y, size, size, SLOT_HOVER if hover else SLOT_BG, 10 * s,
                  border=ACCENT if hover else (1, 1, 1), border_w=(2 if hover else 1.2) * s)
-        draw_stack(gui, app, slots[i], x, y, size)
+        draw_stack(gui, app, slots[i], x, y, size, show_count=show_count, always=always_count)
         ses = app.session
         if hover and slots[i]:
             it = I.get(slots[i][0])
@@ -386,8 +386,8 @@ class KilnScreen(SlotScreen):
         sl = k['slots'].slots
         cx = px + pw / 2 - 90 * s
         top = py + ph - 90 * s
-        self.slot(gui, app, sl, 0, cx, top - size, size)
-        self.slot(gui, app, sl, 1, cx, top - size * 2 - 40 * s, size)
+        self.slot(gui, app, sl, 0, cx, top - size, size, show_count=True, always_count=True)
+        self.slot(gui, app, sl, 1, cx, top - size * 2 - 40 * s, size, show_count=True, always_count=True)
         gui.text('Smelt', cx - 12 * s, top - size / 2, 10, MUTED, 'right', 'center', font='bold')
         gui.text('Fuel', cx - 12 * s, top - size * 1.5 - 40 * s, 10, MUTED, 'right', 'center', font='bold')
         fl = k['burn'] / max(k['burn_max'], 0.01) if k['burn'] > 0 else 0
@@ -401,7 +401,7 @@ class KilnScreen(SlotScreen):
         gui.rect(ax, top - size * 1.5 - 24 * s, aw * min(1, k['prog']), 10 * s, ACCENT, 5 * s)
         out_x = ax + aw + 30 * s
         gui.rect(out_x - 4 * s, top - size * 1.5 - 20 * s - size / 2 - 4 * s, size + 8 * s, size + 8 * s, (1, 0.9, 0.82, 1), 12 * s)
-        self.slot(gui, app, sl, 2, out_x, top - size * 1.5 - 20 * s - size / 2, size)
+        self.slot(gui, app, sl, 2, out_x, top - size * 1.5 - 20 * s - size / 2, size, show_count=True, always_count=True)
         res = I.SMELT.get(sl[0][0]) if sl[0] else None
         hint = f'makes {I.get(res).name}' if res else ('this won\'t smelt' if sl[0] else 'ores, sand, clay, stone, hopmeat, wood')
         gui.text(hint, out_x + size + 14 * s, top - size * 1.5 - 20 * s, 9, MUTED, 'left', 'center')

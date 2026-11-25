@@ -214,7 +214,7 @@ class Gui:
         fname = {'title': FONT_TITLE, 'bold': FONT_BOLD}.get(font, FONT_BODY)
         col = _c255(color)
         px = size * self.s
-        k = key or (s, round(px, 1), col, anchor_x, anchor_y, fname, width, align)
+        k = key or (s, round(px, 1), col, anchor_x, anchor_y, fname, width, align, round(x), round(y))
         lab = self.labels.get(k)
         if lab is None:
             kw = dict(font_name=fname, font_size=px, color=col, anchor_x=anchor_x, anchor_y=anchor_y)
