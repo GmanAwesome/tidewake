@@ -376,16 +376,30 @@ def wanderer(t=0.0, walking=False):
     # uniform body tone, no outfit colours or bands; face looks toward -z, back is +z
     v = cat(
         prisms((-0.09, 0.09), (0.02 + swing * 0.15, 0.02 - swing * 0.15), 0.0, 0.48, 0.07, skin, skin * 0.96),
-        prisms(0, 0.02, 0.44, 1.10 + bob, 0.22, skin, skin * 0.96),
+        # upper torso keeps the original depth (back at z≈0.24). the pelvis is
+        # the hip mass (back at z≈0.16); cheeks sit inside that width, raised
+        # to the base of the torso, and sunk into the hip so they read as one butt.
+        prisms(0, 0.02, 0.72 + bob, 1.10 + bob, 0.22, skin, skin * 0.96),
+        prisms(0, 0.02, 0.62 + bob, 0.78 + bob, 0.20, skin, skin * 0.96),
+        prisms(0, -0.02, 0.46 + bob, 0.72 + bob, 0.18, skin, skin * 0.96),
+        prisms((-0.14, 0.14), 0.02, 0.48 + bob, 0.70 + bob, 0.08, skin, skin * 0.96),
         prisms(0, 0.00, 1.10 + bob, 1.36 + bob, 0.16, skin, skin * 0.92),
         prisms(0, 0.08, 1.26 + bob, 1.46 + bob, 0.17, hair, hair),
         prisms((-0.065, 0.065), (-0.145, -0.145), 1.235 + bob, 1.305 + bob, 0.042, (0.95, 0.93, 0.90), (0.95, 0.93, 0.90)),
         prisms((-0.065, 0.065), (-0.16, -0.16), 1.245 + bob, 1.295 + bob, 0.022, (0.10, 0.08, 0.08), (0.10, 0.08, 0.08)),
         prisms(0, -0.16, 1.155 + bob, 1.19 + bob, 0.03, (0.55, 0.32, 0.30), (0.55, 0.32, 0.30)),
         prisms((-0.30, 0.30), (0.02 + swing, 0.02 - swing), 0.72 + bob, 1.05 + bob, 0.06, skin, skin * 0.96),
-        # two simple cartoony rounded cheeks on the back of the hips, a slight bulge
-        # torso back is ~z=0.24; sit these just behind it so the bulge reads in third person
-        prisms((-0.10, 0.10), (0.32, 0.32), 0.40 + bob, 0.62 + bob, 0.11, skin, skin * 0.96),
+        # glutes: several stepped boxes per side, ~50% sunk into the recessed
+        # pelvis (cheek mid around the old torso back z≈0.24). gap at x=0 is
+        # the centre cleft; lower boxes taper into the thigh tops. lift is a
+        # touch lighter, cleft and underside a touch darker. no other anatomy.
+        # narrow cheeks (outer edge inside the hip width ~0.22), raised to the
+        # torso base, sunk so mid sits inside the old torso back, heavily overlapped
+        # so they read as one rounded butt rather than hanging side boxes.
+        prisms((-0.06, 0.06), (0.18, 0.18), 0.60 + bob, 0.73 + bob, 0.08, skin * 1.05, skin * 1.00),
+        prisms((-0.07, 0.07), (0.17, 0.17), 0.52 + bob, 0.68 + bob, 0.09, skin * 1.02, skin * 0.96),
+        prisms((-0.065, 0.065), (0.12, 0.12), 0.46 + bob, 0.56 + bob, 0.07, skin * 0.93, skin * 0.88),
+        prisms(0, 0.12, 0.52 + bob, 0.70 + bob, 0.035, skin * 0.86, skin * 0.84),
     )
     _FIGURE_CACHE[key] = v
     return v
