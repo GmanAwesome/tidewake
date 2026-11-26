@@ -105,7 +105,8 @@ class SkyStorage:
                 continue
             out.append(dict(folder=folder, name=d.get('name', folder), seed=d.get('seed'), mode=d.get('mode', 'wanderer'),
                             last_played=d.get('last_played', 0), awakened=len(d.get('awakened', [])),
-                            play_time=d.get('play_time', 0), seed_text=d.get('seed_text', '')))
+                            play_time=d.get('play_time', 0), seed_text=d.get('seed_text', ''),
+                            tutorial=bool(d.get('tutorial'))))
         out.sort(key=lambda w: -w['last_played'])
         return out
 

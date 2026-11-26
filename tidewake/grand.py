@@ -36,7 +36,7 @@ from . import materials as MT
 
 M = MT.ID
 REGION = 14                      # chunks per side of a grand region
-CHANCE = 0.42                    # share of regions that hold a grand structure
+CHANCE = 0.546                   # share of regions that hold a grand structure (1.4.6: 0.42 x 1.3)
 HUES = ('rose', 'ember', 'honey', 'leaf', 'moss', 'tide', 'sky', 'indigo',
         'violet', 'orchid', 'blush', 'cocoa', 'snow', 'pearl', 'ash', 'ink')
 BRIGHT = ('rose', 'ember', 'honey', 'leaf', 'tide', 'sky', 'indigo', 'violet', 'orchid', 'blush', 'snow')
@@ -1274,6 +1274,28 @@ def apply(gen, cq, cr, cells, meta):
             meta[arr[:, 0], arr[:, 1], arr[:, 2]] = arr[:, 4].astype(np.uint8)
             hit.append(g['kind'])
     return hit
+
+
+def occupied(gen, cq, cr, pad=1):
+    """True if a grand structure stamps into chunk (cq, cr) or a chunk within pad of it."""
+    regs = {((cq + dq) // REGION, (cr + dr) // REGION) for dq in (-pad, 0, pad) for dr in (-pad, 0, pad)}
+    seen = set()
+    for rq, rr in regs:
+        for a in (rq - 1, rq, rq + 1):
+            for b in (rr - 1, rr, rr + 1):
+                if (a, b) in seen:
+                    continue
+                seen.add((a, b))
+                if not site(gen, a, b):
+                    continue
+                g = build(gen, a, b)
+                if not g:
+                    continue
+                for dq in range(-pad, pad + 1):
+                    for dr in range(-pad, pad + 1):
+                        if (cq + dq, cr + dr) in g['buckets']:
+                            return True
+    return False
 
 
 def nearby(gen, q, r, regions=2):

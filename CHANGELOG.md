@@ -1,8 +1,14 @@
 # Changelog
 
-## 1.4.5 — 26 November 2026
+## 1.4.6 — 26 November 2026
 
 The current release.
+
+- **Fixed: My Skies wasn't empty on a fresh install.** The 1.4.5 download had been zipped from a folder that had already run the game, so it shipped a saved "The Lesson" sky (plus settings and a music cache). Release zips are now packed from a clean build with no `skies/`, `settings.json`, `music-cache/` or logs. My Skies also no longer lists the lesson island (it has its own button), so it shows only skies you made.
+- **About 30% more structures in new skies.** Grand structures (balloons, sky cities, fortresses, world trees, villages, airships, watchtowers and the rest) now appear in 55% of regions instead of 42%. Smaller island builds appear in 65% of regions instead of 50%.
+- Small builds now skip any spot where a grand structure lands, so the two never overlap.
+
+## 1.4.5 — 26 November 2026
 
 - **Fixed: the Windows build's Learn to play hung forever on "Dreaming The Lesson… 0%".** The lesson island builder read `tutorial.py` from disk at run time. The packaged game ships compiled code only, so every lesson chunk failed in the background and the loader retried forever. The list it needed is now a constant, and a test checks it against the source.
 - If a sky's chunks keep failing to build, the loading screen now shows the error, writes the details to `tidewake-error.log` next to the exe, and lets Esc go back to the title.

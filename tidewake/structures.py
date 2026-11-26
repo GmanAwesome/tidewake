@@ -668,6 +668,10 @@ def place(gen, cq, cr, cells, meta, col, sl):
     ar = rr * REGION + ((h >> 8) % REGION)
     if (aq, ar) != (cq, cr):
         return None
+    if getattr(gen, 'version', 5) >= 6:
+        from . import grand as GR
+        if GR.occupied(gen, cq, cr):
+            return None          # leave room for the grand structure instead of overlapping it
     top = col['top'][sl]
     bot = col['bottom'][sl]
     land = col['land'][sl]
@@ -876,7 +880,7 @@ def place_v5(gen, cq, cr, cells, meta, col, sl):
     """v5 placer: island builds, short bridges, and true sky structures."""
     P = sl[0].start
     REGION = 5
-    CHANCE = 50
+    CHANCE = 65 if getattr(gen, 'version', 5) >= 6 else 50   # 1.4.6: +30% in v6
     rq, rr = cq // REGION, cr // REGION
     h = _h64(rq, rr, gen.h + 0xB144)
     # every region also has a reserved bridge opportunity

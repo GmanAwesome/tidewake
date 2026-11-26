@@ -8,7 +8,7 @@
 
 Every sky is grown from a seed: huge islands in twenty landscapes, trees from bushes to giants, and grand structures to stumble on. You'll find hot air balloons drifting between islands, sky cities, floating fortresses, world trees and titan ruins. Everything is made of hexagonal prisms, not cubes.
 
-### [⬇ Download Tidewake 1.4.5 for Windows](https://github.com/GmanAwesome/tidewake/releases/latest)
+### [⬇ Download Tidewake 1.4.6 for Windows](https://github.com/GmanAwesome/tidewake/releases/latest)
 
 [Gallery](#gallery) · [Features](#features) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md)
 
@@ -18,7 +18,7 @@ Every sky is grown from a seed: huge islands in twenty landscapes, trees from bu
 
 ## Download and play (Windows)
 
-1. Open the **[latest release](https://github.com/GmanAwesome/tidewake/releases/latest)**. Under **Assets**, download **`Tidewake-1.4.5-Windows.zip`**. Don't use the green **Code → Download ZIP** button; that's the source code.
+1. Open the **[latest release](https://github.com/GmanAwesome/tidewake/releases/latest)**. Under **Assets**, download **`Tidewake-1.4.6-Windows.zip`**. Don't use the green **Code → Download ZIP** button; that's the source code.
 2. **Unzip it**: right-click the zip, choose **Extract All…**, and open the `Tidewake` folder.
 3. **Double-click `Tidewake.exe`.**
 
@@ -204,7 +204,7 @@ The world is pointy-top hex cells in axial coordinates, in 16×16-column chunks 
 
 ## Changelog
 
-**1.4.5** is the current release. It fixes the lesson island hanging on its loading screen in the Windows build, fills the whole sky with stacked islands of every size up to about 480, and removes thin rock spikes under islands.
+**1.4.6** is the current release. It fixes My Skies showing a sky on a fresh install and adds about 30% more structures. **1.4.5** fixed the lesson island hanging on its loading screen in the Windows build, fills the whole sky with stacked islands of every size up to about 480, and removes thin rock spikes under islands.
 
 **1.4.4** highlights:
 - islands about 50% larger, in a 500-layer sky
