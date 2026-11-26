@@ -33,8 +33,10 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
   - [x] Spike cleanup (tested: no 10-layer non-waterfall pillars inside a chunk)
   - [x] 20 biomes on the column field, including Blossom Vale, Autumn Wilds, Azure Fields, Golden Steppe
   - [x] Small and medium trees, including the v6 shapes (bush, blossom, autumn, cone, flat acacia)
-  - [ ] Huge trees (18–34 layers, drawn across chunks)
-  - [ ] Caves, lakes, ores, spires
+  - [x] Huge trees (18–34 layers, drawn across chunks: oak, cone, willow, acacia, toadstool)
+  - [x] Caves (worms, rooms and fissures under a solid roof; mouths still to frame)
+  - [x] Lakes (surface pools)
+  - [ ] Ores and spires
 - [ ] Grand structures: hot air balloons, sky city, floating fortress, world tree,
       colossus, megaspire, leviathan wreck, titan ruins, villages, airships,
       watchtowers

@@ -212,7 +212,9 @@ pub fn generate(gen: &Generator, cq: i32, cr: i32) -> Chunk {
         }
     }
 
+    carve_caves(gen, &mut chunk, q0, r0);
     tiers::stamp(gen, cq, cr, &mut chunk);
+    crate::trees::stamp(gen, &mut chunk);
     chunk
 }
 
@@ -477,6 +479,94 @@ fn tree_v6(chunk: &mut Chunk, lq: i32, lr: i32, top: i32, realm: i64, rng: &mut 
     true
 }
 
+/// Open caves under a solid roof, then seal any that break the walking surface.
+fn carve_caves(gen: &Generator, chunk: &mut Chunk, q0: i64, r0: i64) {
+    let original = chunk.cells.clone();
+    let mut carved = vec![false; original.len()];
+    for lq in 0..CHUNK {
+        for lr in 0..CHUNK {
+            let mut top = -1;
+            for y in (0..LAYERS).rev() {
+                let id = chunk.get(lq, y, lr);
+                if crate::materials::is_solid(id) && id != id::WATER {
+                    top = y;
+                    break;
+                }
+            }
+            if top < 8 {
+                continue;
+            }
+            let q = q0 + lq as i64;
+            let r = r0 + lr as i64;
+            for y in 0..top {
+                let id = chunk.get(lq, y, lr);
+                if !crate::materials::is_solid(id) || id == id::WATER {
+                    continue;
+                }
+                let d = top - y;
+                if gen.cave_hole(q as f64, r as f64, y as f64, d) {
+                    let ix = Chunk::index(lq, y, lr);
+                    carved[ix] = true;
+                    chunk.cells[ix] = 0;
+                }
+            }
+        }
+    }
+    // Air, plus two hex steps of it, is "outside". Caves that touch it are filled
+    // back in so the shore is not full of holes. The top five layers stay solid.
+    let mut outside = vec![false; original.len()];
+    for i in 0..original.len() {
+        outside[i] = !crate::materials::is_solid(original[i]);
+    }
+    for _ in 0..2 {
+        let prev = outside.clone();
+        for lq in 0..CHUNK {
+            for lr in 0..CHUNK {
+                for y in 0..LAYERS {
+                    let ix = Chunk::index(lq, y, lr);
+                    if prev[ix] {
+                        outside[ix] = true;
+                        continue;
+                    }
+                    let mut touch = false;
+                    for (dq, dr) in DIRS {
+                        let a = lq + dq;
+                        let b = lr + dr;
+                        if (0..CHUNK).contains(&a) && (0..CHUNK).contains(&b) && prev[Chunk::index(a, y, b)] {
+                            touch = true;
+                            break;
+                        }
+                    }
+                    if y > 0 && prev[Chunk::index(lq, y - 1, lr)] {
+                        touch = true;
+                    }
+                    if y + 1 < LAYERS && prev[Chunk::index(lq, y + 1, lr)] {
+                        touch = true;
+                    }
+                    outside[ix] = touch;
+                }
+            }
+        }
+    }
+    for lq in 0..CHUNK {
+        for lr in 0..CHUNK {
+            let mut top = -1;
+            for y in (0..LAYERS).rev() {
+                if crate::materials::is_solid(original[Chunk::index(lq, y, lr)]) {
+                    top = y;
+                    break;
+                }
+            }
+            for y in 0..LAYERS {
+                let ix = Chunk::index(lq, y, lr);
+                if carved[ix] && (outside[ix] || top - y < 5) {
+                    chunk.cells[ix] = original[ix];
+                }
+            }
+        }
+    }
+}
+
 /// A column of non-water cells with no solid neighbour, ten or more layers tall.
 pub fn pillar_runs(chunk: &Chunk) -> usize {
     let mut runs = 0;
@@ -507,6 +597,36 @@ mod tests {
     use crate::columns::{size_class, MainScale, SizeClass};
     use crate::settings::Settings;
     use std::collections::HashSet;
+
+    #[test]
+    fn caves_sit_under_a_solid_roof() {
+        let g = Generator::new(7, Settings::default());
+        let c = generate(&g, 1, 3);
+        let mut holes = 0;
+        for lq in 1..CHUNK - 1 {
+            for lr in 1..CHUNK - 1 {
+                let mut top = -1;
+                for y in (0..LAYERS).rev() {
+                    if crate::materials::is_solid(c.get(lq, y, lr)) {
+                        top = y;
+                        break;
+                    }
+                }
+                if top < 12 {
+                    continue;
+                }
+                for y in 2..top - 5 {
+                    if c.get(lq, y, lr) == 0
+                        && crate::materials::is_solid(c.get(lq, y - 1, lr))
+                        && crate::materials::is_solid(c.get(lq, y + 1, lr))
+                    {
+                        holes += 1;
+                    }
+                }
+            }
+        }
+        assert!(holes > 0, "enclosed cave cells {holes}");
+    }
 
     #[test]
     fn chunk_is_deterministic_and_has_no_pillars() {

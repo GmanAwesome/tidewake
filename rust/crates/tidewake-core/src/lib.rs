@@ -14,6 +14,7 @@ pub mod noise;
 pub mod pyrandom;
 pub mod settings;
 pub mod tiers;
+pub mod trees;
 
 pub use columns::{size_class, Column, Generator, SizeClass};
 

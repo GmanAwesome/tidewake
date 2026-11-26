@@ -164,6 +164,10 @@ impl Noise {
         noise2(x, y, self.seed)
     }
 
+    pub fn noise3(&self, x: f64, y: f64, z: f64) -> f64 {
+        noise3(x, y, z, self.seed)
+    }
+
     pub fn fbm2(&self, x: f64, y: f64, octaves: u32) -> f64 {
         self.fbm2_lg(x, y, octaves, 2.0, 0.5)
     }

@@ -189,6 +189,31 @@ impl Generator {
         self.n_depth.fbm2(x, z, octaves)
     }
 
+    /// True when this body cell is inside a v6 cave worm, room or fissure.
+    /// `d` is layers under the walking surface. Matches `generate` for version >= 2.
+    pub fn cave_hole(&self, q: f64, r: f64, y: f64, d: i32) -> bool {
+        if d < 5 {
+            return false;
+        }
+        let cs = self.cave_size;
+        let amt = self.caves;
+        let xx = q + r * 0.5;
+        let zz = r * 0.866;
+        let yy = y * 0.7 / 1.73;
+        let n1 = self.n_cave.noise3(xx / (16.0 * cs), yy / (7.0 * cs), zz / (16.0 * cs));
+        let n2 = self.n_cave.noise3(xx / (16.0 * cs) + 31.7, yy / (7.0 * cs) - 3.3, zz / (16.0 * cs) + 11.9);
+        let worm = n1.abs() < amt * 1.15 && n2.abs() < amt * 2.0;
+        let h1 = self.n_hw.noise3(xx / (42.0 * cs), yy / (16.0 * cs), zz / (42.0 * cs));
+        let h2 = self.n_hw.noise3(xx / (42.0 * cs) + 8.1, yy / (16.0 * cs) - 5.4, zz / (42.0 * cs) + 19.2);
+        let highway = h1.abs() < amt * 0.85 && h2.abs() < amt * 1.3;
+        let small = self.n_room.noise3(xx / (18.0 * cs), yy / (10.0 * cs), zz / (18.0 * cs)) > (0.52 - amt * 0.6).max(0.30);
+        let midc = self.n_tunnel.noise3(xx / (34.0 * cs), yy / (16.0 * cs), zz / (34.0 * cs)) > (0.46 - amt * 0.5).max(0.28);
+        let huge = self.n_room.noise3(xx / (70.0 * cs) + 4.4, yy / (28.0 * cs), zz / (70.0 * cs)) > (0.62 - amt * 0.25).max(0.42);
+        let fiss = self.n_fiss.noise3(xx / 9.0, yy / 22.0, zz / 9.0).abs() < 0.07 * (0.7 + amt)
+            && self.n_fiss.noise3(xx / 22.0 + 3.0, yy / 9.0, zz / 22.0).abs() < 0.22;
+        worm || highway || small || midc || huge || fiss
+    }
+
     pub fn sample(&self, q: i64, r: i64) -> Column {
         let (x, z) = hex::center(q, r);
         let jitter = 0.15;
