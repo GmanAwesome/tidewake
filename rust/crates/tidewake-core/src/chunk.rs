@@ -212,7 +212,9 @@ pub fn generate(gen: &Generator, cq: i32, cr: i32) -> Chunk {
         }
     }
 
+    place_ores(gen, &mut chunk, q0, r0);
     carve_caves(gen, &mut chunk, q0, r0);
+    stamp_spires(gen, &mut chunk);
     tiers::stamp(gen, cq, cr, &mut chunk);
     crate::trees::stamp(gen, &mut chunk);
     chunk
@@ -479,6 +481,100 @@ fn tree_v6(chunk: &mut Chunk, lq: i32, lr: i32, top: i32, realm: i64, rng: &mut 
     true
 }
 
+fn place_ores(gen: &Generator, chunk: &mut Chunk, q0: i64, r0: i64) {
+    for lq in 0..CHUNK {
+        for lr in 0..CHUNK {
+            let mut top = -1;
+            for y in (0..LAYERS).rev() {
+                let idn = chunk.get(lq, y, lr);
+                if crate::materials::is_solid(idn) && idn != id::WATER {
+                    top = y;
+                    break;
+                }
+            }
+            if top < 6 {
+                continue;
+            }
+            let q = (q0 + lq as i64) as f64;
+            let r = (r0 + lr as i64) as f64;
+            for y in 0..top {
+                let idn = chunk.get(lq, y, lr);
+                if !crate::materials::is_solid(idn) || idn == id::WATER {
+                    continue;
+                }
+                if let Some(ore) = gen.ore_at(q, r, y as f64, top - y) {
+                    chunk.set(lq, y, lr, ore);
+                }
+            }
+        }
+    }
+}
+
+const SPIRE_REGION: i64 = 88;
+
+fn stamp_spires(gen: &Generator, chunk: &mut Chunk) {
+    let q0 = chunk.cq as i64 * CHUNK as i64;
+    let r0 = chunk.cr as i64 * CHUNK as i64;
+    let rq0 = (q0 - 8).div_euclid(SPIRE_REGION);
+    let rq1 = (q0 + CHUNK as i64 + 8).div_euclid(SPIRE_REGION);
+    let rr0 = (r0 - 8).div_euclid(SPIRE_REGION);
+    let rr1 = (r0 + CHUNK as i64 + 8).div_euclid(SPIRE_REGION);
+    for rq in rq0..=rq1 {
+        for rr in rr0..=rr1 {
+            let hsh = hash_ints(gen.h, &[rq, rr, 77]);
+            if (hsh & 0xFFFF) as f64 / 65536.0 >= gen.spire_rate {
+                continue;
+            }
+            let m = SPIRE_REGION - 20;
+            let q = rq * SPIRE_REGION + 10 + ((hsh >> 16) % m as u64) as i64;
+            let r = rr * SPIRE_REGION + 10 + ((hsh >> 32) % m as u64) as i64;
+            let col = gen.sample(q, r);
+            if !(col.land && !col.skerry && col.e > 0.07 && !col.pool) {
+                continue;
+            }
+            let height = 7 + ((hsh >> 48) % 6) as i32;
+            let top = col.top;
+            for dq in -4..=4 {
+                for dr in -4..=4 {
+                    let dist = crate::hex::hex_distance(0, 0, dq, dr);
+                    if dist > 4 {
+                        continue;
+                    }
+                    let lq = (q + dq - q0) as i32;
+                    let lr = (r + dr - r0) as i32;
+                    if !(0..CHUNK).contains(&lq) || !(0..CHUNK).contains(&lr) {
+                        continue;
+                    }
+                    for y in top + 1..top + 16 {
+                        chunk.set(lq, y, lr, 0);
+                    }
+                    if dist <= 3 {
+                        for y in top - 3..=top {
+                            if chunk.get(lq, y, lr) == 0 || chunk.get(lq, y, lr) == id::WATER {
+                                chunk.set(lq, y, lr, if dist <= 2 { id::PLINTH } else { id::STONE });
+                            }
+                        }
+                        if dist <= 2 {
+                            chunk.set(lq, top, lr, id::PLINTH);
+                        }
+                    }
+                    if dist == 0 {
+                        for y in top + 1..top + 1 + height {
+                            chunk.set(lq, y, lr, id::DORMANT_SPIRE);
+                        }
+                    }
+                    if dist == 3 && (dq + 2 * dr) % 2 == 0 {
+                        let hp = 1 + (dq * 7 + dr * 3).unsigned_abs() as i32 % 3;
+                        for y in top + 1..top + 1 + hp {
+                            chunk.set(lq, y, lr, id::PLINTH);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Open caves under a solid roof, then seal any that break the walking surface.
 fn carve_caves(gen: &Generator, chunk: &mut Chunk, q0: i64, r0: i64) {
     let original = chunk.cells.clone();
@@ -565,6 +661,192 @@ fn carve_caves(gen: &Generator, chunk: &mut Chunk, q0: i64, r0: i64) {
             }
         }
     }
+    frame_mouths(gen, chunk, &original, q0, r0);
+    // Glowcaps and crystals on cave floors.
+    for lq in 0..CHUNK {
+        for lr in 0..CHUNK {
+            let q = q0 + lq as i64;
+            let r = r0 + lr as i64;
+            for y in 1..LAYERS {
+                let ix = Chunk::index(lq, y, lr);
+                if !carved[ix] || chunk.cells[ix] != 0 {
+                    continue;
+                }
+                let below = chunk.get(lq, y - 1, lr);
+                if below == 0 || below == id::WATER {
+                    continue;
+                }
+                if rand01(q, r * 7 + y as i64, gen.h.wrapping_add(31)) < 0.04 {
+                    let mat = if (lq + lr + y) % 3 == 0 { id::CRYSTAL } else { id::GLOWCAP };
+                    chunk.set(lq, y, lr, mat);
+                }
+            }
+        }
+    }
+}
+
+/// Cobble-framed tunnels from the cliff face into a sealed cave.
+fn frame_mouths(gen: &Generator, chunk: &mut Chunk, original: &[u8], q0: i64, r0: i64) {
+    let mut interior = vec![false; original.len()];
+    for i in 0..original.len() {
+        interior[i] = crate::materials::is_solid(original[i]) && chunk.cells[i] == 0;
+    }
+    let mut reach = interior.clone();
+    for _ in 0..4 {
+        let prev = reach.clone();
+        for lq in 0..CHUNK {
+            for lr in 0..CHUNK {
+                for y in 0..LAYERS {
+                    let ix = Chunk::index(lq, y, lr);
+                    if prev[ix] {
+                        reach[ix] = true;
+                        continue;
+                    }
+                    for (dq, dr) in DIRS {
+                        let a = lq + dq;
+                        let b = lr + dr;
+                        if (0..CHUNK).contains(&a)
+                            && (0..CHUNK).contains(&b)
+                            && prev[Chunk::index(a, y, b)]
+                        {
+                            reach[ix] = true;
+                            break;
+                        }
+                    }
+                    if y > 0 && prev[Chunk::index(lq, y - 1, lr)] {
+                        reach[ix] = true;
+                    }
+                    if y + 1 < LAYERS && prev[Chunk::index(lq, y + 1, lr)] {
+                        reach[ix] = true;
+                    }
+                }
+            }
+        }
+    }
+    let mut picks: Vec<(f64, i32, i32, i32)> = Vec::new();
+    for lq in 0..CHUNK {
+        for lr in 0..CHUNK {
+            let q = q0 + lq as i64;
+            let r = r0 + lr as i64;
+            let mut top = -1i32;
+            let mut bot = LAYERS;
+            for y in 0..LAYERS {
+                if crate::materials::is_solid(original[Chunk::index(lq, y, lr)]) {
+                    if top < 0 {
+                        bot = y;
+                    }
+                    top = y;
+                }
+            }
+            if top < 0 {
+                continue;
+            }
+            let mut ys = Vec::new();
+            for y in 0..LAYERS {
+                let ix = Chunk::index(lq, y, lr);
+                if !reach[ix] || !crate::materials::is_solid(original[ix]) {
+                    continue;
+                }
+                let d = top - y;
+                if d < 6 || d > 18 || y - bot < 3 {
+                    continue;
+                }
+                let mut open = false;
+                for (dq, dr) in DIRS {
+                    let a = lq + dq;
+                    let b = lr + dr;
+                    if !(0..CHUNK).contains(&a) || !(0..CHUNK).contains(&b) {
+                        open = true;
+                        break;
+                    }
+                    if !crate::materials::is_solid(original[Chunk::index(a, y, b)]) {
+                        open = true;
+                        break;
+                    }
+                }
+                if open {
+                    ys.push(y);
+                }
+            }
+            if ys.is_empty() {
+                continue;
+            }
+            let roll = rand01(q, r, gen.h.wrapping_add(91));
+            picks.push((roll, lq, lr, ys[ys.len() / 2]));
+        }
+    }
+    if picks.is_empty() {
+        return;
+    }
+    picks.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    let mut chosen: Vec<_> = picks.iter().copied().filter(|p| p.0 < 0.07).collect();
+    if chosen.is_empty() {
+        chosen.push(picks[0]);
+    }
+    chosen.truncate(2);
+    for (_, lq, lr, y) in chosen {
+        let y2 = (y + 1).min(LAYERS - 1);
+        let mut path = vec![(lq, lr)];
+        let (mut ca, mut cb) = (lq, lr);
+        for _ in 0..5 {
+            let mut nxt = None;
+            for (dq, dr) in DIRS {
+                let na = ca + dq;
+                let nb = cb + dr;
+                if !(0..CHUNK).contains(&na) || !(0..CHUNK).contains(&nb) {
+                    continue;
+                }
+                if !crate::materials::is_solid(original[Chunk::index(na, y, nb)]) {
+                    continue;
+                }
+                if path.contains(&(na, nb)) {
+                    continue;
+                }
+                nxt = Some((na, nb));
+                let ix = Chunk::index(na, y, nb);
+                if interior[ix] || interior[Chunk::index(na, y2, nb)] {
+                    break;
+                }
+            }
+            let Some(n) = nxt else { break };
+            path.push(n);
+            let ix = Chunk::index(n.0, y, n.1);
+            if interior[ix] || interior[Chunk::index(n.0, y2, n.1)] {
+                break;
+            }
+            (ca, cb) = n;
+        }
+        for (pa, pb) in &path {
+            chunk.set(*pa, y, *pb, 0);
+            chunk.set(*pa, y2, *pb, 0);
+        }
+        let top = (0..LAYERS)
+            .rev()
+            .find(|yy| crate::materials::is_solid(original[Chunk::index(lq, *yy, lr)]))
+            .unwrap_or(y);
+        for dy in [-1, 0, 1, 2] {
+            let ny = y + dy;
+            if !(0..LAYERS).contains(&ny) || top - ny < 2 {
+                continue;
+            }
+            for (dq, dr) in DIRS {
+                let na = lq + dq;
+                let nb = lr + dr;
+                if !(0..CHUNK).contains(&na) || !(0..CHUNK).contains(&nb) {
+                    continue;
+                }
+                if path.iter().any(|(pa, pb)| *pa == na && *pb == nb) {
+                    continue;
+                }
+                if chunk.get(na, ny, nb) != 0 {
+                    chunk.set(na, ny, nb, id::COBBLE);
+                }
+            }
+            if matches!(dy, -1 | 2) && chunk.get(lq, ny, lr) != 0 {
+                chunk.set(lq, ny, lr, id::COBBLE);
+            }
+        }
+    }
 }
 
 /// A column of non-water cells with no solid neighbour, ten or more layers tall.
@@ -580,7 +862,10 @@ pub fn pillar_runs(chunk: &Chunk) -> usize {
                         y += 1;
                     }
                     if y - y0 >= 10 {
-                        runs += 1;
+                        let only_spire = (y0..y).all(|yy| chunk.get(i, yy, k) == id::DORMANT_SPIRE);
+                        if !only_spire {
+                            runs += 1;
+                        }
                     }
                 } else {
                     y += 1;
@@ -626,6 +911,13 @@ mod tests {
             }
         }
         assert!(holes > 0, "enclosed cave cells {holes}");
+        let mut ore = 0;
+        for idn in &c.cells {
+            if matches!(*idn, id::EMBERITE_ORE | id::VERDIGRIS_ORE | id::SILVERINE_ORE | id::AETHERITE_ORE) {
+                ore += 1;
+            }
+        }
+        assert!(ore > 0, "no ore in a thick chunk");
     }
 
     #[test]

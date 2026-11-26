@@ -34,9 +34,9 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
   - [x] 20 biomes on the column field, including Blossom Vale, Autumn Wilds, Azure Fields, Golden Steppe
   - [x] Small and medium trees, including the v6 shapes (bush, blossom, autumn, cone, flat acacia)
   - [x] Huge trees (18–34 layers, drawn across chunks: oak, cone, willow, acacia, toadstool)
-  - [x] Caves (worms, rooms and fissures under a solid roof; mouths still to frame)
+  - [x] Caves (worms, rooms, fissures, and cobble-framed mouths)
   - [x] Lakes (surface pools)
-  - [ ] Ores and spires
+  - [x] Ores (emberite, verdigris, silverine, aetherite) and dormant spires
 - [ ] Grand structures: hot air balloons, sky city, floating fortress, world tree,
       colossus, megaspire, leviathan wreck, titan ruins, villages, airships,
       watchtowers

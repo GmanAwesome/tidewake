@@ -211,7 +211,36 @@ impl Generator {
         let huge = self.n_room.noise3(xx / (70.0 * cs) + 4.4, yy / (28.0 * cs), zz / (70.0 * cs)) > (0.62 - amt * 0.25).max(0.42);
         let fiss = self.n_fiss.noise3(xx / 9.0, yy / 22.0, zz / 9.0).abs() < 0.07 * (0.7 + amt)
             && self.n_fiss.noise3(xx / 22.0 + 3.0, yy / 9.0, zz / 22.0).abs() < 0.22;
-        worm || highway || small || midc || huge || fiss
+        let arch = d <= 9 && {
+            let na = self.n_arch.noise3(xx / 11.0, yy / 4.5, zz / 11.0);
+            na > self.arches + 0.14
+        };
+        worm || highway || small || midc || huge || fiss || arch
+    }
+
+    /// Ore vein id, or none. Later ores overwrite earlier ones, as in the Python fill.
+    pub fn ore_at(&self, q: f64, r: f64, y: f64, d: i32) -> Option<u8> {
+        if d < 3 {
+            return None;
+        }
+        let xx = q + r * 0.5;
+        let zz = r * 0.866;
+        let yy = y * 0.7 / 1.73;
+        let table = [
+            (crate::materials::id::EMBERITE_ORE, 3, 0.50, 3.2),
+            (crate::materials::id::VERDIGRIS_ORE, 7, 0.55, 2.8),
+            (crate::materials::id::SILVERINE_ORE, 14, 0.60, 2.6),
+            (crate::materials::id::AETHERITE_ORE, 24, 0.70, 2.2),
+        ];
+        let mut hit = None;
+        for (k, (ore, mind, thr, sc)) in table.into_iter().enumerate() {
+            let kf = k as f64;
+            let n = self.n_ore.noise3(xx / sc + 37.1 * kf, yy / sc - 11.3 * kf, zz / sc + 5.7 * kf);
+            if d >= mind && n > thr {
+                hit = Some(ore);
+            }
+        }
+        hit
     }
 
     pub fn sample(&self, q: i64, r: i64) -> Column {
