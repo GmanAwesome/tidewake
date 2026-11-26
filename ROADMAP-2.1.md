@@ -87,7 +87,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [x] Loading screen that shows world-gen errors and lets Esc return
 - [ ] Pause / save and leave
 - [x] Saves (new JSON format next to the game; the lesson is not listed; old Python saves are not loaded)
-- [ ] Music (Korobeiniki is public domain) and sounds
+- [x] Korobeiniki plays when a sky starts (public domain). The rest of the soundtrack and sound effects are still open
 - [ ] Journal
 
 ## Tests

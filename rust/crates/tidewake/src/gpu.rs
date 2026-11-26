@@ -8,6 +8,7 @@ use crate::mesh::Vert;
 use crate::text::{UiVert, ATLAS};
 
 /// Soft Lighttide sky. The Python renderer clears to a mix of horizon and zenith.
+#[allow(dead_code)]
 pub const SKY_CLEAR: wgpu::Color = wgpu::Color {
     r: 0.62,
     g: 0.78,
@@ -15,6 +16,7 @@ pub const SKY_CLEAR: wgpu::Color = wgpu::Color {
     a: 1.0,
 };
 
+#[allow(dead_code)]
 pub const FOG: [f32; 3] = [0.62, 0.78, 0.92];
 
 /// Lighttide (t = 0) through Dusktide (t = 1). One full cycle is 720 seconds.

@@ -3,6 +3,7 @@
 mod figure;
 mod gpu;
 mod mesh;
+mod music;
 mod text;
 
 use std::collections::HashMap;
@@ -95,6 +96,7 @@ struct Game {
     save: SkySave,
     spawn: (f64, f64, f64),
     listed: Vec<String>,
+    music: Option<music::Music>,
 }
 
 struct App {
@@ -150,6 +152,7 @@ impl Game {
             save: SkySave::fresh("unsaved", 7, false, 0.0, 40.0, 0.0),
             spawn: (0.0, 40.0, 0.0),
             listed: Vec::new(),
+            music: None,
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -182,6 +185,9 @@ impl Game {
         self.spawn = (self.player.x, self.player.y, self.player.z);
         let name = if tutorial { "the-lesson".into() } else { format!("sky-{seed}") };
         self.save = SkySave::fresh(name, seed, tutorial, self.player.x, self.player.y, self.player.z);
+        if self.music.is_none() {
+            self.music = music::Music::start();
+        }
         self.sync_cam();
     }
 

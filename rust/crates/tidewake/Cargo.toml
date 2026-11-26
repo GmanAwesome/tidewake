@@ -19,6 +19,7 @@ log.workspace = true
 glam.workspace = true
 bytemuck = { version = "1", features = ["derive"] }
 fontdue = "0.9"
+rodio = "0.19"
 tidewake-core = { path = "../tidewake-core" }
 
 [target.'cfg(windows)'.build-dependencies]
