@@ -384,7 +384,8 @@ def wanderer(t=0.0, walking=False):
         prisms(0, -0.16, 1.155 + bob, 1.19 + bob, 0.03, (0.55, 0.32, 0.30), (0.55, 0.32, 0.30)),
         prisms((-0.30, 0.30), (0.02 + swing, 0.02 - swing), 0.72 + bob, 1.05 + bob, 0.06, skin, skin * 0.96),
         # two simple cartoony rounded cheeks on the back of the hips, a slight bulge
-        prisms((-0.09, 0.09), (0.16, 0.16), 0.42 + bob, 0.62 + bob, 0.085, skin, skin * 0.96),
+        # torso back is ~z=0.24; sit these just behind it so the bulge reads in third person
+        prisms((-0.10, 0.10), (0.32, 0.32), 0.40 + bob, 0.62 + bob, 0.11, skin, skin * 0.96),
     )
     _FIGURE_CACHE[key] = v
     return v
