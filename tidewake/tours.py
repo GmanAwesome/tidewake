@@ -2935,3 +2935,405 @@ def phase143_figure(app, log, shot, look_at, settled, arg):
     yield 0.7
     yield shot('wanderer_front')
     log('phase143_figure finished')
+
+
+
+def phase143_r2_before(app, log, shot, look_at, settled, arg):
+    """Full-load v3 before-shots at the seven reported cutoff sites."""
+    # user-position vista + closer side / underside. vd=20 ~1310 loaded.
+    SITES = [
+        # name, x,y,z, vista_yaw, vista_pitch,
+        # side cam and look, under cam and look
+        dict(name='cedar_highlands', x=-29.99, y=147.56, z=-46.92,
+             yaw=312.94, pitch=-34.06,
+             sx=-146.2, sy=19.7, sz=-179.7, syaw=222.94, spitch=27.01,
+             ux=-146.2, uy=8.0, uz=-179.7, uyaw=222.94, upitch=-20.0,
+             # also a mid-height look toward the high coast
+             yaw2=227.2, pitch2=20.0),
+        dict(name='frostglass', x=-245.28, y=134.03, z=43.43,
+             yaw=294.69, pitch=-18.06,
+             sx=-364.9, sy=87.7, sz=-31.4, syaw=204.69, spitch=2.15,
+             ux=-364.9, uy=73.9, uz=-31.4, uyaw=204.69, upitch=21.25,
+             yaw2=18.53, pitch2=-30.0),
+        dict(name='chalk_barrens_near', x=-264.17, y=136.97, z=-23.51,
+             yaw=265.5, pitch=-24.1,
+             sx=-373.8, sy=87.7, sz=-32.9, syaw=175.5, spitch=2.15,
+             ux=-373.8, uy=73.9, uz=-32.9, uyaw=175.5, upitch=21.25,
+             yaw2=344.17, pitch2=-35.0),
+        dict(name='cloudstep_isles_far', x=2512.22, y=177.32, z=-1386.21,
+             yaw=283.92, pitch=-14.62,
+             sx=2438.7, sy=140.0, sz=-1423.0, syaw=193.92, spitch=12.0,
+             ux=2438.7, uy=120.0, uz=-1423.0, uyaw=193.92, upitch=8.0,
+             yaw2=303.91, pitch2=-17.29),
+        dict(name='chalk_barrens_high', x=2415.93, y=304.31, z=-1112.58,
+             yaw=268.44, pitch=-37.29,
+             sx=2265.9, sy=200.0, sz=-1126.5, syaw=178.44, spitch=-10.0,
+             ux=2265.9, uy=150.0, uz=-1126.5, uyaw=178.44, upitch=8.0,
+             yaw2=74.15, pitch2=-35.0),
+        dict(name='cloudstep_low', x=97.86, y=25.25, z=-107.82,
+             # from under/beside the high island, look up at its underside
+             yaw=200.0, pitch=28.0,
+             sx=140.0, sy=180.0, sz=-70.0, syaw=240.0, spitch=5.0,
+             ux=140.0, uy=160.0, uz=-70.0, uyaw=240.0, upitch=18.0,
+             yaw2=343.01, pitch2=8.0),
+        dict(name='verdigris_canyons', x=-4.06, y=147.56, z=-61.76,
+             yaw=304.15, pitch=-32.45,
+             sx=-148.4, sy=19.7, sz=-181.4, syaw=214.15, spitch=27.01,
+             ux=-148.4, uy=8.0, uz=-181.4, uyaw=214.15, upitch=-20.0,
+             yaw2=225.3, pitch2=-40.0),
+    ]
+
+    def uncap_and_far():
+        old = dict(app.settings)
+        app.settings['vsync'] = False
+        app.settings['fps_limit'] = 0
+        app.settings['view_distance'] = 20
+        app.settings['far_distance'] = 35
+        app.apply_settings(old)
+        app.set_vsync(False)
+        log('vd', app.settings['view_distance'], 'far', app.settings['far_distance'])
+
+    def parked(s, x, y, z, yaw, pitch):
+        p = s.player
+        p.x, p.y, p.z = x, y, z
+        p.yaw, p.pitch = yaw, pitch
+        p.vx = p.vy = p.vz = 0
+        p.drifting = True
+        p.noclip = True
+        s.hold = True
+
+    def loaded():
+        s = app.session
+        w = s.world
+        return (w.busy() == 0 and w.busy_lod() == 0 and len(w.chunks) >= 1000)
+
+    uncap_and_far()
+    yield 0.3
+    app.create_sky('R2 Before', -857535443, '', 'wanderer')
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    app.show_debug = True
+    app.hide_hud = False
+    # jump to the first site immediately so we don't spend the first load at spawn
+    s0 = SITES[0]
+    parked(ses, s0['x'], s0['y'], s0['z'], s0['yaw'], s0['pitch'])
+    yield loaded
+    yield 1.0
+    for s in SITES:
+        parked(ses, s['x'], s['y'], s['z'], s['yaw'], s['pitch'])
+        yield loaded
+        yield 0.8
+        st = app.renderer.stats
+        log('SITE', s['name'], 'loaded', len(ses.world.chunks),
+            'drawn', st.get('drawn'), 'jobs', ses.world.busy(),
+            'lod', ses.world.busy_lod(), 'lights', st.get('lights'))
+        yield shot('before_' + s['name'])
+        parked(ses, s['x'], s['y'], s['z'], s['yaw2'], s['pitch2'])
+        yield 0.6
+        yield shot('before_' + s['name'] + '_b')
+        parked(ses, s['sx'], s['sy'], s['sz'], s['syaw'], s['spitch'])
+        yield loaded
+        yield 0.6
+        st = app.renderer.stats
+        log('SIDE', s['name'], 'loaded', len(ses.world.chunks), 'drawn', st.get('drawn'))
+        yield shot('before_' + s['name'] + '_side')
+        parked(ses, s['ux'], s['uy'], s['uz'], s['uyaw'], s['upitch'])
+        yield 0.6
+        yield shot('before_' + s['name'] + '_under')
+    log('phase143_r2_before finished')
+
+
+
+def phase143_r2_after(app, log, shot, look_at, settled, arg):
+    """Full-load v4 after-shots at the same seven positions and angles."""
+    SITES = [
+        dict(name='cedar_highlands', x=-29.99, y=147.56, z=-46.92,
+             yaw=312.94, pitch=-34.06,
+             sx=-146.2, sy=19.7, sz=-179.7, syaw=222.94, spitch=27.01,
+             ux=-146.2, uy=8.0, uz=-179.7, uyaw=222.94, upitch=-20.0,
+             yaw2=227.2, pitch2=20.0),
+        dict(name='frostglass', x=-245.28, y=134.03, z=43.43,
+             yaw=294.69, pitch=-18.06,
+             sx=-364.9, sy=87.7, sz=-31.4, syaw=204.69, spitch=2.15,
+             ux=-364.9, uy=73.9, uz=-31.4, uyaw=204.69, upitch=21.25,
+             yaw2=18.53, pitch2=-30.0),
+        dict(name='chalk_barrens_near', x=-264.17, y=136.97, z=-23.51,
+             yaw=265.5, pitch=-24.1,
+             sx=-373.8, sy=87.7, sz=-32.9, syaw=175.5, spitch=2.15,
+             ux=-373.8, uy=73.9, uz=-32.9, uyaw=175.5, upitch=21.25,
+             yaw2=344.17, pitch2=-35.0),
+        dict(name='cloudstep_isles_far', x=2512.22, y=177.32, z=-1386.21,
+             yaw=283.92, pitch=-14.62,
+             sx=2438.7, sy=140.0, sz=-1423.0, syaw=193.92, spitch=12.0,
+             ux=2438.7, uy=120.0, uz=-1423.0, uyaw=193.92, upitch=8.0,
+             yaw2=303.91, pitch2=-17.29),
+        dict(name='chalk_barrens_high', x=2415.93, y=304.31, z=-1112.58,
+             yaw=268.44, pitch=-37.29,
+             sx=2265.9, sy=200.0, sz=-1126.5, syaw=178.44, spitch=-10.0,
+             ux=2265.9, uy=150.0, uz=-1126.5, uyaw=178.44, upitch=8.0,
+             yaw2=74.15, pitch2=-35.0),
+        dict(name='cloudstep_low', x=97.86, y=25.25, z=-107.82,
+             yaw=200.0, pitch=28.0,
+             sx=140.0, sy=180.0, sz=-70.0, syaw=240.0, spitch=5.0,
+             ux=140.0, uy=160.0, uz=-70.0, uyaw=240.0, upitch=18.0,
+             yaw2=343.01, pitch2=8.0),
+        dict(name='verdigris_canyons', x=-4.06, y=147.56, z=-61.76,
+             yaw=304.15, pitch=-32.45,
+             sx=-148.4, sy=19.7, sz=-181.4, syaw=214.15, spitch=27.01,
+             ux=-148.4, uy=8.0, uz=-181.4, uyaw=214.15, upitch=-20.0,
+             yaw2=225.3, pitch2=-40.0),
+    ]
+
+    def uncap_and_far():
+        old = dict(app.settings)
+        app.settings['vsync'] = False
+        app.settings['fps_limit'] = 0
+        app.settings['view_distance'] = 20
+        app.settings['far_distance'] = 35
+        app.apply_settings(old)
+        app.set_vsync(False)
+        log('vd', app.settings['view_distance'], 'far', app.settings['far_distance'])
+
+    def parked(s, x, y, z, yaw, pitch):
+        p = s.player
+        p.x, p.y, p.z = x, y, z
+        p.yaw, p.pitch = yaw, pitch
+        p.vx = p.vy = p.vz = 0
+        p.drifting = True
+        p.noclip = True
+        s.hold = True
+
+    def loaded():
+        s = app.session
+        w = s.world
+        return (w.busy() == 0 and w.busy_lod() == 0 and len(w.chunks) >= 1000)
+
+    uncap_and_far()
+    yield 0.3
+    app.create_sky('R2 After', -857535443, '', 'wanderer')
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    app.show_debug = True
+    app.hide_hud = False
+    ver = (ses.world.gen_settings or {}).get('generator_version')
+    log('generator_version', ver)
+    s0 = SITES[0]
+    parked(ses, s0['x'], s0['y'], s0['z'], s0['yaw'], s0['pitch'])
+    yield loaded
+    yield 1.0
+    for s in SITES:
+        parked(ses, s['x'], s['y'], s['z'], s['yaw'], s['pitch'])
+        yield loaded
+        yield 0.8
+        st = app.renderer.stats
+        log('SITE', s['name'], 'loaded', len(ses.world.chunks),
+            'drawn', st.get('drawn'), 'jobs', ses.world.busy(),
+            'lod', ses.world.busy_lod(), 'gen', ver)
+        yield shot('after_' + s['name'])
+        parked(ses, s['x'], s['y'], s['z'], s['yaw2'], s['pitch2'])
+        yield 0.6
+        yield shot('after_' + s['name'] + '_b')
+        parked(ses, s['sx'], s['sy'], s['sz'], s['syaw'], s['spitch'])
+        yield loaded
+        yield 0.6
+        st = app.renderer.stats
+        log('SIDE', s['name'], 'loaded', len(ses.world.chunks), 'drawn', st.get('drawn'))
+        yield shot('after_' + s['name'] + '_side')
+        parked(ses, s['ux'], s['uy'], s['uz'], s['uyaw'], s['upitch'])
+        yield 0.6
+        yield shot('after_' + s['name'] + '_under')
+    log('phase143_r2_after finished')
+
+
+def phase143_r2_figure(app, log, shot, look_at, settled, arg):
+    """Back, three-quarter and side shots of the embedded wanderer hips."""
+    import math
+    from tidewake.mathutil import forward_vector
+
+    yield 0.3
+    app.start_tutorial()
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.8
+    ses = app.session
+    p = ses.player
+    p.vx = p.vy = p.vz = 0
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+    app.show_debug = False
+    app.hide_hud = True
+    app.cam_view = 1
+    p.yaw = 20.0
+    p.pitch = 0.0
+
+    def look_at_hips(bearing, dist=3.15, cam_up=0.28, hip_up=0.52):
+        def camera():
+            fx, fy, fz = forward_vector(p.yaw, 0.0)
+            rx, rz = -fz, fx
+            ang = math.radians(bearing)
+            ox = -fx * math.cos(ang) * dist + rx * math.sin(ang) * dist
+            oz = -fz * math.cos(ang) * dist + rz * math.sin(ang) * dist
+            tx, ty, tz = p.x, p.y + hip_up, p.z
+            cx, cy, cz = tx + ox, ty + cam_up, tz + oz
+            yaw = math.degrees(math.atan2(tx - cx, -(tz - cz))) % 360.0
+            pitch = math.degrees(math.atan2(ty - cy, math.hypot(tx - cx, tz - cz)))
+            return (cx, cy, cz), yaw, pitch, ses.phase, ses.world
+        app.camera = camera
+
+    look_at_hips(0.0, dist=1.85, cam_up=0.22)
+    yield 0.7
+    yield shot('wanderer_back')
+    look_at_hips(6.0, dist=1.45, cam_up=0.12, hip_up=0.52)
+    yield 0.6
+    yield shot('wanderer_back_hips')
+    look_at_hips(62.0, dist=1.90, cam_up=0.20)
+    yield 0.6
+    yield shot('wanderer_three_quarter')
+    look_at_hips(90.0, dist=1.85, cam_up=0.18)
+    yield 0.6
+    yield shot('wanderer_side')
+    look_at_hips(-90.0, dist=1.85, cam_up=0.18)
+    yield 0.6
+    yield shot('wanderer_side_left')
+    log('phase143_r2_figure finished')
+
+
+
+def phase143_r2_perf(app, log, shot, look_at, settled, arg):
+    """Wall-clock fps in the tutorial and a normal v4 sky (uncapped)."""
+    import time as _t
+
+    def uncap():
+        old = dict(app.settings)
+        app.settings['vsync'] = False
+        app.settings['fps_limit'] = 0
+        app.apply_settings(old)
+        app.set_vsync(False)
+        log('uncapped vsync', app.settings['vsync'], 'fps_limit', app.settings['fps_limit'])
+
+    def sample(label, seconds=5.0):
+        state = {'t0': _t.perf_counter(), 'frames': 0, 'sec': seconds}
+
+        def done():
+            state['frames'] += 1
+            return (_t.perf_counter() - state['t0']) >= state['sec']
+
+        def finish():
+            elapsed = _t.perf_counter() - state['t0']
+            frames = max(1, state['frames'] - 1)
+            fps = frames / elapsed if elapsed > 0 else 0.0
+            st = app.renderer.stats
+            ses = app.session
+            log('PERF', label, 'fps=%.1f' % fps, 'frames', frames, 'elapsed=%.3f' % elapsed,
+                'chunks', len(ses.world.chunks), 'drawn', st.get('drawn'),
+                'lights', st.get('lights'), 'tutorial', bool(getattr(ses, 'tutorial', False)),
+                'seed', ses.seed, 'gen', (ses.world.gen_settings or {}).get('generator_version'))
+            return fps
+
+        return {'done': done, 'finish': finish}
+
+    uncap()
+    yield 0.4
+    app.start_tutorial()
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    app.show_debug = True
+    app.hide_hud = False
+    yield shot('perf_tutorial_still')
+    tut_still = sample('tutorial_still', 5.0)
+    yield tut_still['done']
+    fps_tut_still = tut_still['finish']()
+    app.test_input = {'fwd': 1, 'hurry': True}
+    tut_walk = sample('tutorial_walk', 5.0)
+    yield tut_walk['done']
+    fps_tut_walk = tut_walk['finish']()
+    app.test_input = {}
+    yield shot('perf_tutorial_walk')
+    log('TUTORIAL fps still', round(fps_tut_still, 2), 'walk', round(fps_tut_walk, 2))
+
+    app.quit_to_title()
+    yield 0.8
+    app.create_sky('Perf Normal v4', -1740201319, '', 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    app.show_debug = True
+    yield shot('perf_normal_still')
+    n_still = sample('normal_still', 5.0)
+    yield n_still['done']
+    fps_n_still = n_still['finish']()
+    app.test_input = {'fwd': 1, 'hurry': True}
+    n_walk = sample('normal_walk', 5.0)
+    yield n_walk['done']
+    fps_n_walk = n_walk['finish']()
+    app.test_input = {}
+    yield shot('perf_normal_walk')
+    log('NORMAL fps still', round(fps_n_still, 2), 'walk', round(fps_n_walk, 2))
+    log('COMPARE tutorial/normal still', round(fps_tut_still, 2), '/', round(fps_n_still, 2),
+        'walk', round(fps_tut_walk, 2), '/', round(fps_n_walk, 2))
+    log('phase143_r2_perf finished')
+
+
+
+def phase143_r2_vistas(app, log, shot, look_at, settled, arg):
+    """v4 aerial and lookup shots, comparable to the 1.4.2 wide showcases."""
+    from tidewake.hexgrid import center
+    from tidewake.config import LAYER
+
+    def uncap_and_far():
+        old = dict(app.settings)
+        app.settings['vsync'] = False
+        app.settings['fps_limit'] = 0
+        app.settings['view_distance'] = 20
+        app.settings['far_distance'] = 35
+        app.apply_settings(old)
+        app.set_vsync(False)
+
+    def parked(s, x, y, z, yaw, pitch):
+        p = s.player
+        p.x, p.y, p.z = x, y, z
+        p.yaw, p.pitch = yaw, pitch
+        p.vx = p.vy = p.vz = 0
+        p.drifting = True
+        p.noclip = True
+        s.hold = True
+
+    def loaded():
+        w = app.session.world
+        return w.busy() == 0 and w.busy_lod() == 0 and len(w.chunks) >= 1000
+
+    uncap_and_far()
+    yield 0.3
+    # seed 7 has a ~155-cell, nearly-300 continent — a fair compare to 1.4.2 aerial_wide_2
+    app.create_sky('R2 Vistas', 7, '', 'wanderer')
+    yield lambda: app.mode == 'game'
+    ses = app.session
+    app.show_debug = True
+    app.hide_hud = False
+    px, pz = center(11, 132)
+    parked(ses, px + 80, (286 + 52) * LAYER, pz + 50, 300.0, -28.0)
+    yield loaded
+    yield 1.0
+    st = app.renderer.stats
+    log('aerial', 'loaded', len(ses.world.chunks), 'drawn', st.get('drawn'),
+        'jobs', ses.world.busy(), 'gen', (ses.world.gen_settings or {}).get('generator_version'))
+    yield shot('v4_aerial_wide')
+    parked(ses, px + 110, (286 + 40) * LAYER, pz + 20, 290.0, -26.0)
+    yield 0.8
+    yield shot('v4_aerial_wide_b')
+    # lookup from a mid island toward the high continent
+    mx, mz = center(13, 59)
+    parked(ses, mx, 226 * LAYER + 8.0, mz, 200.0, 14.0)
+    yield loaded
+    yield 0.8
+    yield shot('v4_tall_islands_lookup')
+    parked(ses, mx, 226 * LAYER + 16.0, mz, 200.0, 8.0)
+    yield 0.7
+    yield shot('v4_tall_islands_lookup_wide')
+    # stand on the continent and look across its surface
+    parked(ses, px, 286 * LAYER + 3.0, pz, 40.0, -12.0)
+    yield 0.8
+    yield shot('v4_continent_surface')
+    log('phase143_r2_vistas finished')

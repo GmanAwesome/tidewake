@@ -47,7 +47,7 @@ def install(app, name, out, arg=''):
             except Exception as e:
                 log('cond error', e)
                 ok = True
-            if not ok and time.time() - state['since'] < 90:
+            if not ok and time.time() - state['since'] < 240:
                 return
             state['cond'] = None
         if state['wait'] > 0:

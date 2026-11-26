@@ -98,7 +98,7 @@ def pick(advance=True):
     data.setdefault('blocks', [])
     if data.get('gen') is None:
         from . import gensettings as GS
-        data['gen'] = GS.normalize({}, new=True)
+        data['gen'] = GS.normalize({'generator_version': 3})
     return Showcase(data)
 
 
