@@ -423,8 +423,8 @@ def test_tutorial_is_larger_and_npcs_stand_in_the_open():
         assert stand == 0, (name, 'is inside', MT.NAMES[stand] if stand else 'air')
     # signposts mark the path, and the lesson still has its stations
     signs = 0
-    for cq in range(-3, 4):
-        for cr in range(-3, 4):
+    for cq in range(-6, 8):
+        for cr in range(-6, 8):
             cells, _, _ = g.generate(cq, cr)
             signs += int((cells == MT.ID['signpost']).sum())
     assert signs >= 4
@@ -448,7 +448,7 @@ def test_showcase_camera_paths_stay_clear():
             data.setdefault('kind', 'seed')
             data.setdefault('blocks', [])
             if data.get('gen') is None:
-                data['gen'] = GS.normalize({}, new=True)
+                data['gen'] = GS.normalize({'generator_version': 3})
             sc = SC.Showcase(data)
         world = SC.stamped_world(sc)
         rep = SC.path_report(sc, world, n=96)

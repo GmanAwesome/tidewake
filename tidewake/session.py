@@ -1475,6 +1475,9 @@ class Session:
                 parts.append(dr.model(cam))
         if getattr(self.app, 'cam_view', 0):
             parts.append(self.player_model(cam))
+        if getattr(self, 'tutorial', False):
+            from . import landmark as LM
+            parts.append(LM.mesh_rel(cam))
         return MD.cat(*parts) if parts else None
 
     def player_model(self, cam):
@@ -1809,6 +1812,9 @@ class Session:
             if abs(mob.x - cx) + abs(mob.z - cz) > 28:
                 continue
             L.append((mob.x - cx, mob.y + 0.12 - cy, mob.z - cz, lamp))
+        if getattr(self, 'tutorial', False):
+            from . import landmark as LM
+            L.append(LM.lights((cx, cy, cz)))
         return [np.array(L)] if L else []
 
     # ------------------------------------------------------------------ commands (whisper box)

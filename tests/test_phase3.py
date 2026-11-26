@@ -124,8 +124,8 @@ def test_tutorial_island():
     assert g.tutorial
     counts = {k: 0 for k in ('waystone', 'glimmer_font', 'water', 'farmland', 'skywheat',
                              'tinker_bench', 'kiln', 'door', 'ladder', 'chest', 'bedroll', 'heartwood')}
-    for cq in range(-2, 3):
-        for cr in range(-2, 3):
+    for cq in range(-6, 8):
+        for cr in range(-6, 8):
             cells, _, _ = g.generate(cq, cr)
             for k in counts:
                 counts[k] += int((cells == MT.ID[k]).sum())

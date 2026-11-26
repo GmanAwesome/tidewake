@@ -594,6 +594,8 @@ class App(pyglet.window.Window):
             (cx, cy, cz), yaw, pitch, phase, world = cam
             atmo = TIDE.atmosphere(phase)
             fog_end = max(world.radius, getattr(world, 'lod_radius', 0)) * 0.98
+            if getattr(getattr(self, 'session', None), 'tutorial', False):
+                fog_end = max(fog_end, 560.0)
             proj = perspective(self.settings['fov'], fw / max(1, fh), 0.08, fog_end * 2.5 + 200)
             vr = view_matrix((0, 0, 0), yaw, pitch)
             extra = self.session.extra_lights((cx, cy, cz)) if self.mode == 'game' and self.session else []
