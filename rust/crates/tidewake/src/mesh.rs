@@ -29,27 +29,59 @@ pub struct CpuMesh {
     pub idx: Vec<u32>,
 }
 
-/// A rolling sheet at the cloud-sea layer, camera-relative so it can use a zero offset.
+fn value_noise(x: f32, z: f32) -> f32 {
+    let x0 = x.floor() as i64;
+    let z0 = z.floor() as i64;
+    let fx = x - x0 as f32;
+    let fz = z - z0 as f32;
+    let s = |ix: i64, iz: i64| tidewake_core::noise::rand01(ix, iz, 3) as f32;
+    let ux = fx * fx * (3.0 - 2.0 * fx);
+    let uz = fz * fz * (3.0 - 2.0 * fz);
+    let a = s(x0, z0);
+    let b = s(x0 + 1, z0);
+    let c = s(x0, z0 + 1);
+    let d = s(x0 + 1, z0 + 1);
+    let ab = a + (b - a) * ux;
+    let cd = c + (d - c) * ux;
+    ab + (cd - ab) * uz
+}
+
+/// Cloud sea from `shaders.py`: period 1024, the two scrolled samples, and a
+/// 9-unit rise. Colours are the tide's cloud top and cloud deep.
 pub fn cloud_sea(time: f32, cam: [f64; 3]) -> CpuMesh {
     let n = 40i32;
     let step = 10.0f32;
-    let base = (12.0 * 0.85) as f32;
+    let cloud_y = (12.0 * 0.85) as f32;
+    let atmo = tidewake_core::tide::atmosphere(time);
     let mut verts = Vec::new();
     let mut idx = Vec::new();
-    let col = [0.93, 0.95, 0.98];
-    let h = |x: f32, z: f32| base + (x * 0.05 + time * 0.15).sin() * 1.4 + (z * 0.04 - time * 0.1).cos() * 1.1;
+    let sample_h = |x: f32, z: f32| {
+        let period = 1024.0;
+        let a = value_noise((x + time * 1.1) / period, (z + time * 0.4) / period);
+        let b = value_noise((x * 4.0 - time * 2.3) / period, (z * 4.0 + time * 1.7) / period);
+        a * 0.75 + b * 0.25
+    };
+    let color = |h: f32| {
+        let t = ((h - 0.25) / 0.60).clamp(0.0, 1.0);
+        let t = t * t * (3.0 - 2.0 * t);
+        [
+            atmo.deep[0] + (atmo.cloud[0] - atmo.deep[0]) * t,
+            atmo.deep[1] + (atmo.cloud[1] - atmo.deep[1]) * t,
+            atmo.deep[2] + (atmo.cloud[2] - atmo.deep[2]) * t,
+        ]
+    };
     for iz in -n..n {
         for ix in -n..n {
-            let x0 = ix as f32 * step;
-            let z0 = iz as f32 * step;
+            let x0 = cam[0] as f32 + ix as f32 * step;
+            let z0 = cam[2] as f32 + iz as f32 * step;
             let x1 = x0 + step;
             let z1 = z0 + step;
-            let p = |x: f32, z: f32| -> [f32; 3] {
-                [x - cam[0] as f32, h(x, z) - cam[1] as f32, z - cam[2] as f32]
-            };
             let b = verts.len() as u32;
-            for pos in [p(x0, z0), p(x1, z0), p(x1, z1), p(x0, z1)] {
-                verts.push(Vert::plain(pos, [0.0, 1.0, 0.0], col));
+            for (x, z) in [(x0, z0), (x1, z0), (x1, z1), (x0, z1)] {
+                let h = sample_h(x, z);
+                let y = cloud_y + (h - 0.5) * 9.0;
+                let pos = [x - cam[0] as f32, y - cam[1] as f32, z - cam[2] as f32];
+                verts.push(Vert::plain(pos, [0.0, 1.0, 0.0], color(h)));
             }
             idx.extend([b, b + 1, b + 2, b, b + 2, b + 3]);
         }
