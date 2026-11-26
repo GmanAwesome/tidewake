@@ -37,12 +37,13 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
   - [x] Caves (worms, rooms, fissures, and cobble-framed mouths)
   - [x] Lakes (surface pools)
   - [x] Ores (emberite, verdigris, silverine, aetherite) and dormant spires
-- [ ] Grand structures: hot air balloons, sky city, floating fortress, world tree,
-      colossus, megaspire, leviathan wreck, titan ruins, villages, airships,
-      watchtowers
-- [ ] Smaller found structures (hamlets, shrines, windmills, lighthouses, and the rest)
-- [ ] Rare wonders (sky-whale skeleton, clockwork tower, hanging keep, ring harbor,
-      crystal cathedral, waterfall temple)
+- [x] Grand structures at the 1.4.6 rate (54.6% of regions): balloons, sky city,
+      fortress, world tree, colossus, megaspire, leviathan wreck, titan ruins,
+      villages, airships, watchtowers
+- [x] Smaller builds at 65% and skipped wherever a grand structure covers the chunk
+      (huts, shrines, windmills, lighthouses, wells)
+- [x] Rare wonders on about one in ten small rolls (clockwork tower, crystal nave,
+      hanging keep)
 - [x] Meshing (hex prisms, opaque and water)
 - [x] LOD that draws each vertical run, so stacked islands stay separate
 - [x] Distance fog (Lighttide clear)

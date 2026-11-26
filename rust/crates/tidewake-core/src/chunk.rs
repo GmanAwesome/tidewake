@@ -217,6 +217,7 @@ pub fn generate(gen: &Generator, cq: i32, cr: i32) -> Chunk {
     stamp_spires(gen, &mut chunk);
     tiers::stamp(gen, cq, cr, &mut chunk);
     crate::trees::stamp(gen, &mut chunk);
+    crate::structures::stamp(gen, &mut chunk);
     chunk
 }
 

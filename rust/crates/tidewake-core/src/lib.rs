@@ -13,6 +13,7 @@ pub mod player;
 pub mod noise;
 pub mod pyrandom;
 pub mod settings;
+pub mod structures;
 pub mod tiers;
 pub mod trees;
 
