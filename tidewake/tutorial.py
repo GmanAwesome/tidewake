@@ -286,7 +286,7 @@ def generate_chunk(cq, cr):
         _put(cells, meta, cq, cr, q, r, SURF + 1, b)
     for q, r in ((7, 4), (-6, 4)):
         _put(cells, meta, cq, cr, q, r, SURF + 1, ivory)
-        _put(cells, meta, cq, cr, q, r, SURF + 2, clamp_honey)
+    _put(cells, meta, cq, cr, 7, 4, SURF + 2, clamp_honey)
     # Welcome bedroll, off the spawn cell and off the view corridor
     _put(cells, meta, cq, cr, 3, 2, SURF + 1, M['bedroll'])
     _put(cells, meta, cq, cr, 2, 3, SURF + 1, M['glowstick'])
@@ -356,7 +356,6 @@ def generate_chunk(cq, cr):
     _put(cells, meta, cq, cr, 4, -33, SURF + 1, M['glimmer_font'], 0)
     _put(cells, meta, cq, cr, 8, -34, SURF + 1, clamp_violet)
     _put(cells, meta, cq, cr, 4, -30, SURF + 1, banner_honey)
-    _put(cells, meta, cq, cr, 9, -31, SURF + 1, cosmic)
 
     # ----- Bridge over the cloud gap -----
     _bridge(cells, meta, cq, cr, 8, -38, 8, -48, M['pale_planks'] if 'pale_planks' in M else M['planks'],
@@ -411,7 +410,6 @@ def _workshop(cells, meta, cq, cr, q, r, plaster, lattice, stain, lamp, banner):
                 _put(cells, meta, cq, cr, q + dq, r + dr, SURF + 2, stain if win else plaster)
             _put(cells, meta, cq, cr, q + dq, r + dr, SURF + 3, plaster)
     _put(cells, meta, cq, cr, q, r, SURF + 1, M['tinker_bench'], 0)
-    _put(cells, meta, cq, cr, q, r, SURF + 2, lamp, 0)
     _put(cells, meta, cq, cr, q - 3, r + 2, SURF + 1, banner)
     _put(cells, meta, cq, cr, q + 3, r + 2, SURF + 1, banner)
     _put(cells, meta, cq, cr, q + 2, r + 2, SURF + 1, lattice)
@@ -434,7 +432,6 @@ def _kiln_hall(cells, meta, cq, cr, q, r, brick, iron, brass, lamp):
             if abs(dq) == 3 or dr == -3:
                 _put(cells, meta, cq, cr, q + dq, r + dr, SURF + 4, brick)
     _put(cells, meta, cq, cr, q, r, SURF + 1, M['kiln'], 0)
-    _put(cells, meta, cq, cr, q, r, SURF + 2, lamp, 0)
     _put(cells, meta, cq, cr, q + 2, r - 1, SURF + 1, brass)
 
 
@@ -500,9 +497,8 @@ def _bridge(cells, meta, cq, cr, q0, r0, q1, r1, plank, rail, post):
         for i, (dq, dr) in enumerate(DIRS[:2]):
             _put(cells, meta, cq, cr, q + dq, r + dr, SURF, plank)
             _put(cells, meta, cq, cr, q + dq, r + dr, SURF + 1, rail)
-    # lamp posts at each end
+    # a lamp post on the knoll side of the bridge
     _put(cells, meta, cq, cr, q0, r0, SURF + 1, post)
-    _put(cells, meta, cq, cr, q0, r0, SURF + 2, _mat('sky_crystal_lamp', 'lantern'))
     _put(cells, meta, cq, cr, q1, r1, SURF + 1, post)
     _put(cells, meta, cq, cr, q1, r1, SURF + 2, _mat('sky_crystal_lamp', 'lantern'))
     # keep the deck under the end lamps walkable beside the post

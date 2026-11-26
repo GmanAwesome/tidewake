@@ -3337,3 +3337,592 @@ def phase143_r2_vistas(app, log, shot, look_at, settled, arg):
     yield 0.8
     yield shot('v4_continent_surface')
     log('phase143_r2_vistas finished')
+
+
+# ---------------------------------------------------------------------------
+# 1.4.4
+# ---------------------------------------------------------------------------
+
+def _144_uncap(app, log, view=16, far=24):
+    old = dict(app.settings)
+    app.settings['vsync'] = False
+    app.settings['fps_limit'] = 0
+    app.settings['view_distance'] = view
+    app.settings['far_distance'] = far
+    app.apply_settings(old)
+    app.set_vsync(False)
+    log('vd', app.settings['view_distance'], 'far', app.settings['far_distance'])
+
+
+def _144_park(ses, x, y, z, yaw, pitch):
+    p = ses.player
+    p.x, p.y, p.z = x, y, z
+    p.yaw, p.pitch = yaw, pitch
+    p.vx = p.vy = p.vz = 0
+    p.drifting = True
+    p.noclip = True
+    ses.hold = True
+
+
+def _144_loaded(app, min_chunks=0):
+    def ok():
+        s = app.session
+        if s is None or app.mode != 'game':
+            return False
+        w = s.world
+        return (w.busy() == 0 and w.busy_lod() == 0 and not w.dirty
+                and len(w.chunks) >= min_chunks)
+    return ok
+
+
+def _144_hud(app, debug=False, hide=True):
+    app.show_debug = debug
+    app.hide_hud = hide
+
+
+def phase144_tutorial(app, log, shot, look_at, settled, arg):
+    """Lesson island from spawn (distant landmark visible) and an aerial."""
+    from . import tutorial as T
+    from . import landmark as LM
+    from .hexgrid import center as hx
+    _144_uncap(app, log, view=16, far=24)
+    yield 0.3
+    app.create_sky('Lesson 144', 1, 'lesson', 'wanderer', tutorial=True)
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    # Canonical spawn pose: yaw 0 looks -Z at the citadel, pitch slightly up.
+    q, r, top = T.SPAWN
+    x, z = hx(q, r)
+    _144_park(ses, x, (top + 1) * LAYER + 0.001, z, 0.0, 4.0)
+    yield _144_loaded(app)
+    yield 1.2
+    _144_hud(app, debug=False, hide=True)
+    yield shot('tutorial_spawn')
+    _144_hud(app, debug=True, hide=False)
+    yield 0.3
+    yield shot('tutorial_spawn_debug')
+    # A step to the side so Willow and the plaza sit in frame with the citadel
+    _144_park(ses, x + 4.0, (top + 1) * LAYER + 0.001, z + 2.0, 350.0, 6.0)
+    yield _144_loaded(app)
+    yield 0.8
+    _144_hud(app, debug=False, hide=True)
+    yield shot('tutorial_plaza')
+    # Look along the path toward Bram
+    _144_park(ses, x, (top + 1.2) * LAYER, z, 70.0, 2.0)
+    yield 0.8
+    yield shot('tutorial_path_east')
+    # Shrine knoll, citadel still beyond
+    sx, _, sz = T.shrine_pos()
+    _144_park(ses, sx, (T.SURF + 6) * LAYER, sz + 6, 0.0, 8.0)
+    yield _144_loaded(app)
+    yield 0.8
+    yield shot('tutorial_shrine_knoll')
+    # From the north, looking south over the lobes toward the plaza, knoll, and citadel
+    _144_park(ses, 15.0, 85.0, 110.0, 0.0, -28.0)
+    yield _144_loaded(app)
+    yield 1.2
+    yield shot('tutorial_aerial')
+    # Higher and a little east, still looking south so the citadel stays in frame
+    _144_park(ses, 25.0, 120.0, 80.0, 10.0, -42.0)
+    yield _144_loaded(app)
+    yield 1.0
+    yield shot('tutorial_aerial_wide')
+    # From the east, looking west across the workshop, kiln, house and farm
+    _144_park(ses, 90.0, 85.0, 40.0, 270.0, -28.0)
+    yield _144_loaded(app)
+    yield 1.0
+    yield shot('tutorial_aerial_east')
+    log('landmark pos', LM.POS, 'verts', len(LM.mesh()), 'spawn yaw 0 pitch 4')
+    log('phase144_tutorial finished')
+
+
+def phase144_islands(app, log, shot, look_at, settled, arg):
+    """v5 scale versus v4, plus a huge-continent aerial on seed 7."""
+    from .hexgrid import center as hx
+    from . import gensettings as GS
+
+    def tour_version(ver, label):
+        _144_uncap(app, log, view=20, far=35)
+        yield 0.3
+        app.create_sky(label, 7, 'seven', 'wanderer',
+                       gen=GS.normalize({'generator_version': ver}))
+        yield lambda: app.mode == 'game'
+        yield settled()
+        yield 1.0
+        ses = app.session
+        log('version', (ses.world.gen_settings or {}).get('generator_version'), 'seed', ses.seed)
+        # Origin cluster aerial
+        _144_park(ses, 0.0, 280.0, 180.0, 180.0, -55.0)
+        yield _144_loaded(app, min_chunks=200)
+        yield 1.2
+        _144_hud(app, debug=False, hide=True)
+        yield shot(f'{label}_origin_aerial')
+        _144_hud(app, debug=True, hide=False)
+        yield 0.3
+        yield shot(f'{label}_origin_aerial_debug')
+        # A slightly lower look at near-origin islands
+        _144_park(ses, 40.0, 200.0, 80.0, 210.0, -28.0)
+        yield _144_loaded(app)
+        yield 1.0
+        _144_hud(app, debug=False, hide=True)
+        yield shot(f'{label}_origin_vista')
+
+    # v5 first
+    for step in tour_version(5, 'v5'):
+        yield step
+    ses = app.session
+    # Huge continent around (527, -352)
+    hx_x, hx_z = hx(527, -352)
+    log('huge centre xz', hx_x, hx_z)
+    _144_park(ses, hx_x, 420.0, hx_z + 220.0, 180.0, -55.0)
+    yield _144_loaded(app, min_chunks=200)
+    yield 1.4
+    _144_hud(app, debug=False, hide=True)
+    yield shot('v5_huge_aerial')
+    _144_hud(app, debug=True, hide=False)
+    yield 0.3
+    yield shot('v5_huge_aerial_debug')
+    # Closer aerial, shallower pitch
+    _144_park(ses, hx_x - 80.0, 320.0, hx_z + 160.0, 160.0, -38.0)
+    yield _144_loaded(app)
+    yield 1.2
+    _144_hud(app, debug=False, hide=True)
+    yield shot('v5_huge_aerial_low')
+    # Surface on the continent
+    top = ses.world.column_top(527, -352) or 120
+    _144_park(ses, hx_x, (top + 8) * LAYER, hx_z + 18, 200.0, -8.0)
+    yield _144_loaded(app)
+    yield 1.0
+    yield shot('v5_huge_surface')
+    # Peak look (known high point near 627, -204)
+    px, pz = hx(627, -204)
+    ptop = ses.world.column_top(627, -204) or 200
+    _144_park(ses, px, (ptop + 6) * LAYER, pz, 220.0, -18.0)
+    yield _144_loaded(app)
+    yield 1.0
+    yield shot('v5_huge_peak')
+
+    app.quit_to_title()
+    yield 1.0
+    # v4 of the same seed, for scale comparison (this is the 1.4.3 generator)
+    for step in tour_version(4, 'v4'):
+        yield step
+    # The 1.4.3 "continent" reference cell (11, 132)
+    ses = app.session
+    cx, cz = hx(11, 132)
+    ctop = ses.world.column_top(11, 132) or 120
+    _144_park(ses, cx, 320.0, cz + 160.0, 180.0, -50.0)
+    yield _144_loaded(app)
+    yield 1.2
+    _144_hud(app, debug=False, hide=True)
+    yield shot('v4_ref_continent_aerial')
+    log('phase144_islands finished')
+
+
+def phase144_blocks(app, log, shot, look_at, settled, arg):
+    """Palette swatch board and tight close-ups of the fun / decorative blocks."""
+    from . import palette as PAL
+    from . import gensettings as GS
+    from .hexgrid import center as hx
+    _144_uncap(app, log, view=12, far=16)
+    yield 0.3
+    app.create_sky('Palette 144', 7, 'seven', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.6
+    ses = app.session
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    # A high open pad at a known cell. Load those chunks first: world.set no-ops if unloaded.
+    q0, r0, y0 = 8, 8, 140
+    bx, bz = hx(q0 + 8, r0 + 5)
+    _144_park(ses, bx, (y0 + 10) * LAYER, bz, 0.0, -20.0)
+    yield _144_loaded(app)
+    yield 0.8
+    dyes = [d[0] for d in PAL.DYES]
+    families = ['patterned_tile', 'terrazzo', 'woven_panel', 'stained_glass',
+                'crystal_lamp', 'banner']
+    uniques = [
+        'ivory_plaster', 'blush_plaster', 'sage_plaster', 'dusk_plaster',
+        'pewter', 'brass', 'copper', 'wrought_iron',
+        'ochre_bricks', 'ink_bricks', 'wood_lattice', 'pale_lattice',
+        'rose_jelly', 'tide_jelly', 'honey_jelly', 'violet_jelly',
+        'ink_checker', 'rose_checker', 'rose_stripe', 'sky_stripe',
+        'shimmer_cloud', 'cosmic_star',
+    ]
+    floor = M.get('dusk_plaster', M.get('ink_bricks', M['stone']))
+    placed = 0
+    missed = 0
+
+    def put(q, r, y, mat):
+        nonlocal placed, missed
+        if mat is None:
+            missed += 1
+            return
+        ok = ses.world.set(q, r, y, mat)
+        if ok:
+            placed += 1
+        else:
+            missed += 1
+
+    # Dark pad so the swatches read clearly, lit from above
+    width, depth = 20, 20
+    for dq in range(-2, width):
+        for dr in range(-2, depth):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(y0 - 2, y0):
+                put(q, r, yy, M['stone'])
+            put(q, r, y0, floor)
+            for yy in range(y0 + 1, y0 + 10):
+                put(q, r, yy, 0)
+    # Family rows: 4-high pillars, one row per family, a gap between rows
+    for fi, fam in enumerate(families):
+        for di, dye in enumerate(dyes):
+            key = PAL.id_key(PAL.dyed_name(fam, dye)) if hasattr(PAL, 'dyed_name') else f'{dye}_{fam}'
+            mat = M.get(key, M.get(f'{dye}_{fam}'))
+            rr = r0 + fi * 2
+            for h in range(1, 5):
+                put(q0 + di, rr, y0 + h, mat)
+    # Unique / fun pillars, two rows below the families
+    uniq_r = r0 + len(families) * 2 + 2
+    for i, key in enumerate(uniques):
+        mat = M.get(key)
+        for h in range(1, 5):
+            put(q0 + (i % 16), uniq_r + i // 16, y0 + h, mat)
+    # A few extra lamps over the board so it stays well lit
+    lamp = M.get('honey_crystal_lamp', M.get('ember_lamp', M['lantern']))
+    for dq, dr in ((-1, 3), (16, 3), (7, -1), (7, 14)):
+        put(q0 + dq, r0 + dr, y0 + 6, lamp)
+    log('palette stamped', 'placed', placed, 'missed', missed,
+        'families', families, 'uniques', len(uniques),
+        'sample', int(ses.world.get(q0, r0, y0 + 2) or 0))
+    if placed < 100:
+        log('ERROR palette stamp too sparse — aborting shots')
+        return
+    yield settled()
+    yield 1.0
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    _144_hud(app, debug=False, hide=True)
+
+    def frame(q, r, y, back=8.0, up=3.5, side=0.0):
+        tx, tz = hx(q, r)
+        ty = y * LAYER + 0.4
+        _144_park(ses, tx + side, ty + up, tz + back, 0.0, -20.0)
+        look_at(ses.player, tx, ty, tz)
+
+    # Full swatch board, close enough that the pillars fill the frame
+    mid_r = r0 + 5
+    frame(q0 + 8, mid_r, y0 + 2, back=14.0, up=6.0, side=1.0)
+    yield _144_loaded(app)
+    yield 0.9
+    yield shot('palette_board')
+    frame(q0 + 8, mid_r, y0 + 2, back=9.0, up=4.0, side=0.5)
+    yield 0.8
+    yield shot('palette_board_close')
+
+    # Tight close-ups: fill the frame with the actual blocks
+    close = [
+        ('fun_jelly', q0 + 12, uniq_r, y0 + 2, 4.2, 1.8, 0.4),           # rose/tide/honey/violet jelly
+        ('fun_checker_stripe', q0 + 2, uniq_r + 1, y0 + 2, 4.2, 1.8, 0.4),  # checkers + stripes
+        ('fun_metal_plaster', q0 + 4, uniq_r, y0 + 2, 4.6, 1.9, 0.2),      # plasters into pewter/brass/copper/iron
+        ('fun_crystal_lamps', q0 + 8, r0 + 8, y0 + 2, 4.4, 1.8, 0.3),      # crystal lamp row
+        ('fun_stained_glass', q0 + 8, r0 + 6, y0 + 2, 4.4, 1.8, 0.3),      # stained glass row
+        ('fun_cosmic_cloud', q0 + 4, uniq_r + 1, y0 + 2, 4.2, 1.8, 0.3),   # shimmer cloud + cosmic star
+    ]
+    for name, q, r, y, back, up, side in close:
+        frame(q, r, y, back=back, up=up, side=side)
+        yield _144_loaded(app)
+        yield 0.7
+        yield shot(name)
+    log('phase144_blocks finished')
+
+
+def phase144_blocks_fix(app, log, shot, look_at, settled, arg):
+    """Retake metal/plaster and stained-glass close-ups from angles that are not blocked."""
+    from . import palette as PAL
+    from . import gensettings as GS
+    from .hexgrid import center as hx
+    _144_uncap(app, log, view=12, far=16)
+    yield 0.3
+    app.create_sky('Palette 144 fix', 7, 'seven', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.5
+    ses = app.session
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    q0, r0, y0 = 8, 8, 140
+    bx, bz = hx(q0 + 8, r0 + 5)
+    _144_park(ses, bx, (y0 + 10) * LAYER, bz, 0.0, -20.0)
+    yield _144_loaded(app)
+    yield 0.6
+    dyes = [d[0] for d in PAL.DYES]
+    families = ['patterned_tile', 'terrazzo', 'woven_panel', 'stained_glass',
+                'crystal_lamp', 'banner']
+    uniques = [
+        'ivory_plaster', 'blush_plaster', 'sage_plaster', 'dusk_plaster',
+        'pewter', 'brass', 'copper', 'wrought_iron',
+        'ochre_bricks', 'ink_bricks', 'wood_lattice', 'pale_lattice',
+        'rose_jelly', 'tide_jelly', 'honey_jelly', 'violet_jelly',
+        'ink_checker', 'rose_checker', 'rose_stripe', 'sky_stripe',
+        'shimmer_cloud', 'cosmic_star',
+    ]
+    floor = M.get('dusk_plaster', M['stone'])
+
+    def put(q, r, y, mat):
+        if mat is not None:
+            ses.world.set(q, r, y, mat)
+
+    for dq in range(-2, 20):
+        for dr in range(-2, 20):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(y0 - 2, y0):
+                put(q, r, yy, M['stone'])
+            put(q, r, y0, floor)
+            for yy in range(y0 + 1, y0 + 10):
+                put(q, r, yy, 0)
+    for fi, fam in enumerate(families):
+        for di, dye in enumerate(dyes):
+            key = PAL.id_key(PAL.dyed_name(fam, dye))
+            mat = M.get(key, M.get(f'{dye}_{fam}'))
+            for h in range(1, 5):
+                put(q0 + di, r0 + fi * 2, y0 + h, mat)
+    uniq_r = r0 + len(families) * 2 + 2
+    for i, key in enumerate(uniques):
+        mat = M.get(key)
+        for h in range(1, 5):
+            put(q0 + (i % 16), uniq_r + i // 16, y0 + h, mat)
+    lamp = M.get('honey_crystal_lamp', M['lantern'])
+    for dq, dr in ((-1, 3), (16, 3), (7, -1), (7, 14)):
+        put(q0 + dq, r0 + dr, y0 + 6, lamp)
+    yield settled()
+    yield 1.0
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    _144_hud(app, debug=False, hide=True)
+
+    def frame_from(q, r, y, back, up, side, toward=+1):
+        """toward=+1: camera at +Z looking -Z (yaw 0). toward=-1: camera at -Z looking +Z (yaw 180)."""
+        tx, tz = hx(q, r)
+        ty = y * LAYER + 0.4
+        _144_park(ses, tx + side, ty + up, tz + toward * back, 0.0, 0.0)
+        look_at(ses.player, tx, ty, tz)
+
+    # Metal + plaster: view from -Z so the checker row is behind the subject, not in front
+    frame_from(q0 + 4, uniq_r, y0 + 2, back=4.8, up=1.8, side=0.2, toward=-1)
+    yield _144_loaded(app)
+    yield 0.8
+    yield shot('fun_metal_plaster')
+    # Stained glass: view from -Z so lamps/banners sit behind the glass as a glow, not in front
+    frame_from(q0 + 8, r0 + 6, y0 + 2, back=4.6, up=1.7, side=0.3, toward=-1)
+    yield _144_loaded(app)
+    yield 0.8
+    yield shot('fun_stained_glass')
+    log('phase144_blocks_fix finished')
+
+
+def phase144_structures(app, log, shot, look_at, settled, arg):
+    """Stamp and photograph the new landscape and sky structures."""
+    from . import structures as ST
+    from . import gensettings as GS
+    _144_uncap(app, log, view=14, far=20)
+    yield 0.3
+    app.create_sky('Structures 144', 11, 'structure-row', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.6
+    ses = app.session
+    # High terrace; load the site first because world.set skips unloaded chunks.
+    q0, r0, y0 = 4, 4, 140
+    ox, oz = center(q0 + 36, r0)
+    _144_park(ses, ox, (y0 + 16) * LAYER, oz, 0.0, -10.0)
+    yield _144_loaded(app)
+    yield 0.6
+    for dq in range(-8, 80):
+        for dr in range(-10, 16):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(y0 - 3, y0):
+                ses.world.set(q, r, yy, M['stone'])
+            ses.world.set(q, r, y0, M.get('ivory_plaster', M['pale_planks']))
+            for yy in range(y0 + 1, y0 + 16):
+                ses.world.set(q, r, yy, 0)
+    yield settled()
+    ground_types = ['hamlet', 'watchtower', 'shrine', 'windmill', 'lighthouse',
+                    'market', 'garden', 'observatory', 'ruin_tower']
+    sky_types = ['sky_temple', 'airship_wreck', 'chain_fort', 'balloon_platform',
+                 'crystal_pinnacle', 'lantern_cluster']
+    # Place ground types along the terrace
+    for i, name in enumerate(ground_types):
+        q, r = q0 + 6 + i * 8, r0
+        try:
+            ST.stamp_world(ses.world, q, r, name, cond=ST.INTACT, seed=20 + i, realm=0)
+            log('stamped', name, 'at', q, r)
+        except Exception as e:
+            log('stamp failed', name, e)
+    # Cloud pads + sky types beside / above the terrace
+    for i, name in enumerate(sky_types):
+        q, r = q0 + 6 + i * 8, r0 + 10
+        pad = M.get('shimmer_cloud', M['stone'])
+        for dq in range(-3, 4):
+            for dr in range(-3, 4):
+                ses.world.set(q + dq, r + dr, y0 + 8, pad)
+        try:
+            ST.stamp_world(ses.world, q, r, name, cond=ST.INTACT, seed=40 + i, realm=7)
+            log('stamped sky', name, 'at', q, r)
+        except Exception as e:
+            log('stamp failed', name, e)
+    yield settled()
+    yield 1.2
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    _144_hud(app, debug=False, hide=True)
+    # Overview of the row: stand +Z of the terrace and look -Z at the builds
+    ox, oz = center(q0 + 36, r0)
+    _144_park(ses, ox, (y0 + 18) * LAYER, oz + 28, 0.0, -22.0)
+    look_at(ses.player, ox, (y0 + 6) * LAYER, oz)
+    yield _144_loaded(app)
+    yield 1.0
+    yield shot('structures_row')
+    # Each ground type
+    for i, name in enumerate(ground_types):
+        q, r = q0 + 6 + i * 8, r0
+        x, z = center(q, r)
+        tx, tz = x, z
+        _144_park(ses, x + 2, (y0 + 9) * LAYER, z + 14, 0.0, -12.0)
+        look_at(ses.player, tx, (y0 + 4) * LAYER, tz)
+        yield _144_loaded(app)
+        yield 0.7
+        yield shot(f'structure_{name}')
+    # Each sky type
+    for i, name in enumerate(sky_types):
+        q, r = q0 + 6 + i * 8, r0 + 10
+        x, z = center(q, r)
+        _144_park(ses, x + 2, (y0 + 16) * LAYER, z + 14, 0.0, -10.0)
+        look_at(ses.player, x, (y0 + 11) * LAYER, z)
+        yield _144_loaded(app)
+        yield 0.7
+        yield shot(f'structure_{name}')
+    # A couple of natural placements in a live v5 seed-7 sky
+    app.quit_to_title()
+    yield 1.0
+    app.create_sky('Natural 144', 7, 'seven', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    # Hunt loaded chunks for new decorative blocks
+    found = []
+    banner_ids = {M[k] for k in M if k.endswith('_banner')}
+    lamp_ids = {M[k] for k in M if k.endswith('_crystal_lamp')}
+    markers = set(banner_ids) | set(lamp_ids) | {M.get('shimmer_cloud', 0), M.get('cosmic_star', 0),
+                                                 M.get('ivory_plaster', 0), M['chest']}
+    markers.discard(0)
+    for (cq, cr), ch in list(ses.world.chunks.items()):
+        cells = ch.cells
+        hits = 0
+        for mid in markers:
+            hits += int((cells == mid).sum())
+        if hits >= 4:
+            # pick a cell
+            for lq in range(0, CHUNK, 2):
+                for lr in range(0, CHUNK, 2):
+                    col = cells[lq, :, lr]
+                    ys = np.where(np.isin(col, list(markers)))[0]
+                    if len(ys):
+                        found.append((cq * CHUNK + lq, cr * CHUNK + lr, int(ys[-1]), hits))
+                        break
+                else:
+                    continue
+                break
+        if len(found) >= 8:
+            break
+    log('natural sites', found[:8])
+    for i, (q, r, y, hits) in enumerate(found[:6]):
+        x, z = center(q, r)
+        _144_park(ses, x - 8, (y + 8) * LAYER, z + 14, 155.0, -10.0)
+        yield _144_loaded(app)
+        yield 0.8
+        _144_hud(app, debug=False, hide=True)
+        yield shot(f'natural_{i}')
+    log('phase144_structures finished')
+
+
+def phase144_perf(app, log, shot, look_at, settled, arg):
+    """Wall-clock fps on the new lesson island (uncapped), still and walk."""
+    import time as _t
+    from . import tutorial as T
+    from .hexgrid import center as hx
+
+    def uncap():
+        old = dict(app.settings)
+        app.settings['vsync'] = False
+        app.settings['fps_limit'] = 0
+        # Match the 1.4.3 tutorial measurement window as closely as we can.
+        app.settings['view_distance'] = app.settings.get('view_distance', 8)
+        app.apply_settings(old)
+        app.set_vsync(False)
+        log('uncapped vsync', app.settings['vsync'], 'fps_limit', app.settings['fps_limit'],
+            'vd', app.settings['view_distance'], 'far', app.settings['far_distance'])
+
+    def sample(label, seconds=5.0):
+        state = {'t0': _t.perf_counter(), 'frames': 0, 'sec': seconds}
+
+        def done():
+            state['frames'] += 1
+            return (_t.perf_counter() - state['t0']) >= state['sec']
+
+        def finish():
+            elapsed = _t.perf_counter() - state['t0']
+            frames = max(1, state['frames'] - 1)
+            fps = frames / elapsed if elapsed > 0 else 0.0
+            st = app.renderer.stats
+            ses = app.session
+            w = ses.world
+            log('PERF', label, 'fps=%.1f' % fps, 'frames', frames, 'elapsed=%.3f' % elapsed,
+                'chunks', len(w.chunks), 'drawn', st.get('drawn'),
+                'lights', st.get('lights'), 'busy', w.busy(), 'lod', w.busy_lod(),
+                'jobs', len(w.gen_jobs) + len(w.mesh_jobs),
+                'verts_landmark', 0, 'tutorial', bool(getattr(ses, 'tutorial', False)))
+            return fps
+
+        return {'done': done, 'finish': finish}
+
+    uncap()
+    yield 0.4
+    # Fresh lesson, never reopen a saved compact 1.4.3 island
+    app.create_sky('Lesson Perf 144', 1, 'lesson', 'wanderer', tutorial=True)
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.2
+    ses = app.session
+    q, r, top = T.SPAWN
+    x, z = hx(q, r)
+    _144_park(ses, x, (top + 1) * LAYER + 0.001, z, 0.0, 4.0)
+    ses.player.drifting = False
+    ses.player.noclip = False
+    ses.hold = False
+    yield settled()
+    yield 1.0
+    app.show_debug = True
+    app.hide_hud = False
+    yield shot('perf_tutorial_still')
+    tut_still = sample('tutorial_still', 5.0)
+    yield tut_still['done']
+    fps_tut_still = tut_still['finish']()
+    app.test_input = {'fwd': 1, 'hurry': True}
+    tut_walk = sample('tutorial_walk', 5.0)
+    yield tut_walk['done']
+    fps_tut_walk = tut_walk['finish']()
+    app.test_input = {}
+    yield shot('perf_tutorial_walk')
+    log('TUTORIAL fps still', round(fps_tut_still, 2), 'walk', round(fps_tut_walk, 2),
+        'target ~46/51 from 1.4.3')
+    log('phase144_perf finished')
