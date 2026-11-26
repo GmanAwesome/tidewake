@@ -7,5 +7,7 @@ publish.workspace = true
 description = "Tidewake 2.1 world, generator and simulation"
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dev-dependencies]

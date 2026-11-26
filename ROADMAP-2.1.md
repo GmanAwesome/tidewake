@@ -65,8 +65,8 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Crouch and glide
 - [ ] Fly and fall (Dreamer flight, cloud-sea rescue)
 - [ ] Mine and place
-- [ ] Inventory, hotbar, crafting (2×2 and Tinker Bench), kiln
-- [ ] Survival: food, health, eating heals, regen
+- [x] Hotbar, eating, and one craft (3 berries make a skyloaf). Full 2×2 bench and kiln still open
+- [x] Survival: food drains while walking, hunger hurts, eating heals, food above 16 regenerates health
 - [ ] Doors, ladders, beds, chests
 - [ ] Fishing and farming
 - [ ] Creatures (passive and Dusktide hostiles)
@@ -86,7 +86,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Settings beyond the placeholder screen
 - [x] Loading screen that shows world-gen errors and lets Esc return
 - [ ] Pause / save and leave
-- [ ] Saves (new format; old Python saves are not loaded)
+- [x] Saves (new JSON format next to the game; the lesson is not listed; old Python saves are not loaded)
 - [ ] Music (Korobeiniki is public domain) and sounds
 - [ ] Journal
 

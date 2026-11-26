@@ -12,6 +12,7 @@ pub mod materials;
 pub mod player;
 pub mod noise;
 pub mod pyrandom;
+pub mod save;
 pub mod settings;
 pub mod structures;
 pub mod tiers;

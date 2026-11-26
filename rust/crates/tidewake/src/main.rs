@@ -16,6 +16,7 @@ use tidewake_core::config::{CHUNK, FOV_DEG, LAYER, VERSION};
 use tidewake_core::hex::{center, cell_at, chunk_of};
 use tidewake_core::lesson;
 use tidewake_core::player::{Cells, Player};
+use tidewake_core::save::{self, SkySave};
 use tidewake_core::settings::Settings;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -91,6 +92,9 @@ struct Game {
     cam_view: u8,
     time: f32,
     figure_gpu: Option<GpuMesh>,
+    save: SkySave,
+    spawn: (f64, f64, f64),
+    listed: Vec<String>,
 }
 
 struct App {
@@ -143,6 +147,9 @@ impl Game {
             cam_view: 1,
             time: 0.0,
             figure_gpu: None,
+            save: SkySave::fresh("unsaved", 7, false, 0.0, 40.0, 0.0),
+            spawn: (0.0, 40.0, 0.0),
+            listed: Vec::new(),
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -172,7 +179,44 @@ impl Game {
         }
         self.player.yaw = 0.4;
         self.player.pitch = -0.15;
+        self.spawn = (self.player.x, self.player.y, self.player.z);
+        let name = if tutorial { "the-lesson".into() } else { format!("sky-{seed}") };
+        self.save = SkySave::fresh(name, seed, tutorial, self.player.x, self.player.y, self.player.z);
         self.sync_cam();
+    }
+
+    fn store_player_in_save(&mut self) {
+        self.save.x = self.player.x;
+        self.save.y = self.player.y;
+        self.save.z = self.player.z;
+        self.save.yaw = self.player.yaw;
+        self.save.pitch = self.player.pitch;
+    }
+
+    fn apply_save_to_player(&mut self) {
+        self.player.x = self.save.x;
+        self.player.y = self.save.y;
+        self.player.z = self.save.z;
+        self.player.yaw = self.save.yaw;
+        self.player.pitch = self.save.pitch;
+        self.sync_cam();
+    }
+
+    fn load_named(&mut self, name: &str) {
+        let Ok(saved) = save::read(&save::skies_dir(), name) else { return };
+        self.begin(saved.tutorial, saved.seed);
+        self.save = saved;
+        self.apply_save_to_player();
+    }
+
+    fn write_save(&mut self) {
+        if self.save.tutorial {
+            return;
+        }
+        self.store_player_in_save();
+        if let Err(err) = save::write(&save::skies_dir(), &self.save) {
+            log::warn!("could not save: {err}");
+        }
     }
 
     fn sync_cam(&mut self) {
@@ -197,6 +241,20 @@ impl Game {
             let mut player = self.player.clone();
             player.update(self, dt, fwd, strafe, self.keys.up, jump_pressed, self.keys.down, self.keys.fast);
             self.player = player;
+            if !self.player.drifting {
+                let moving = self.player.vx.abs() + self.player.vz.abs() > 0.2;
+                self.save.tick(dt, moving || self.keys.w || self.keys.a || self.keys.s || self.keys.d);
+                if self.save.health <= 0.0 {
+                    self.player.x = self.spawn.0;
+                    self.player.y = self.spawn.1;
+                    self.player.z = self.spawn.2;
+                    self.player.vx = 0.0;
+                    self.player.vy = 0.0;
+                    self.player.vz = 0.0;
+                    self.save.health = 20.0;
+                    self.save.food = 12.0;
+                }
+            }
             self.sync_cam();
         }
 
@@ -326,7 +384,15 @@ impl Game {
                 Screen::Skies => {
                     ui.rect(fw * 0.2, fh * 0.16, fw * 0.6, fh * 0.68, [0.12, 0.09, 0.18, 0.92]);
                     ui.text(0, "My Skies", fw * 0.5, fh * 0.24, 40.0, ink, true);
-                    ui.text(1, "No skies yet. The lesson has its own button.", fw * 0.5, fh * 0.34, 18.0, muted, true);
+                    if self.listed.is_empty() {
+                        ui.text(1, "No skies yet. The lesson has its own button.", fw * 0.5, fh * 0.34, 18.0, muted, true);
+                    } else {
+                        ui.text(1, "Click a sky to return to it.", fw * 0.5, fh * 0.34, 18.0, muted, true);
+                        for (i, name) in self.listed.iter().take(6).enumerate() {
+                            let y = fh * 0.40 + i as f32 * 32.0;
+                            ui.text(1, name, fw * 0.5, y, 18.0, ink, true);
+                        }
+                    }
                     ui.rect(bx, fh * 0.48, bw, bh, accent);
                     ui.text(1, "New Sky", fw * 0.5, fh * 0.48 + 32.0, 22.0, paper, true);
                     ui.rect(bx, fh * 0.60, bw, bh, accent);
@@ -364,15 +430,19 @@ impl Game {
                 Screen::Play => {
                     let (x, y, z) = self.player.eye_pos();
                     let line = format!(
-                        "Tidewake {VERSION}   {:.0} fps   {:.0}, {:.0}, {:.0}   layer {:.0}{}",
+                        "Tidewake {VERSION}   {:.0} fps   {:.0}, {:.0}, {:.0}   layer {:.0}   hp {:.0}   food {:.0}   {}{}",
                         self.shown_fps,
                         x,
                         y,
                         z,
                         y / LAYER,
+                        self.save.health,
+                        self.save.food,
+                        self.save.selected_label(),
                         if self.player.drifting { "   flying" } else { "" }
                     );
                     ui.text(1, &line, 16.0, 28.0, 16.0, [1.0, 1.0, 1.0, 0.9], false);
+                    ui.text(1, "R eat   C craft loaf   1-9 hotbar   Esc save and leave", 16.0, 50.0, 14.0, muted, false);
                 }
             }
         }
@@ -394,14 +464,30 @@ impl Game {
         match self.screen {
             Screen::Title => {
                 if hit(0) { self.begin(true, 1); }
-                else if hit(1) { self.screen = Screen::Skies; }
+                else if hit(1) {
+                    self.listed = save::list(&save::skies_dir());
+                    self.screen = Screen::Skies;
+                }
                 else if hit(2) { self.screen = Screen::Settings; }
             }
             Screen::Skies => {
-                let neu = Button { x: bx, y: fh * 0.48, w: bw, h: bh };
-                let back = Button { x: bx, y: fh * 0.60, w: bw, h: bh };
-                if neu.hit(mx, my) { self.screen = Screen::NewSky; self.seed_text.clear(); }
-                else if back.hit(mx, my) { self.screen = Screen::Title; }
+                let mut hit_sky = None;
+                for (i, name) in self.listed.iter().take(6).enumerate() {
+                    let y = fh * 0.38 + i as f32 * 32.0;
+                    if (Button { x: bx, y, w: bw, h: 30.0 }).hit(mx, my) {
+                        hit_sky = Some(name.clone());
+                    }
+                }
+                let neu = Button { x: bx, y: fh * 0.62, w: bw, h: bh };
+                let back = Button { x: bx, y: fh * 0.72, w: bw, h: bh };
+                if let Some(name) = hit_sky {
+                    self.load_named(&name);
+                } else if neu.hit(mx, my) {
+                    self.screen = Screen::NewSky;
+                    self.seed_text.clear();
+                } else if back.hit(mx, my) {
+                    self.screen = Screen::Title;
+                }
             }
             Screen::NewSky => {
                 let dream = Button { x: bx, y: fh * 0.55, w: bw, h: bh };
@@ -599,10 +685,17 @@ impl ApplicationHandler for App {
                         }
                         KeyCode::Enter | KeyCode::NumpadEnter if down && game.screen == Screen::NewSky => game.dream(),
                         KeyCode::Backspace if down && game.screen == Screen::NewSky => { game.seed_text.pop(); }
+                        KeyCode::KeyR if down && game.screen == Screen::Play => { game.save.eat(); }
+                        KeyCode::KeyC if down && game.screen == Screen::Play => { game.save.craft_loaf(); }
+                        KeyCode::Digit1 if down => game.save.selected = 0,
+                        KeyCode::Digit2 if down => game.save.selected = 1,
                         KeyCode::Escape if down => {
                             let _ = window.set_cursor_grab(CursorGrabMode::None);
                             window.set_cursor_visible(true);
                             game.grabbed = false;
+                            if game.screen == Screen::Play {
+                                game.write_save();
+                            }
                             if game.screen != Screen::Title {
                                 game.screen = Screen::Title;
                                 game.chunks.clear();
