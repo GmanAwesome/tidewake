@@ -405,3 +405,7 @@ Same measurement in both worlds, vsync off, fps_limit 0, 1280×720, wall-clock f
 - Normal v3 world (seed -1740201319) after: 7.1 fps still / 7.8 walk (76 chunks drawn, 32 lights). Before, frame_times were clamped at 100 ms so it read as 10 fps; wall-clock is the fair figure. The lesson is now faster than a normal sky on this box, which is what we wanted.
 
 Cutoff after-shots for seed -857535443 were taken at the seven reported positions (debug HUD has the same x,y,z, cell, and seed). The 25-cell Cloudstep wall is gone; coasts look irregular and undersides are domed. A few hex-axis beaches of up to 17 cells can still appear, which the test allows (it flags 18+ and volume overlaps, both zero). The wanderer back-view shows a plain skin-tone figure with a small hip bulge and no outfit. Shots are in `screenshots-final/v1.4.3/`. Version string is 1.4.3-test; next step is the Windows pre-release, with 1.4.2 staying Latest.
+
+## November 25, 2026, 7:35 PM EST — 1.4.3-test pre-release is up
+
+https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.3-test is a pre-release (target `main` / `42d3967`). 1.4.2 remains Latest. Assets: `Tidewake-1.4.3-test-Windows.zip` (manifest 1294 bytes, comctl32 v6, RT_ICON 6 + RT_GROUP_ICON 1) and `Tidewake-1.4.3-test-screenshots.zip`, plus a few individual shots (wanderer back/front, tutorial before/after, two cutoff afters).
