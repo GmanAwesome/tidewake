@@ -305,23 +305,45 @@ def build_sky_temple(st, q, r, y):
         st.put(q + dq * 3, r + dr * 3, y + 4, pal['banner'], force=True)
 
 
-@_reg('sky', 'airship_wreck', surface=False, sky=True, pad=5, rarity=0.9)
+@_reg('sky', 'airship_wreck', surface=False, sky=True, pad=4, rarity=0.9)
 def build_airship_wreck(st, q, r, y):
+    """A pointed wooden hull with a broken mast and a torn, striped envelope."""
     pal = _pal(st)
-    y = _sky_pad(st, q, r, y, 2, pal['planks'])
-    # elongated hull along q
-    for dq in range(-4, 5):
-        rad = 1 if abs(dq) < 3 else 0
+    hull = pal['planks']
+    rib = M.get('wrought_iron', pal['metal'])
+    stripe_a = M.get('rose_stripe', pal['banner'])
+    stripe_b = M.get('sky_stripe', pal['woven'])
+    y = _sky_pad(st, q, r, y, 1, hull)
+    # Pointed hull along +q (bow) / -q (stern), 7 cells long
+    for dq in range(-3, 4):
+        rad = 0 if abs(dq) == 3 else (1 if abs(dq) == 2 else 2)
+        if dq == 3:
+            rad = 0  # sharp bow
         for dr in range(-rad, rad + 1):
-            st.put(q + dq, r + dr, y, pal['planks'], force=True)
+            st.put(q + dq, r + dr, y, hull, force=True)
             st.put(q + dq, r + dr, y - 1, M['shimmer_cloud'], force=True)
-            if abs(dq) < 3 and dr in (-rad, rad):
-                st.put(q + dq, r + dr, y + 1, pal['planks'], force=True)
-    # torn banners, a broken balloon
-    st.put(q + 2, r, y + 2, pal['banner'], force=True)
-    st.put(q - 2, r, y + 1, pal['woven'], force=True)
-    st.put(q, r, y + 3, pal['woven'], force=True)
-    st.chest(q, r, y + 1, LOOT_BOAT)
+            # gunwales
+            if abs(dr) == rad and rad > 0:
+                st.put(q + dq, r + dr, y + 1, hull, force=True)
+    # stern castle
+    st.put(q - 3, r, y + 1, hull, force=True)
+    st.put(q - 3, r, y + 2, rib, force=True)
+    # broken mast, snapped mid-air
+    st.put(q, r, y + 1, pal.get('heartwood', M.get('heartwood', hull)), force=True)
+    st.put(q, r, y + 2, pal.get('heartwood', M.get('heartwood', hull)), force=True)
+    st.put(q, r, y + 3, pal.get('heartwood', M.get('heartwood', hull)), force=True)
+    st.put(q + 1, r, y + 4, pal.get('heartwood', M.get('heartwood', hull)), force=True)
+    # torn striped envelope hanging off the starboard side and mast
+    for k, (dq, dr, yy, mat) in enumerate((
+        (1, 1, y + 3, stripe_a), (1, 2, y + 3, stripe_b), (2, 2, y + 4, stripe_a),
+        (2, 1, y + 4, stripe_b), (3, 1, y + 5, stripe_a), (1, 2, y + 5, stripe_b),
+        (0, 2, y + 4, stripe_a), (2, 2, y + 3, stripe_b), (3, 0, y + 4, stripe_a),
+        (1, 1, y + 5, stripe_b),
+    )):
+        st.put(q + dq, r + dr, yy, mat, force=True)
+    st.put(q - 1, r + 1, y + 1, pal['banner'], force=True)
+    st.put(q - 2, r, y + 1, pal['banner'], force=True)
+    st.chest(q - 1, r, y + 1, LOOT_BOAT)
     st.lamp(q + 1, r, y + 2)
     if st.cond in (RUINED, ABANDONED, OVERGROWN):
         st.debris(q, r, 4, 6)
@@ -350,18 +372,29 @@ def build_chain_fort(st, q, r, y):
 
 @_reg('sky', 'balloon_platform', surface=False, sky=True, pad=4, rarity=1.0)
 def build_balloon(st, q, r, y):
+    """A hanging basket under a round, candy-striped envelope — not a tree."""
     pal = _pal(st)
-    y = _sky_pad(st, q, r, y, 2, pal['planks'])
-    # basket rails
-    st.ring(q, r, y + 1, 2, pal['planks'], 1)
-    # ropes up to the envelope
+    stripe_a = M.get('rose_stripe', pal['banner'])
+    stripe_b = M.get('honey_patterned_tile', pal['plaster'] if 'plaster' in pal else pal['planks'])
+    # if honey tile missing, fall back through dye families
+    if 'honey_patterned_tile' not in M:
+        stripe_b = M.get('sky_stripe', pal['woven'])
+    basket = pal['planks']
+    y = _sky_pad(st, q, r, y, 2, basket)
+    # basket floor + rails
+    st.disk(q, r, y, 2, basket, force=True)
+    st.ring(q, r, y + 1, 2, basket, 1)
+    # ropes / stays up to the envelope
+    rope = M.get('pale_lattice', pal['lattice'] if 'lattice' in pal else pal['planks'])
     for dq, dr in DIRS[::2]:
-        st.put(q + dq, r + dr, y + 2, pal['lattice'], force=True)
-        st.put(q + dq, r + dr, y + 3, pal['lattice'], force=True)
-    # colourful envelope
-    for rad, yy in ((2, y + 4), (3, y + 5), (3, y + 6), (2, y + 7), (1, y + 8)):
-        st.disk(q, r, yy, rad, pal['woven'])
-    st.put(q, r, y + 9, pal['banner'], force=True)
+        st.put(q + dq, r + dr, y + 2, rope, force=True)
+        st.put(q + dq, r + dr, y + 3, rope, force=True)
+        st.put(q + dq, r + dr, y + 4, rope, force=True)
+    # round candy-striped envelope (alternating rings, clearly a balloon)
+    for rad, yy in ((2, y + 5), (3, y + 6), (3, y + 7), (3, y + 8), (2, y + 9), (1, y + 10)):
+        mat = stripe_a if ((yy - y) % 2 == 0) else stripe_b
+        st.disk(q, r, yy, rad, mat, force=True)
+    st.put(q, r, y + 11, M.get('rose_banner', pal['banner']), force=True)
     st.chest(q, r, y + 1, LOOT_CAMP)
     st.lamp(q, r, y + 2)
 

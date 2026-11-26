@@ -272,14 +272,15 @@ def generate_chunk(cq, cr):
                 _put(cells, meta, cq, cr, q, r, SURF, mat)
                 for y in range(SURF + 1, SURF + 3):
                     _put(cells, meta, cq, cr, q, r, y, 0)
-    # Low fountain (does not hide the horizon)
+    # Low fountain, off the spawn cell and off the -Z view corridor
+    fq, fr = 0, 6
     for dq, dr in [(0, 0)] + DIRS:
-        _put(cells, meta, cq, cr, dq, dr, SURF, ivory)
-    _put(cells, meta, cq, cr, 0, 0, SURF, pewter)
-    _put(cells, meta, cq, cr, 0, 0, SURF + 1, M['water'], 7)
+        _put(cells, meta, cq, cr, fq + dq, fr + dr, SURF, ivory)
+    _put(cells, meta, cq, cr, fq, fr, SURF, pewter)
+    _put(cells, meta, cq, cr, fq, fr, SURF + 1, M['water'], 7)
     for dq, dr in DIRS:
-        _put(cells, meta, cq, cr, dq, dr, SURF + 1, stain_tide)
-        _put(cells, meta, cq, cr, dq, dr, SURF + 2, 0)
+        _put(cells, meta, cq, cr, fq + dq, fr + dr, SURF + 1, stain_tide)
+        _put(cells, meta, cq, cr, fq + dq, fr + dr, SURF + 2, 0)
     # Banners and lamps at the plaza rim, kept off the -Z view corridor
     for q, r, b in ((7, 3, banner_rose), (7, 5, banner_honey), (-6, 5, banner_sky),
                     (8, 1, banner_leaf), (-7, 3, banner_rose)):

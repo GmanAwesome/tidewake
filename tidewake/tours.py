@@ -3855,6 +3855,86 @@ def phase144_structures(app, log, shot, look_at, settled, arg):
     log('phase144_structures finished')
 
 
+def phase144_structures_close(app, log, shot, look_at, settled, arg):
+    """Farther-back close-ups so each named structure is fully in frame."""
+    from . import structures as ST
+    from . import gensettings as GS
+    _144_uncap(app, log, view=14, far=20)
+    yield 0.3
+    app.create_sky('Structures 144 close', 13, 'structure-close', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.5
+    ses = app.session
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    q0, r0, y0 = 4, 4, 150
+    spacing = 22
+    names = ['hamlet', 'watchtower', 'shrine', 'windmill', 'market',
+             'airship_wreck', 'balloon_platform']
+    # Load a long terrace first
+    mid_q = q0 + (len(names) // 2) * spacing
+    ox, oz = center(mid_q, r0)
+    _144_park(ses, ox, (y0 + 20) * LAYER, oz, 0.0, -20.0)
+    yield _144_loaded(app)
+    yield 0.8
+    # Wide flatten so each stamp has room
+    for dq in range(-8, len(names) * spacing + 8):
+        for dr in range(-10, 14):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(y0 - 3, y0):
+                ses.world.set(q, r, yy, M['stone'])
+            ses.world.set(q, r, y0, M.get('ivory_plaster', M['pale_planks']))
+            for yy in range(y0 + 1, y0 + 20):
+                ses.world.set(q, r, yy, 0)
+    yield settled()
+    for i, name in enumerate(names):
+        q, r = q0 + 8 + i * spacing, r0
+        if name in ('airship_wreck', 'balloon_platform'):
+            pad = M.get('shimmer_cloud', M['stone'])
+            for dq in range(-4, 5):
+                for dr in range(-4, 5):
+                    ses.world.set(q + dq, r + dr, y0 + 6, pad)
+            try:
+                ST.stamp_world(ses.world, q, r, name, cond=ST.INTACT, seed=80 + i, realm=0)
+                log('stamped', name, 'at', q, r)
+            except Exception as e:
+                log('stamp failed', name, e)
+        else:
+            try:
+                ST.stamp_world(ses.world, q, r, name, cond=ST.INTACT, seed=80 + i, realm=0)
+                log('stamped', name, 'at', q, r)
+            except Exception as e:
+                log('stamp failed', name, e)
+    yield settled()
+    yield 1.2
+    _144_hud(app, debug=False, hide=True)
+    # (back, up, side) in world units — far enough to fit the whole build
+    frames = {
+        'hamlet': (22.0, 9.0, 6.0),
+        'watchtower': (20.0, 12.0, 5.0),
+        'shrine': (16.0, 8.0, 4.0),
+        'windmill': (22.0, 11.0, 6.0),
+        'market': (20.0, 8.0, 5.0),
+        'airship_wreck': (20.0, 9.0, 7.0),
+        'balloon_platform': (22.0, 8.0, 6.0),
+    }
+    for i, name in enumerate(names):
+        q, r = q0 + 8 + i * spacing, r0
+        x, z = center(q, r)
+        back, up, side = frames[name]
+        # sky types sit on a pad a little above the terrace
+        base = (y0 + 6) if name in ('airship_wreck', 'balloon_platform') else y0
+        _144_park(ses, x + side, (base + up) * LAYER, z + back, 0.0, -18.0)
+        look_at(ses.player, x, (base + 4) * LAYER, z)
+        yield _144_loaded(app)
+        yield 0.9
+        yield shot(f'structure_{name}')
+        log('framed', name, 'at', x, z)
+    log('phase144_structures_close finished')
+
+
 def phase144_perf(app, log, shot, look_at, settled, arg):
     """Wall-clock fps on the new lesson island (uncapped), still and walk."""
     import time as _t

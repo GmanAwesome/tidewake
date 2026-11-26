@@ -1475,9 +1475,6 @@ class Session:
                 parts.append(dr.model(cam))
         if getattr(self.app, 'cam_view', 0):
             parts.append(self.player_model(cam))
-        if getattr(self, 'tutorial', False):
-            from . import landmark as LM
-            parts.append(LM.mesh_rel(cam))
         return MD.cat(*parts) if parts else None
 
     def player_model(self, cam):

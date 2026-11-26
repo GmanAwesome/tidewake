@@ -600,8 +600,12 @@ class App(pyglet.window.Window):
             vr = view_matrix((0, 0, 0), yaw, pitch)
             extra = self.session.extra_lights((cx, cy, cz)) if self.mode == 'game' and self.session else []
             dyn = self.session.dynamic_models((cx, cy, cz)) if self.mode == 'game' and self.session else None
+            landmark = None
+            if self.mode == 'game' and self.session and getattr(self.session, 'tutorial', False):
+                from . import landmark as LM
+                landmark = LM.mesh()
             self.renderer.draw((cx, cy, cz), proj, vr, world.meshes(), atmo, fog_end, self.clock_t, extra,
-                               clouds=self.settings['clouds'], dynamic=dyn)
+                               clouds=self.settings['clouds'], dynamic=dyn, landmark=landmark)
             if self.mode == 'game' and self.session:
                 ses = self.session
                 if ses.target and not self.hide_hud and self.menu is None:

@@ -153,6 +153,9 @@ class Renderer:
         self.stats = {'drawn': 0, 'verts': 0}
         self.dyn_vbo = ctx.buffer(reserve=VERT.itemsize * 60000, dynamic=True)
         self.dyn_vao = ctx.vertex_array(self.chunk_prog, [(self.dyn_vbo, '3f 4f1 4f1 4f1', 'in_pos', 'in_col', 'in_nrm', 'in_mat')])
+        self._lm_vbo = self._lm_vao = None
+        self._lm_n = 0
+        self._lm_key = None
         self.icon_tex = None
         self.icon_uv = {}
 
@@ -165,6 +168,26 @@ class Renderer:
         self.dyn_vbo.write(data)
         _set(self.chunk_prog, 'u_offset', (0.0, 0.0, 0.0))
         self.dyn_vao.render(moderngl.TRIANGLES, vertices=len(data) // VERT.itemsize)
+
+
+    def draw_landmark(self, cam, verts):
+        """Distant teaser mesh in world space; uploaded once, offset by the camera."""
+        if verts is None or not len(verts):
+            return
+        key = id(verts)
+        if self._lm_key != key or self._lm_vao is None:
+            data = np.ascontiguousarray(verts, VERT).tobytes()
+            if self._lm_vbo is None or len(data) > self._lm_vbo.size:
+                self._lm_vbo = self.ctx.buffer(data)
+                self._lm_vao = self.ctx.vertex_array(
+                    self.chunk_prog, [(self._lm_vbo, '3f 4f1 4f1 4f1', 'in_pos', 'in_col', 'in_nrm', 'in_mat')])
+            else:
+                self._lm_vbo.write(data)
+            self._lm_n = len(verts)
+            self._lm_key = key
+        _set(self.chunk_prog, 'u_offset', (-float(cam[0]), -float(cam[1]), -float(cam[2])))
+        self._lm_vao.render(moderngl.TRIANGLES, vertices=self._lm_n)
+        _set(self.chunk_prog, 'u_offset', (0.0, 0.0, 0.0))
 
     def draw_held(self, verts):
         """Draw the item in your hand (camera-relative), always in front of the world."""
@@ -261,7 +284,7 @@ class Renderer:
         self.cloud_vao = self.ctx.vertex_array(self.cloud_prog, [(self.cloud_vbo, '2f', 'in_pos')], self.cloud_ibo)
 
     # ------------------------------------------------------------------ frame
-    def draw(self, cam, proj, view_rot, meshes, atmo, fog_end, time_, extra_lights=(), clouds=True, dynamic=None):
+    def draw(self, cam, proj, view_rot, meshes, atmo, fog_end, time_, extra_lights=(), clouds=True, dynamic=None, landmark=None):
         """cam: float64 (x, y, z). view_rot: rotation-only view matrix. meshes: iterable of ChunkMesh."""
         ctx = self.ctx
         vp = proj @ view_rot
@@ -364,6 +387,8 @@ class Renderer:
                         m.vao.render(moderngl.TRIANGLES, vertices=cnt, first=first)
                         verts += cnt
         self._draw_verts(dynamic)
+        if landmark is not None:
+            self.draw_landmark(cam, landmark)
         # cloud sea
         if clouds:
             ctx.disable(moderngl.CULL_FACE)
