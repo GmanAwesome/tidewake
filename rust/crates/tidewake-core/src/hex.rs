@@ -66,6 +66,41 @@ pub fn hex_sdf(px: f64, pz: f64) -> f64 {
     (x * x + y * y).sqrt() * if y > 0.0 { 1.0 } else { -1.0 }
 }
 
+pub fn ring(q: i64, r: i64, radius: i64) -> Vec<(i64, i64)> {
+    if radius == 0 {
+        return vec![(q, r)];
+    }
+    let mut out = Vec::with_capacity((radius * 6) as usize);
+    let mut cq = q + DIRS[4].0 as i64 * radius;
+    let mut cr = r + DIRS[4].1 as i64 * radius;
+    for i in 0..6 {
+        for _ in 0..radius {
+            out.push((cq, cr));
+            let d = DIRS[i];
+            cq += d.0 as i64;
+            cr += d.1 as i64;
+        }
+    }
+    out
+}
+
+pub fn hex_line(q0: i64, r0: i64, q1: i64, r1: i64) -> Vec<(i64, i64)> {
+    let n = hex_distance(q0, r0, q1, r1);
+    if n == 0 {
+        return vec![(q0, r0)];
+    }
+    let mut pts = Vec::with_capacity(n as usize + 1);
+    for i in 0..=n {
+        let t = i as f64 / n as f64;
+        // s interpolates as -q-r, so cube_round's derived s matches tutorial.hex_line.
+        pts.push(cube_round(
+            q0 as f64 + (q1 - q0) as f64 * t,
+            r0 as f64 + (r1 - r0) as f64 * t,
+        ));
+    }
+    pts
+}
+
 pub fn chunk_of(q: i64, r: i64) -> (i32, i32) {
     ((q.div_euclid(CHUNK as i64)) as i32, (r.div_euclid(CHUNK as i64)) as i32)
 }

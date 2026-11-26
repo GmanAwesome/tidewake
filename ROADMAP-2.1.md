@@ -73,7 +73,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [x] Glimmer motes, waystone cost 1, Tidewell gifts at 2–4 (Mote Sense through Brightwake)
 - [ ] Spires (Glide, Updraft, Tidecall) and the Path
 - [x] Tides (Lighttide / Dusktide colours and names from tide.py; gloomlings follow dusk)
-- [~] Lesson island ("Learn to play") loads a hand-built disc with a path, pool, tree and cottage, and you can walk it
+- [x] Lesson island ("Learn to play") uses the 1.4.6 land, path, stations and showpieces (plaza, clocktower, bazaar, hall, conservatory, monument, bounce park, observatory, grove, follies, maze, windmill, castle, gallery)
 - [ ] The 1.4.6 showpiece builds and the friendly cast on that island
 - [ ] Commands and Dreamer mode
 

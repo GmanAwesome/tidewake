@@ -526,6 +526,12 @@ pub mod id {
     pub const GOLDEN_CANOPY: u8 = 251;
 }
 
+/// Resolve a `materials.py` snake_case id (`ink_terrazzo`) to the stable material id.
+pub fn id_named(name: &str) -> Option<u8> {
+    let want = name.replace('_', " ");
+    MATS.iter().position(|m| m.name.eq_ignore_ascii_case(&want)).map(|i| i as u8)
+}
+
 #[inline]
 pub fn get(id: u8) -> &'static Mat {
     &MATS[id as usize]
