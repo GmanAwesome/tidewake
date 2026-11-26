@@ -471,3 +471,7 @@ Best screenshot paths (all under `screenshots-final/v1.4.4/`):
 This goes out as v1.4.4-test, a pre-release. 1.4.3 stays Latest.
 
 The first 1.4.4-test perf pass was 37.2 / 42.1, mostly because the spawn camera was standing in a stained-glass fountain and the citadel mesh was rebuilt into the dynamic VBO every frame. The fountain now sits off the spawn cell (and off the -Z view), and the citadel is a one-time VAO offset by the camera. A fresh uncapped 1280×720 measure is 42.3 still / 44.9 walk (11 lights, 258 chunks, jobs 0), closer to 1.4.3's 46.4 / 51.3, without cutting the new lesson content. Hamlet, watchtower, shrine, windmill and market close-ups were retaken from farther back; the airship wreck and balloon platform were rebuilt so those names are obvious in the shots.
+
+## November 25, 2026, 10:02 PM EST — 1.4.4-test pre-release is up
+
+https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.4-test is a pre-release (target `main` / `2905216`). 1.4.3 remains Latest. Assets: `Tidewake-1.4.4-test-Windows.zip` (76,513,289 bytes; manifest 1294 bytes, comctl32 v6, RT_ICON 6 + RT_GROUP_ICON 1, layout `Tidewake/Tidewake.exe`) and `Tidewake-1.4.4-test-screenshots.zip` (40,267,709 bytes, 53 files, including the retaken structure close-ups and the post-fountain-move tutorial spawn).
