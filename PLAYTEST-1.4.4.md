@@ -50,3 +50,10 @@ November 25, 2026, 10:10 PM EST. Scripted like a new wanderer on the published 1
 8. Hand-gathering speed and a "click the result" hint on a filled craft grid are small quality-of-life leftovers.
 
 1.4.3 stays Latest until a publish is asked for.
+
+## Glimmer loop, in plain English (1.4.4 late)
+
+- **Catch:** floating motes are Glimmer. Walk into one. More drift at dusk; waking a spire leaves some.
+- **Waystones:** 1 Glimmer makes a waystone remember you. Attune two and right-click either to travel between them. Travel is free.
+- **Tidewell** (the old Glimmer Font): spend 2–4 Glimmer on a lasting gift for this sky — Mote Sense 2, Keen Reach 3, Lightfoot 3, Deep Breath 3, Brightwake 4.
+- On the lesson island Lumen explains all three, her chest holds 4 Glimmer, and motes drift around her court and the knoll, so you can attune both lesson waystones, travel, and buy a first gift. `tests/test_glimmer144.py` walks that loop end to end.

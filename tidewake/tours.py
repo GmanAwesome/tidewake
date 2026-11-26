@@ -5275,13 +5275,29 @@ def phase144_grand(app, log, shot, look_at, settled, arg):
     if not only or 'islands' in only:
         sx, sy, sz = p.x, p.y, p.z
         log('spawn', round(sx, 1), round(sy, 1), round(sz, 1))
-        for name, pose in (('v6_spawn_aerial', (sx, sy + 110.0, sz + 150.0, 180.0, -32.0)),
-                           ('v6_spawn_vista', (sx + 60.0, sy + 40.0, sz + 60.0, 225.0, -10.0)),
-                           ('v6_high_wide', (sx, min(440.0, sy + 220.0), sz + 330.0, 180.0, -30.0))):
-            _144_park(ses, *pose)
+        from .hexgrid import cell_at as _ca
+        q0, r0 = _ca(sx, sz)
+        qs = np.arange(q0 - 260, q0 + 260, 6)
+        Q, R = np.meshgrid(qs, np.arange(r0 - 260, r0 + 260, 6), indexing='ij')
+        c = gen.columns(Q.ravel(), R.ravel())
+        land = c['land']
+        tops = c['top'][land]
+        mid = float(np.median(tops)) * LAYER if len(tops) else sy
+        log('window tops', int(tops.min()), int(np.median(tops)), int(tops.max()))
+        poses = (
+            # wide side view: layered shelves from the cloud sea up to ~440
+            ('v6_layers_side', (sx, mid - 20.0, sz + 420.0), (sx, mid + 20.0, sz)),
+            ('v6_aerial', (sx + 120.0, mid + 230.0, sz + 300.0), (sx, mid, sz)),
+            ('v6_spawn_vista', (sx + 40.0, sy + 30.0, sz + 70.0), (sx, sy - 5.0, sz)),
+        )
+        for name, (cx, cy, cz), (tx, ty, tz) in poses:
+            _144_park(ses, cx, cy - EYE, cz, 0.0, 0.0)
+            look_at(p, tx, ty, tz)
             ses.phase = float(args.get('phase', 0.03))
             yield _144_loaded(app, min_chunks=100)
             yield 1.5
+            look_at(p, tx, ty, tz)
+            yield 0.2
             yield shot(name)
     sites = []
     for rq in range(-6, 6):

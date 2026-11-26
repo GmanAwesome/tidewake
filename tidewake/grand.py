@@ -19,6 +19,10 @@ Kinds (weights in KINDS):
   megaspire        land  a tower up to ~250 layers: buttressed, pagoda or crystal styles
   leviathan_wreck  land  a crashed sky-leviathan skeleton or a wrecked airship with its cargo
   titan_ruins      land  giant broken columns, a great arch, a fallen head, rubble and moss
+  village          land  5-13 seeded houses of 1-3 storeys round a plaza with a well or lamp,
+                         gardens, market stalls and paths
+  airship          sky   an intact flying airship: hull, cabin, propellers, striped envelope, rigging
+  watchtower       land  the small end: a stone tower with a lookout and roof
 Older skies (v5 and below) never call this module.
 """
 import math
@@ -36,9 +40,10 @@ CHANCE = 0.42                    # share of regions that hold a grand structure
 HUES = ('rose', 'ember', 'honey', 'leaf', 'moss', 'tide', 'sky', 'indigo',
         'violet', 'orchid', 'blush', 'cocoa', 'snow', 'pearl', 'ash', 'ink')
 BRIGHT = ('rose', 'ember', 'honey', 'leaf', 'tide', 'sky', 'indigo', 'violet', 'orchid', 'blush', 'snow')
-KINDS = [('hot_air_balloon', 18), ('sky_city', 9), ('floating_fortress', 9), ('world_tree', 14),
-         ('colossus', 11), ('megaspire', 10), ('leviathan_wreck', 13), ('titan_ruins', 14)]
-SKY_KINDS = {'hot_air_balloon', 'sky_city', 'floating_fortress'}
+KINDS = [('hot_air_balloon', 18), ('sky_city', 8), ('floating_fortress', 8), ('world_tree', 12),
+         ('colossus', 10), ('megaspire', 9), ('leviathan_wreck', 10), ('titan_ruins', 11),
+         ('village', 12), ('airship', 9), ('watchtower', 8)]
+SKY_KINDS = {'hot_air_balloon', 'sky_city', 'floating_fortress', 'airship'}
 LOOT_SKY = 7
 
 
@@ -930,6 +935,197 @@ def build_titan_ruins(cv, rng, q, r, y):
     return {'columns': n, 'arch': ah}
 
 
+
+# ---------------------------------------------------------------------------
+# village (seeded town of multi-storey houses)
+# ---------------------------------------------------------------------------
+def _house(cv, rng, q, r, g, rad, floors, wall, roof, trim, wood):
+    fh = 4
+    for f in range(floors):
+        base = g + 1 + f * fh
+        for yy in range(base, base + fh):
+            cv.ring(q, r, yy, rad, wall if yy != base + fh - 1 else trim)
+        cv.disk(q, r, base - 1, rad - 1, wood)
+        for d, (dq, dr) in enumerate(DIRS):
+            if (d + f) % 2 == 0:
+                cv.put(q + dq * rad, r + dr * rad, base + 1, M['glass'])
+    top = g + 1 + floors * fh
+    for k in range(rad + 2):
+        cv.disk(q, r, top + k, rad + 1 - k, roof)
+    # door gap facing +q
+    cv.put(q + rad, r, g + 1, 0)
+    cv.put(q + rad, r, g + 2, 0)
+    cv.lamp(q + rad + 1, r - 1, g + 3, M['lantern'])
+    return top + rad + 1
+
+
+def build_village(cv, rng, q, r, y):
+    n = rng.randint(5, 13)
+    walls = [M[w] for w in rng.sample(['ivory_plaster', 'blush_plaster', 'sage_plaster', 'dusk_plaster',
+                                        'chalk_bricks', 'sandstone_bricks', 'stone_bricks'], 3)]
+    roofs = [M[w] for w in rng.sample(['shingles', 'thatch', 'rose_patterned_tile', 'tide_patterned_tile',
+                                        'honey_patterned_tile', 'clay_tiles', 'slate_tiles'], 3)]
+    wood = M[_wood_set(rng)[1]]
+    trim = M[rng.choice(['dark_planks', 'cedar_planks', 'brass', 'wrought_iron'])]
+    # plaza with a well or fountain
+    pr = rng.randint(4, 6)
+    g0 = cv.ground(q, r)
+    g0 = g0 if g0 > 0 else y
+    pave = M[rng.choice(['stone_tiles', 'pearl_terrazzo', 'honey_patterned_tile', 'cobble'])]
+    cv.foundation([(a, b) for a, b, d, _ in cv.round_cells(q, r, pr)], g0, M['packed_earth'], pave)
+    if rng.random() < 0.5:
+        cv.ring(q, r, g0 + 1, 1, M['stone_bricks'])
+        cv.put(q, r, g0, M['water'], 7)
+        cv.col(q + 1, r, g0 + 2, g0 + 3, M['dark_planks'])
+        cv.put(q, r, g0 + 4, M['shingles'])
+    else:
+        cv.col(q, r, g0 + 1, g0 + 3, M['polished_chalk'])
+        cv.lamp(q, r, g0 + 4, M[f'{rng.choice(BRIGHT)}_crystal_lamp'])
+    houses = []
+    for i in range(n):
+        ang = i / n * 2 * math.pi + rng.uniform(-0.25, 0.25)
+        dist = pr + 6 + rng.uniform(0, 14) + (i % 3) * 4
+        from .hexgrid import cell_at
+        x0, z0 = center(q, r)
+        hq, hr = cell_at(x0 + math.cos(ang) * dist * SQ3, z0 + math.sin(ang) * dist * SQ3)
+        if any(hex_distance(hq, hr, a, b) < 7 for a, b in houses):
+            continue
+        g = cv.ground(hq, hr)
+        if g <= 0:
+            continue
+        rad = rng.randint(2, 3)
+        floors = rng.choice([1, 1, 2, 2, 3])
+        cv.foundation([(a, b) for a, b, d, _ in cv.round_cells(hq, hr, rad + 1)], g, M['cobble'], wood)
+        _house(cv, rng, hq, hr, g, rad, floors, rng.choice(walls), rng.choice(roofs), trim, wood)
+        houses.append((hq, hr))
+        # a garden plot or market stall beside some houses
+        if rng.random() < 0.5:
+            for a, b in hex_ring(hq - rad - 2, hr, 1):
+                gg = cv.ground(a, b)
+                if gg > 0:
+                    cv.put(a, b, gg, M['farmland'])
+                    cv.put(a, b, gg + 1, M[rng.choice(['skywheat', 'sweetroot_crop', 'berry_crop'])], 3)
+        elif rng.random() < 0.5:
+            a, b = hq, hr + rad + 2
+            gg = cv.ground(a, b)
+            if gg > 0:
+                hue = rng.choice(BRIGHT)
+                cv.col(a, b, gg + 1, gg + 2, M['dark_planks'])
+                cv.disk(a, b, gg + 3, 1, M[f'{hue}_woven_panel'])
+                cv.put(a + 1, b, gg + 1, M[f'{hue}_banner'])
+    # paths from the plaza to each door
+    for hq, hr in houses:
+        from .tutorial import hex_line
+        for a, b in hex_line(q, r, hq + 4, hr)[pr:]:
+            gg = cv.ground(a, b)
+            if gg > 0 and cv.get(a, b, gg + 1) is None:
+                cv.put(a, b, gg, M['packed_earth'])
+    cv.chest(q - 1, r, g0 + 1)
+    return {'houses': len(houses)}
+
+
+# ---------------------------------------------------------------------------
+# airship (intact, flying)
+# ---------------------------------------------------------------------------
+def build_airship(cv, rng, q, r, y):
+    log, plank, slab = _wood_set(rng)
+    L = rng.randint(14, 30)
+    W = rng.uniform(3.5, 6.0)
+    hues = _palette(rng, rng.randint(2, 4), bright=True)
+    ax = rng.choice([0, 1, 2])
+    dq_, dr_ = DIRS[ax]
+    pq_, pr_ = DIRS[(ax + 2) % 6]
+
+    def at(i, j):
+        return q + dq_ * i + pq_ * j, r + dr_ * i + pr_ * j
+    # hull
+    for i in range(-L, L + 1):
+        prof = math.sqrt(max(0.0, 1 - (i / (L + 0.5)) ** 2))
+        w = max(1, int(round(W * prof)))
+        for j in range(-w, w + 1):
+            a, b = at(i, j)
+            cv.put(a, b, y, M[plank])
+            depth = int((1 - (j / (w + 0.5)) ** 2) * 4 * prof) + 1
+            for k in range(1, depth + 1):
+                cv.put(a, b, y - k, M[plank] if k < depth else M[log])
+        for sgn in (-1, 1):
+            a, b = at(i, sgn * (w + 1))
+            cv.put(a, b, y + 1, M['wood_lattice'] if i % 3 else M[log])
+    # prow and stern
+    a, b = at(L + 1, 0)
+    cv.col(a, b, y, y + 2, M[log])
+    a, b = at(L + 2, 0)
+    cv.put(a, b, y + 3, M['brass'])
+    # cabin
+    for i in range(-L // 2 - 3, -L // 2 + 4):
+        for j in (-2, -1, 0, 1, 2):
+            a, b = at(i, j)
+            edge = abs(j) == 2 or i in (-L // 2 - 3, -L // 2 + 3)
+            for yy in range(y + 1, y + 5):
+                if edge:
+                    cv.put(a, b, yy, M[plank] if yy != y + 2 else M['glass'])
+            cv.put(a, b, y + 5, M['shingles'])
+    a, b = at(-L // 2 + 3, 0)
+    cv.put(a, b, y + 1, 0)
+    cv.put(a, b, y + 2, 0)
+    # propellers
+    for sgn in (-1, 1):
+        a, b = at(-L + 2, sgn * (int(W) + 2))
+        cv.put(a, b, y + 1, M['brass'])
+        for k in (-2, -1, 1, 2):
+            cv.put(a, b, y + 1 + k, M['pewter'])
+    # envelope: a long striped ellipsoid above the deck
+    EH = int(W * 1.4 / LAYER) + 3
+    ey = y + 8 + EH
+    ER = W * 1.25
+    EL = L * 0.95
+    for i in range(-int(EL) - 1, int(EL) + 2):
+        for j in range(-int(ER) - 2, int(ER) + 3):
+            for dy in range(-EH, EH + 1):
+                v = (i / EL) ** 2 + (j / ER) ** 2 + (dy / EH) ** 2
+                if 0.78 < v <= 1.0:
+                    a, b = at(i, j)
+                    band = (i + int(EL)) // max(2, int(EL / 4))
+                    hue = hues[(band + (1 if abs(j) > ER * 0.6 else 0)) % len(hues)]
+                    cv.put(a, b, ey + dy, M[f'{hue}_terrazzo'] if dy % 5 else M[f'{hue}_woven_panel'])
+    # rigging
+    for i in range(-L + 4, L - 3, 5):
+        for sgn in (-1, 1):
+            a0, b0 = at(i, sgn * int(W))
+            a1, b1 = at(i, sgn * int(ER * 0.8))
+            cv.line3(a0, b0, y + 1, a1, b1, ey - EH + 1, M['linen'])
+    cv.lamp(*at(L, 0), y + 2, M['lantern'])
+    cv.lamp(*at(-L, 0), y + 2, M['lantern'])
+    cv.chest(*at(-L // 2, 0), y + 1)
+    cv.chest(*at(2, 1), y + 1)
+    return {'length': 2 * L + 1, 'hues': hues}
+
+
+# ---------------------------------------------------------------------------
+# watchtower (the smaller end of the range)
+# ---------------------------------------------------------------------------
+def build_watchtower(cv, rng, q, r, y):
+    st = _stone_set(rng)
+    H = rng.randint(18, 40)
+    rad = rng.randint(2, 3)
+    cv.foundation([(a, b) for a, b, d, _ in cv.round_cells(q, r, rad + 2)], y, M[st[1]], M[st[3]])
+    for yy in range(y + 1, y + H):
+        cv.ring(q, r, yy, rad, M[st[1]] if yy % 6 else M[st[2]])
+        cv.put(q, r, yy, M['ladder'])
+    cv.put(q + rad, r, y + 1, 0)
+    cv.put(q + rad, r, y + 2, 0)
+    cv.disk(q, r, y + H, rad + 2, M[_wood_set(rng)[1]])
+    cv.ring(q, r, y + H + 1, rad + 2, M['wrought_iron'])
+    hue = rng.choice(BRIGHT)
+    for k in range(3):
+        cv.disk(q, r, y + H + 4 + k, rad + 1 - k, M[f'{hue}_patterned_tile'])
+    for dq, dr in DIRS[::2]:
+        cv.col(q + dq * (rad + 1), r + dr * (rad + 1), y + H + 1, y + H + 3, M[st[2]])
+    cv.lamp(q, r, y + H + 1, M['lantern'])
+    cv.put(q, r, y + H + 7, M[f'{hue}_banner'])
+    return {'height': H}
+
+
 BUILDERS = {
     'hot_air_balloon': build_hot_air_balloon,
     'sky_city': build_sky_city,
@@ -939,9 +1135,13 @@ BUILDERS = {
     'megaspire': build_megaspire,
     'leviathan_wreck': build_leviathan_wreck,
     'titan_ruins': build_titan_ruins,
+    'village': build_village,
+    'airship': build_airship,
+    'watchtower': build_watchtower,
 }
 FOOTPRINT = {'hot_air_balloon': 26, 'sky_city': 44, 'floating_fortress': 26, 'world_tree': 34,
-             'colossus': 22, 'megaspire': 18, 'leviathan_wreck': 46, 'titan_ruins': 44}
+             'colossus': 22, 'megaspire': 18, 'leviathan_wreck': 46, 'titan_ruins': 44,
+             'village': 30, 'airship': 36, 'watchtower': 8}
 
 
 # ---------------------------------------------------------------------------

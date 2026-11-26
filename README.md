@@ -35,7 +35,7 @@ Your skies, settings and snapshots are saved next to the exe (`skies/`, `setting
 
 ### A world of hexagons
 
-Everything is built from hexagonal prism cells stacked in 128 layers. Cliffs, terraces, arches and overhangs come out softer and stranger than cubes. Every sky is generated from a seed — any number or words — and goes on forever above a sea of clouds.
+Everything is built from hexagonal prism cells stacked in up to 500 layers. Cliffs, terraces, arches and overhangs come out softer and stranger than cubes. Every sky is generated from a seed — any number or words — and goes on forever above a sea of clouds.
 
 There are sixteen landscapes: Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass, Lumen Grove, Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires, Chalk Barrens, Starfall Veil, Cloudstep Isles and Verdigris Canyons. When you dream a new sky you can tune its shape with sliders for island size and thickness, mountains, caves, water, trees, Glimmer and more. Those sliders are saved with the sky.
 
@@ -52,7 +52,9 @@ Trees grow tall enough that you can walk under most canopies. Caves run under th
 
 New skies can grow a hut, a small village, a temple, a ring of standing stones, a buried chamber or a sky boat moored at an island edge, weathered as intact, abandoned, ruined or overgrown. Buried chambers are lit, so the room at the bottom of the shaft is a place you can see.
 
-**Learn to play** opens a hand-built lesson island that walks you through moving, gathering, crafting, doors, fishing, farming and Glimmer.
+Skies from 1.4.4 on also hide rare grand structures, each one seeded so no two look alike: huge striped or patchwork hot air balloons drifting between islands, sky cities, floating fortresses, world trees with huts in their branches, robed colossi, megaspires, wrecked leviathans and airships, titan ruins, villages, flying airships and lone watchtowers.
+
+**Learn to play** opens a hand-built lesson island that walks you through moving, gathering, crafting, doors, fishing, farming and Glimmer. It is crowded with showpieces built from every block in the game, plus gardens and friendly creatures.
 
 <table>
   <tr>
