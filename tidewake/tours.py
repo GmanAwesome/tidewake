@@ -2569,3 +2569,369 @@ def phase142_aerial2(app, log, shot, look_at, settled, arg):
     yield shot('aerial_wide_2b')
     log('phase142_aerial2 finished')
 
+
+
+def phase143_perf(app, log, shot, look_at, settled, arg):
+    """Profile tutorial vs a normal v3 world with the same measurement."""
+    import cProfile, pstats, io, time as _t, traceback
+
+    def uncap():
+        old = dict(app.settings)
+        app.settings['vsync'] = False
+        app.settings['fps_limit'] = 0
+        app.apply_settings(old)
+        app.set_vsync(False)
+        log('uncapped vsync', app.settings['vsync'], 'fps_limit', app.settings['fps_limit'])
+
+    def sample(label, seconds=5.0):
+        ses = app.session
+        w = ses.world
+        counts = {'remesh': 0, 'collect_exc': 0, 'set': 0, 'tut_gen': 0, 'dirty_max': 0, 'busy_max': 0,
+                  'jobs_max': 0, 'lights_max': 0, 'living_max': 0}
+        orig_remesh = w._remesh_now
+        orig_collect = w._collect
+        orig_set = w.set
+
+        def remesh(key):
+            counts['remesh'] += 1
+            return orig_remesh(key)
+
+        def collect():
+            try:
+                return orig_collect()
+            except Exception:
+                counts['collect_exc'] += 1
+                log('collect exc', traceback.format_exc())
+                raise
+
+        def wset(*a, **k):
+            counts['set'] += 1
+            return orig_set(*a, **k)
+
+        w._remesh_now = remesh
+        w._collect = collect
+        w.set = wset
+        # tick/draw split via wrapping app methods
+        t_tick = [0.0]
+        t_draw = [0.0]
+        t_dyn = [0.0]
+        orig_tick = app.tick
+        orig_draw = app.draw
+        orig_dyn = ses.dynamic_models
+
+        def tick(dt):
+            t0 = _t.perf_counter()
+            try:
+                return orig_tick(dt)
+            finally:
+                t_tick[0] += _t.perf_counter() - t0
+
+        def draw():
+            t0 = _t.perf_counter()
+            try:
+                return orig_draw()
+            finally:
+                t_draw[0] += _t.perf_counter() - t0
+
+        def dyn(cam):
+            t0 = _t.perf_counter()
+            try:
+                return orig_dyn(cam)
+            finally:
+                t_dyn[0] += _t.perf_counter() - t0
+
+        app.tick = tick
+        app.draw = draw
+        ses.dynamic_models = dyn
+
+        # also count leftover dirty / pending each frame
+        pending_seen = [0]
+        orig_on = app.on_frame
+
+        def probe(dt):
+            counts['dirty_max'] = max(counts['dirty_max'], len(w.dirty))
+            counts['busy_max'] = max(counts['busy_max'], w.busy())
+            counts['jobs_max'] = max(counts['jobs_max'], len(w.gen_jobs) + len(w.mesh_jobs))
+            pending_seen[0] += sum(1 for c in w.chunks.values() if c.state in ('dirty', 'pending'))
+            st = app.renderer.stats
+            counts['lights_max'] = max(counts['lights_max'], int(st.get('lights') or 0))
+            counts['living_max'] = max(counts['living_max'], len(ses.sim.active))
+            if orig_on:
+                orig_on(dt)
+
+        # don't replace on_frame (tour driver lives there); hook after by wrapping later? 
+        # We'll poll at the end; mid-sample hook via session.update is enough for remesh/set.
+        app.frame_times = []
+        pr = cProfile.Profile()
+        pr.enable()
+        t0 = _t.perf_counter()
+        # yield control back to the tour runner for `seconds`
+        state = {'t0': t0, 'sec': seconds}
+        def done():
+            if _t.perf_counter() - state['t0'] < state['sec']:
+                # keep sampling dirty while we wait
+                counts['dirty_max'] = max(counts['dirty_max'], len(w.dirty))
+                counts['busy_max'] = max(counts['busy_max'], w.busy())
+                counts['jobs_max'] = max(counts['jobs_max'], len(w.gen_jobs) + len(w.mesh_jobs))
+                st = app.renderer.stats
+                counts['lights_max'] = max(counts['lights_max'], int(st.get('lights') or 0))
+                counts['living_max'] = max(counts['living_max'], len(ses.sim.active))
+                pending_seen[0] += sum(1 for c in w.chunks.values() if getattr(c, 'state', '') in ('dirty', 'pending'))
+                return False
+            return True
+
+        return {
+            'done': done,
+            'finish': lambda: _finish_sample(label, pr, app, ses, w, counts, t_tick, t_draw, t_dyn,
+                                             orig_remesh, orig_collect, orig_set, orig_tick, orig_draw, orig_dyn,
+                                             pending_seen, log, shot),
+        }
+
+    def _finish_sample(label, pr, app, ses, w, counts, t_tick, t_draw, t_dyn,
+                       orig_remesh, orig_collect, orig_set, orig_tick, orig_draw, orig_dyn,
+                       pending_seen, log, shot):
+        pr.disable()
+        w._remesh_now = orig_remesh
+        w._collect = orig_collect
+        w.set = orig_set
+        app.tick = orig_tick
+        app.draw = orig_draw
+        ses.dynamic_models = orig_dyn
+        ft = list(app.frame_times)
+        # last ~sample window: frame_times is last 120
+        n = max(1, len(ft))
+        s = sum(ft) if ft else 1e-6
+        fps = n / s
+        ms = [t * 1000.0 for t in ft]
+        ms.sort()
+        def pct(p):
+            if not ms:
+                return 0
+            i = min(len(ms) - 1, int(round((p / 100.0) * (len(ms) - 1))))
+            return ms[i]
+        gen = (sum(w.timings['gen']) / len(w.timings['gen']) * 1000) if w.timings['gen'] else 0
+        mesh = (sum(w.timings['mesh']) / len(w.timings['mesh']) * 1000) if w.timings['mesh'] else 0
+        st = app.renderer.stats
+        log(f'PERF {label}')
+        log(f'  fps={fps:.1f}  frames={n}  frame_ms p50={pct(50):.2f} p95={pct(95):.2f} p99={pct(99):.2f} max={max(ms) if ms else 0:.2f}')
+        log(f'  tick_s={t_tick[0]:.3f} draw_s={t_draw[0]:.3f} dyn_s={t_dyn[0]:.3f}')
+        log(f'  chunks={len(w.chunks)} drawn={st.get("drawn")} lights={st.get("lights")} lights_max={counts["lights_max"]}')
+        log(f'  gen_ms={gen:.2f} mesh_ms={mesh:.2f} living={len(ses.sim.active)} living_max={counts["living_max"]} npcs={len(getattr(ses, "npcs", []) or [])}')
+        log(f'  remesh={counts["remesh"]} set={counts["set"]} collect_exc={counts["collect_exc"]} dirty_max={counts["dirty_max"]} busy_max={counts["busy_max"]} jobs_max={counts["jobs_max"]} pending_hits={pending_seen[0]}')
+        log(f'  tutorial={bool(getattr(ses, "tutorial", False))} seed={ses.seed}')
+        buf = io.StringIO()
+        pstats.Stats(pr, stream=buf).sort_stats('tottime').print_stats(25)
+        log(buf.getvalue())
+        return fps
+
+    uncap()
+    yield 0.4
+
+    # --- tutorial ---
+    app.start_tutorial()
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    app.hide_hud = False
+    app.show_debug = True
+    yield shot('perf_tutorial_still')
+    tut_still = sample('tutorial_still', 5.0)
+    yield tut_still['done']
+    fps_tut_still = tut_still['finish']()
+    app.test_input = {'fwd': 1, 'hurry': True}
+    tut_walk = sample('tutorial_walk', 5.0)
+    yield tut_walk['done']
+    fps_tut_walk = tut_walk['finish']()
+    app.test_input = {}
+    yield shot('perf_tutorial_walk')
+    log('TUTORIAL fps still', round(fps_tut_still, 2), 'walk', round(fps_tut_walk, 2))
+
+    # leave the lesson, start a normal v3 sky
+    app.quit_to_title()
+    yield 0.8
+    from .noise import seed_from_text
+    # playtest seed used in 1.4.2, a typical mid-spawn v3 world
+    seed = -1740201319
+    app.create_sky('Perf Normal', seed, '', 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    app.show_debug = True
+    yield shot('perf_normal_still')
+    n_still = sample('normal_still', 5.0)
+    yield n_still['done']
+    fps_n_still = n_still['finish']()
+    app.test_input = {'fwd': 1, 'hurry': True}
+    n_walk = sample('normal_walk', 5.0)
+    yield n_walk['done']
+    fps_n_walk = n_walk['finish']()
+    app.test_input = {}
+    yield shot('perf_normal_walk')
+    log('NORMAL fps still', round(fps_n_still, 2), 'walk', round(fps_n_walk, 2))
+    log('COMPARE tutorial/normal still', round(fps_tut_still, 2), '/', round(fps_n_still, 2),
+        'walk', round(fps_tut_walk, 2), '/', round(fps_n_walk, 2))
+    log('phase143_perf finished')
+
+
+def phase143_after(app, log, shot, look_at, settled, arg):
+    """After-fix fps (wall clock) plus cutoff and unclothed-wanderer shots."""
+    import time as _t
+    from .hexgrid import cell_at, center
+    from .config import LAYER
+
+    def uncap():
+        old = dict(app.settings)
+        app.settings['vsync'] = False
+        app.settings['fps_limit'] = 0
+        app.apply_settings(old)
+        app.set_vsync(False)
+
+    def measure(label, seconds=5.0):
+        app.frame_times = []
+        n = {'frames': 0}
+        t0 = _t.perf_counter()
+
+        def done():
+            n['frames'] += 1
+            return (_t.perf_counter() - t0) >= seconds
+
+        def finish():
+            elapsed = _t.perf_counter() - t0
+            fps = n['frames'] / max(elapsed, 1e-6)
+            ft = list(app.frame_times)
+            s = sum(ft) if ft else 1e-6
+            fps_ft = len(ft) / s if ft else 0
+            ses = app.session
+            st = app.renderer.stats
+            log(f'AFTER {label} wall_fps={fps:.2f} frames={n["frames"]} elapsed={elapsed:.3f}s '
+                f'ft_fps={fps_ft:.2f} (ft may clamp at 10) chunks={len(ses.world.chunks)} '
+                f'drawn={st.get("drawn")} lights={st.get("lights")} '
+                f'npcs={len(getattr(ses, "npcs", []) or [])} living={len(ses.sim.active)}')
+            return fps
+
+        return {'done': done, 'finish': finish}
+
+    uncap()
+    yield 0.3
+    app.start_tutorial()
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.8
+    app.show_debug = True
+    yield shot('after_tutorial_still')
+    m = measure('tutorial_still', 5.0)
+    yield m['done']
+    fps_ts = m['finish']()
+    app.test_input = {'fwd': 1, 'hurry': True}
+    m = measure('tutorial_walk', 5.0)
+    yield m['done']
+    fps_tw = m['finish']()
+    app.test_input = {}
+    # third-person back view of the unclothed wanderer, empty hands
+    ses = app.session
+    ses.hot = 2
+    p = ses.player
+    p.pitch = -8.0
+    p.yaw = 20.0
+    app.cam_view = 1
+    app.hide_hud = False
+    yield 0.8
+    yield shot('wanderer_back')
+    app.cam_view = 2
+    p.pitch = 6.0
+    yield 0.8
+    yield shot('wanderer_front')
+    app.cam_view = 1
+    p.yaw = 200.0
+    p.pitch = -12.0
+    yield 0.8
+    yield shot('wanderer_back_hips')
+    app.cam_view = 0
+    app.hide_hud = False
+    log('AFTER tutorial fps still', round(fps_ts, 2), 'walk', round(fps_tw, 2))
+
+    app.quit_to_title()
+    yield 0.8
+    seed = -1740201319
+    app.create_sky('Perf Normal After', seed, '', 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.8
+    app.show_debug = True
+    yield shot('after_normal_still')
+    m = measure('normal_still', 5.0)
+    yield m['done']
+    fps_ns = m['finish']()
+    app.test_input = {'fwd': 1, 'hurry': True}
+    m = measure('normal_walk', 5.0)
+    yield m['done']
+    fps_nw = m['finish']()
+    app.test_input = {}
+    log('AFTER normal fps still', round(fps_ns, 2), 'walk', round(fps_nw, 2))
+    log('COMPARE after tutorial/normal still', round(fps_ts, 2), '/', round(fps_ns, 2),
+        'walk', round(fps_tw, 2), '/', round(fps_nw, 2))
+
+    app.quit_to_title()
+    yield 0.8
+    CUTS = [
+        ('cedar_highlands', -29.99, 147.56, -46.92, 120.0, -18.0),
+        ('frostglass', -245.28, 134.03, 43.43, 80.0, -16.0),
+        ('chalk_barrens_near', -264.17, 136.97, -23.51, 100.0, -20.0),
+        ('cloudstep_isles_far', 2512.22, 177.32, -1386.21, 200.0, -22.0),
+        ('chalk_barrens_high', 2415.93, 304.31, -1112.58, 220.0, -28.0),
+        ('cloudstep_low', 97.86, 25.25, -107.82, 30.0, 18.0),
+        ('verdigris_canyons', -4.06, 147.56, -61.76, 160.0, -18.0),
+    ]
+    app.create_sky('Cutoff After', -857535443, '', 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    ses = app.session
+    p = ses.player
+    p.drifting = True
+    p.noclip = True
+    app.show_debug = True
+    app.hide_hud = False
+    for name, x, y, z, yaw, pitch in CUTS:
+        p.x, p.y, p.z = x, y, z
+        p.vx = p.vy = p.vz = 0
+        p.yaw, p.pitch = yaw, pitch
+        ses.hold = True
+        yield settled()
+        yield 0.7
+        yield shot('after_' + name)
+        # a second angle, looking more along a likely hex-axis wall
+        p.yaw = (yaw + 70.0) % 360
+        p.pitch = pitch - 6.0
+        yield 0.5
+        yield shot('after_' + name + '_b')
+        log('shot', name, 'at', x, y, z, 'cell', cell_at(x, z))
+    log('phase143_after finished')
+
+
+def phase143_figure(app, log, shot, look_at, settled, arg):
+    yield 0.3
+    app.start_tutorial()
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.2
+    ses = app.session
+    ses.hot = 2
+    p = ses.player
+    app.show_debug = True
+    app.hide_hud = False
+    # back view, slight downward look so the hip bulge reads
+    app.cam_view = 1
+    p.yaw = 25.0
+    p.pitch = -14.0
+    yield 0.8
+    yield shot('wanderer_back')
+    p.yaw = 200.0
+    p.pitch = -18.0
+    yield 0.7
+    yield shot('wanderer_back_hips')
+    app.cam_view = 2
+    p.yaw = 20.0
+    p.pitch = 8.0
+    yield 0.7
+    yield shot('wanderer_front')
+    log('phase143_figure finished')

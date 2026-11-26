@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.3-test — 25 November 2026
+
+A playtest build. 1.4.2 remains the latest full release.
+
+- The lesson island is no longer uniquely slow. Eight tutorial people were being remeshed from scratch every frame; their poses are cached now.
+- Overlapping or neighbouring shelves no longer meet at a straight cut plane. Different-height islands keep a noisy sky gap, coasts are nibbled so they cannot run as a long hex-axis wall, and a low island's underside stays a dome instead of a flat slice at the world floor.
+- The wanderer starts as a plain, unclothed base figure. Clothing and gear appear only once crafted or found and equipped.
+
+
 ## 1.4.2 — 25 November 2026
 
 The current release. Skies from 1.4 and 1.4.1 still load and keep their original terrain. These changes apply to new skies (generator v3).

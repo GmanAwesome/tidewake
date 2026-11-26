@@ -395,3 +395,13 @@ The tutorial was not remeshing, restamping, or leaking dirty flags. A 5s stand-s
 Straight cutoffs on seed -857535443 were Worley cell-edge pullbacks (`need_gap` along f2-f1, a square XZ grid, so long walls ran along hex axes) slicing one landmass, plus natural e=0 coasts that happened to be ruler-straight, plus low islands whose underside was clipped to a flat plane at layer 2. Different-band shelves already had a sky gap, but the margin was a straight Voronoi plane. Height-blending those shelves reintroduced 28-layer steps, so 1.4.3 keeps a gap for separated shelves and makes the margin wander, nibbles only the land mask (never adds a cell, so walkable steps stay ≤6), and compresses a too-deep underside instead of slicing it flat at the floor. Overlapping [bottom, top] volumes in the reported windows went to 0. The 25-cell wall at Cloudstep Isles is gone; remaining hex-axis coasts are ≤17 cells. `tests/test_phase143.py` flags 18+ cell ruler walls, 16+ cell canyons, and volume overlaps. 1.4.2 sheer-cliff tests still pass (0 v3 seams).
 
 The third-person wanderer is a uniform skin-tone mannequin with no outfit colours, plus two simple cheek blocks on the back of the hips. Gear still attaches only when a crafted or found item is held. Lesson guides keep their clothes.
+
+## November 25, 2026, 7:32 PM EST — 1.4.3-test numbers and shots
+
+Same measurement in both worlds, vsync off, fps_limit 0, 1280×720, wall-clock frames/seconds after settle:
+
+- Tutorial before: 13.2 fps still / 11.3 walk (p50 75–86 ms). `dynamic_models` rebuilt 8 NPC prism meshes every frame (3.26 s of a 5 s stand, 64 prism batches/frame). No remesh, dirty, or job leak.
+- Tutorial after (cached poses): 42.7 fps still / 47.1 walk.
+- Normal v3 world (seed -1740201319) after: 7.1 fps still / 7.8 walk (76 chunks drawn, 32 lights). Before, frame_times were clamped at 100 ms so it read as 10 fps; wall-clock is the fair figure. The lesson is now faster than a normal sky on this box, which is what we wanted.
+
+Cutoff after-shots for seed -857535443 were taken at the seven reported positions (debug HUD has the same x,y,z, cell, and seed). The 25-cell Cloudstep wall is gone; coasts look irregular and undersides are domed. A few hex-axis beaches of up to 17 cells can still appear, which the test allows (it flags 18+ and volume overlaps, both zero). The wanderer back-view shows a plain skin-tone figure with a small hip bulge and no outfit. Shots are in `screenshots-final/v1.4.3/`. Version string is 1.4.3-test; next step is the Windows pre-release, with 1.4.2 staying Latest.
