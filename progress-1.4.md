@@ -436,3 +436,7 @@ Best screenshot paths (all under `screenshots-final/v1.4.3/round2/`):
 - figure: `wanderer_back.png`, `wanderer_three_quarter.png`, `wanderer_side.png`.
 
 The v1.4.3-test pre-release will be replaced next (1.4.2 stays Latest).
+
+## November 25, 2026, 8:26 PM EST — 1.4.3-test pre-release replaced
+
+Round-2 Windows build and screenshots replaced the assets on https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.3-test (still a pre-release, target `main` / `de897b3`). `Tidewake-1.4.3-test-Windows.zip` is 76,459,949 bytes (manifest 1294 bytes, comctl32 v6, RT_ICON 6 + RT_GROUP_ICON 1, layout `Tidewake/Tidewake.exe`). 1.4.2 remains Latest.
