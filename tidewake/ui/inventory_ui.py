@@ -243,7 +243,7 @@ class CraftScreen(SlotScreen):
         self.slot(gui, app, out, 0, ox, ay, size, on_click=take)
         if res:
             gui.text(I.get(res[0]).name, ox + size + 14 * s, ay + size / 2, 11, INK, 'left', 'center', font='bold')
-        elif self.n == 2:
+        elif self.n == 2 and not any(self.grid):
             gui.text('Need a 3x3 grid? Place a', ox + size + 14 * s, ay + size / 2 + 8 * s, 9, MUTED, 'left', 'center')
             gui.text('Tinker Bench and right-click it.', ox + size + 14 * s, ay + size / 2 - 8 * s, 9, MUTED, 'left', 'center')
         # backpack

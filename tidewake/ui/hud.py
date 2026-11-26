@@ -43,11 +43,17 @@ def draw_hud(gui, app, ses, w, h):
         if lines:
             i = int(npc.get('line', 0)) % len(lines)
             text = lines[i]
-            bw, bh = min(520 * s, w - 40 * s), 72 * s
-            bx, by = w / 2 - bw / 2, h / 2 - 130 * s
+            bw = min(520 * s, w - 40 * s)
+            # measure wrapped height so long lesson lines never sit on the hint
+            probe = gui.text(text, -9999, -9999, 10, INK, 'left', 'top', width=bw - 32 * s)
+            gui.queue.pop()
+            th = max(getattr(probe, 'content_height', 16 * s) or 16 * s, 16 * s)
+            hint_h = 22 * s if len(lines) > 1 else 10 * s
+            bh = 20 * s + 18 * s + 10 * s + th + hint_h
+            bx, by = w / 2 - bw / 2, h / 2 - 70 * s - bh
             gui.rect(bx, by, bw, bh, (1, 1, 1, 0.94), 14 * s, border=ACCENT, border_w=1.6 * s)
             soft_text(gui, npc['name'], bx + 16 * s, by + bh - 16 * s, 11, ACCENT, 'left', 'center', 'bold')
-            gui.text(text, bx + 16 * s, by + bh - 34 * s, 10, INK, 'left', 'top', width=bw - 32 * s)
+            gui.text(text, bx + 16 * s, by + bh - 36 * s, 10, INK, 'left', 'top', width=bw - 32 * s)
             if len(lines) > 1:
                 gui.text('Right-click to hear more', bx + bw - 16 * s, by + 12 * s, 8, MUTED, 'right', 'center')
     elif getattr(ses, 'tutorial', False) and hasattr(ses, 'closest_npc'):
@@ -55,6 +61,11 @@ def draw_hud(gui, app, ses, w, h):
         if hint:
             soft_text(gui, 'Right-click to talk', w / 2, h / 2 - 86 * s, 11,
                       (1, 1, 1, 0.88), 'center', 'center', 'bold')
+
+    # a quiet warning when the next step would leave the island
+    if getattr(ses, 'edge_warn', 0) > 0:
+        soft_text(gui, 'The shore drops away', w / 2, h / 2 - 64 * s, 11,
+                  (1, 0.92, 0.8, 0.95), 'center', 'center', 'bold')
 
     # fishing prompt
     if getattr(ses, 'fishing', None):

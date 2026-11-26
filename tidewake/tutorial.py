@@ -22,7 +22,8 @@ SPAWN = (0, 0, SURF)
 # (q, r, name, colour, lines) — each guide stands in the open beside their station
 NPCS = [
     (6, 2, 'Willow', (0.86, 0.72, 0.58),
-     ('Welcome to the lesson island. That citadel on the horizon is still out of reach — for now. Walk with W A S D, look with the mouse, and jump with Space.',
+     ('Welcome to the lesson island. That citadel on the horizon is still out of reach — for now.',
+      'Walk with W A S D, look with the mouse, and jump with Space.',
       'Follow the tiled path and the signposts from the plaza. Talk to everyone. Press E for your backpack, J for the journal, P for the Path.')),
     (34, -8, 'Bram', (0.55, 0.62, 0.48),
      ('Hold left click on a tree to gather wood. Heartwood becomes planks at the bench.',

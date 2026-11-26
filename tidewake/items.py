@@ -406,7 +406,9 @@ recipe([[M['stone_tiles'], M['stone_tiles']], [M['stone_tiles'], M['stone_tiles'
        M['snow_patterned_tile'], 4)
 recipe([[M['mosaic'], M['cobble']]], M['snow_terrazzo'], 2, shapeless=True)
 recipe([[M['linen'], M['planks']]], M['snow_woven_panel'], 2, shapeless=True)
-recipe([[M['glass'], DYE['snow'].id]], M['snow_stained_glass'], 1, shapeless=True)
+# glass + a dye makes that colour of stained glass directly (snow kept as the family base)
+for _k, _dn, _ in PAL.DYES:
+    recipe([[M['glass'], DYE[_k].id]], M[PAL.id_key(PAL.dyed_name('Stained Glass', _k))], 1, shapeless=True)
 recipe([[M['lumen_lamp'], M['crystal']]], M['snow_crystal_lamp'], 1, shapeless=True)
 recipe([[M['linen'], DYE['snow'].id], [STICK.id, None]], M['snow_banner'], 1)
 
@@ -556,6 +558,16 @@ def recipe_size(rows):
 def name_of(v):
     if v == STONES:
         return 'any stone'
+    if v in GROUPS:
+        pretty = {
+            'patterned_tiles': 'any Patterned Tile',
+            'terrazzos': 'any Terrazzo',
+            'woven_panels': 'any Woven Panel',
+            'stained_glasss': 'any Stained Glass',
+            'crystal_lamps': 'any Crystal Lamp',
+            'banners': 'any Banner',
+        }
+        return pretty.get(v, 'any ' + str(v).replace('_', ' '))
     it = ITEMS.get(v)
     return it.name if it else '?'
 
