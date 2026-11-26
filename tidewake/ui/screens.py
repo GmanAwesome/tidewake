@@ -110,7 +110,7 @@ class TitleScreen(Screen):
         if gui.button(x, y - 4 * gap, bw, bh, 'Leave', size=14):
             app.quit()
         gui.text(self.splash, w / 2, 30 * s, 12, (1, 1, 1, 0.86), 'center', 'center', font='body')
-        gui.text('Tidewake 1.4.4', 16 * s, 14 * s, 10, (1, 1, 1, 0.72), font='bold')
+        gui.text('Tidewake 1.4.5-test', 16 * s, 14 * s, 10, (1, 1, 1, 0.72), font='bold')
         gui.text('Python + ModernGL. Every sound and shape is made by code.',
                  w - 16 * s, 14 * s, 10, (1, 1, 1, 0.72), 'right', font='body')
         sc = app.backdrop.get('showcase') if app.backdrop else None
@@ -338,6 +338,7 @@ class LoadingScreen(Screen):
         self.progress = 0.0
         self.line = random.choice(['Gathering clouds', 'Waking the wind', 'Sorting hexagons', 'Tuning the tides',
                                    'Polishing crystals'])
+        self.error = None        # (message, log path) when world generation keeps failing
 
     def build(self, gui, app, w, h):
         s = gui.s
@@ -350,10 +351,19 @@ class LoadingScreen(Screen):
             gui.hexagon(w / 2 + math.cos(a) * 46 * s, h * 0.55 + math.sin(a) * 46 * s, 12 * s,
                         (*ELEMENT_COLORS[i % 4], 1.0 if on else 0.35), border=(1, 1, 1), border_w=2 * s)
         gui.text(self.title, w / 2, h * 0.36, 20, INK, 'center', 'center', font='title')
+        if self.error:
+            msg, path = self.error
+            gui.text('This sky could not be built.', w / 2, h * 0.36 - 34 * s, 13, (0.70, 0.20, 0.24, 1), 'center', 'center')
+            gui.text(msg, w / 2, h * 0.36 - 58 * s, 10, MUTED, 'center', 'center')
+            if path:
+                gui.text(f'Details: {path}', w / 2, h * 0.36 - 78 * s, 9, MUTED, 'center', 'center')
+            gui.text('Press Esc to go back to the title.', w / 2, h * 0.36 - 100 * s, 10, INK, 'center', 'center')
+            return
         gui.text(f'{self.line}...  {int(self.progress * 100)}%', w / 2, h * 0.36 - 34 * s, 11, MUTED, 'center', 'center')
 
     def escape(self, app):
-        pass
+        if self.error:
+            app.quit_to_title()
 
 
 # ---------------------------------------------------------------------- settings

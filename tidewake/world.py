@@ -43,6 +43,8 @@ class World:
         self.pool = pool
         self.chunks = {}
         self.gen_jobs = {}
+        self.gen_failures = {}        # chunk key -> failed attempts
+        self.gen_error = None         # first worker traceback, shown by the loading screen
         self.mesh_jobs = {}
         self.uploads = deque()
         self.dirty = set()
@@ -237,7 +239,13 @@ class World:
                     continue
                 try:
                     cq, cr, cells, meta, realm, saved, dt = fut.result()
-                except Exception:
+                except Exception as e:
+                    # never fail silently: count it, keep the first traceback for the loading screen
+                    n = self.gen_failures[key] = self.gen_failures.get(key, 0) + 1
+                    if self.gen_error is None:
+                        import traceback
+                        self.gen_error = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                        print('chunk generation failed', key, '\n' + self.gen_error, flush=True)
                     continue
                 self.timings['gen'].append(dt)
                 if key not in self.chunks and self._dist(key) <= self.keep_radius:

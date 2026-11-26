@@ -487,6 +487,18 @@ class App(pyglet.window.Window):
             prog = self.session.load_progress()
             if isinstance(self.menu, S.LoadingScreen):
                 self.menu.progress = prog
+            w = self.session.world
+            if w.gen_error and max(w.gen_failures.values(), default=0) >= 3:
+                if isinstance(self.menu, S.LoadingScreen) and not self.menu.error:
+                    path = os.path.join(self.base_dir, 'tidewake-error.log')
+                    try:
+                        with open(path, 'a', encoding='utf-8') as f:
+                            f.write(time.strftime('%Y-%m-%d %H:%M:%S ') + 'world generation failed\n' + w.gen_error + '\n')
+                    except OSError:
+                        path = None
+                    last = w.gen_error.strip().splitlines()[-1][:120]
+                    self.menu.error = (last, path)
+                return
             if (prog >= 0.98 and time.perf_counter() - self.load_started > 0.8) or time.perf_counter() - self.load_started > 60:
                 self.session.finish_loading()
                 self.mode = 'game'
@@ -680,7 +692,7 @@ class App(pyglet.window.Window):
         realm = ses.world.realm_at(q, r)
         avg = lambda d: (sum(d) / len(d) * 1000) if d else 0
         st = self.renderer.stats
-        lines = [f'Tidewake 1.4.4   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
+        lines = [f'Tidewake 1.4.5-test   {fps:.0f} fps   creatures {len(ses.mobs)}   drops {len(ses.drops)}',
                  f'position  x {p.x:,.2f}   y {p.y:.2f}   z {p.z:,.2f}',
                  f'cell  q {q:,}  r {r:,}  layer {math.floor(p.y / LAYER)}   chunk {cq:,} {cr:,}',
                  f'realm  {MT.REALMS[realm] if realm is not None else "?"}   tide {ses.phase:.3f} ({TIDE.name(ses.phase)})',

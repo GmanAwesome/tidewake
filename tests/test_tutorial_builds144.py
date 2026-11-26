@@ -44,7 +44,42 @@ def test_roster_is_peaceful():
     assert all(not KINDS[k][4] for k, *_ in TB.MOBS)
 
 
+
+def test_station_blocks_constant_matches_source():
+    assert sorted(TB.STATION_BLOCK_NAMES) == TB.station_blocks_from_source(), \
+        sorted(set(TB.station_blocks_from_source()) ^ set(TB.STATION_BLOCK_NAMES))
+
+
+def test_lesson_builds_without_source_files():
+    """Frozen builds ship bytecode only: the lesson island must build with no .py file readable."""
+    import builtins
+    from tidewake import tutorial as T
+    from tidewake.generator import Generator
+    from tidewake import gensettings as GS
+    real_open = builtins.open
+
+    def no_py(path, *a, **k):
+        if str(path).endswith('.py'):
+            raise FileNotFoundError(path)
+        return real_open(path, *a, **k)
+    TB._CACHE.clear()
+    builtins.open = no_py
+    try:
+        buckets = TB.plan()
+        assert len(buckets) > 10
+        n = 0
+        for cq in range(-3, 4):
+            for cr in range(-3, 4):
+                out = T.generate_chunk(cq, cr)
+                n += int((out[0] > 0).sum())
+        assert n > 1000, n
+    finally:
+        builtins.open = real_open
+
+
 if __name__ == '__main__':
     test_every_block_is_used(); print('ok every block used')
     test_path_and_guides_are_walkable(); print('ok path clear')
     test_roster_is_peaceful(); print('ok peaceful roster')
+    test_station_blocks_constant_matches_source(); print('ok station blocks constant')
+    test_lesson_builds_without_source_files(); print('ok lesson builds with no .py sources (frozen)')

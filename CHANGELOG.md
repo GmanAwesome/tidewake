@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.5-test — 26 November 2026
+
+A pre-release fix build. 1.4.4 stays Latest.
+
+- Fixed: in the Windows build, **Learn to play** hung forever on "Dreaming The Lesson… 0%". The lesson island builder read `tutorial.py` from disk to see which blocks the stations already use. The packaged game only ships compiled code, so every lesson chunk failed in the background and the loader retried forever. The list is now a constant, checked against the source by a test.
+- If a sky's chunks keep failing to build, the loading screen now says so. It shows the error, writes the details to `tidewake-error.log` next to the exe, and Esc goes back to the title, instead of spinning at 0%.
+- New test: the lesson island builds with no `.py` source files readable, which simulates the frozen build.
+
 ## 1.4.4 — 26 November 2026
 
 The current release. Skies from 1.4 through 1.4.3, and from the 1.4.4-test pre-release, still load and keep their original terrain. New skies use generator v6.

@@ -733,13 +733,34 @@ def sky_castle(P, q, r, y):
 _CACHE = {}
 
 
-def station_blocks():
-    """Blocks the hand-built lesson stations already place (read from tutorial.py)."""
+# Blocks the hand-built lesson stations in tutorial.py already place. This is a constant
+# because the frozen Windows build ships bytecode only, so tutorial.py cannot be read at
+# run time (1.4.4 hung on the lesson loading screen doing exactly that).
+# tests/test_tutorial_builds144.py checks it still matches tutorial.py.
+STATION_BLOCK_NAMES = (
+    'bedroll', 'berry_crop', 'blush_plaster', 'brass', 'canopy', 'carved_stone', 'chest', 'cobble',
+    'cosmic_star', 'door', 'dusk_plaster', 'farmland', 'glowstick', 'heartwood', 'honey_banner',
+    'honey_crystal_lamp', 'honey_patterned_tile', 'ink_patterned_tile', 'ivory_plaster', 'kiln',
+    'ladder', 'leaf_banner', 'leaf_woven_panel', 'loam', 'ochre_bricks', 'pale_lattice', 'pale_planks',
+    'pearl_terrazzo', 'pewter', 'planks', 'rose_banner', 'rose_stained_glass', 'sage_plaster', 'signpost',
+    'sky_banner', 'sky_crystal_lamp', 'sky_stained_glass', 'skywheat', 'stone', 'tide_stained_glass',
+    'tidewell', 'tinker_bench', 'turf', 'violet_crystal_lamp', 'water', 'waystone', 'wood_lattice',
+    'wrought_iron',
+)
+
+
+def station_blocks_from_source():
+    """Dev/test only: parse tutorial.py for the blocks its stations place."""
     import os
     import re
     src = open(os.path.join(os.path.dirname(__file__), 'tutorial.py')).read()
     names = set(re.findall(r"M\['([a-z_]+)'\]", src)) | set(re.findall(r"_mat\('([a-z_]+)'", src))
-    return {M[n] for n in names if n in M}
+    return sorted(n for n in names if n in M)
+
+
+def station_blocks():
+    """Blocks the hand-built lesson stations already place (no file access; safe when frozen)."""
+    return {M[n] for n in STATION_BLOCK_NAMES if n in M}
 
 
 def plan():
