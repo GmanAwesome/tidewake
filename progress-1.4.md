@@ -511,3 +511,14 @@ Balloon patchwork and harlequin envelopes use big panels now. The per-cell noise
 Tutorial perf is 38.3 still / 37.6 walk (1280×720 uncapped, vd 8, 258 chunks, 11 lights), against 44.2 / 46.2 at the pre-rebuild commit on the same box. The showpieces cost about 15%. Lowering the light cap from 14 to 11 won back about 1.5 fps; mobs are not the cost.
 
 The showcase is in `/workspace/winbuild/tidewake-showcase/` (18 shots + README) and `tidewake-showcase.zip`. The seed -1565669544 shots there use generator v5. The final shots are in `screenshots-final/v1.4.4/{grand,islands_v6,trees_v6,tutorial2,seed5_v5}`.
+
+## November 26, 2026, 1:45 AM EST — 1.4.4 is out and Latest
+
+https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.4 (target `main` / `0f66b87`) is the Latest release. v1.4.4-test stays a pre-release.
+
+- Asset: `Tidewake-1.4.4-Windows.zip`, 76,655,829 bytes, 132 files, layout `Tidewake/Tidewake.exe`.
+- The exe has a 1294-byte manifest (Common Controls 6.0.0.0), RT_ICON 6 and RT_GROUP_ICON 1.
+- Wine smoke test: the title screen shows "Tidewake 1.4.4", Wander → New Sky → Dream it loads a v6 sky with terrain and HUD, and holding W moves the player (spire distance 37 → 29 m).
+- The smoke run's skies, settings and music cache were removed before zipping.
+
+The showcase is in `/workspace/winbuild/tidewake-showcase/` (17 shots + README) and in `tidewake-showcase.zip`.
