@@ -83,8 +83,8 @@ BLOCK_DESC = {
     'door': 'right-click to open or close; two blocks tall', 'ladder': 'climb it; place it on a wall',
     'ember_lamp': 'a warm lamp', 'aether_lamp': 'a dusky lamp', 'verdigris_lamp': 'a teal lamp',
     'heather': 'lavender downs packing; a soft purple block',
-    'waystone': 'right-click: attune with Glimmer, then travel between shrines',
-    'glimmer_font': 'right-click: spend Glimmer on lasting attunements',
+    'waystone': 'right-click: 1 Glimmer to attune; then travel free between attuned waystones',
+    'tidewell': 'right-click: spend Glimmer on lasting gifts (the old Glimmer Font)',
     'rose_jelly': 'springy: bounce on it', 'tide_jelly': 'springy: bounce on it',
     'honey_jelly': 'springy: bounce on it', 'violet_jelly': 'springy: bounce on it',
     'shimmer_cloud': 'a soft, glimmering cloud you can build with',
@@ -114,7 +114,7 @@ SILVERINE = _new('Silverine Ingot', 'item', color=(0.88, 0.92, 1.00), model='ing
 AETHERITE = _new('Aetherite', 'item', color=(0.80, 0.56, 1.00), model='gem', desc='the rarest stone in the sky')
 FLUFF = _new('Fluff', 'item', color=(0.99, 0.95, 0.90), model='lump', desc='from woolhops')
 PLUME = _new('Plume', 'item', color=(0.98, 0.86, 0.70), model='stick', desc='from pebblebeaks')
-GLIMMER = _new('Glimmer', 'item', color=(1.00, 0.86, 0.45), model='gem', desc='catch golden dusk motes')
+GLIMMER = _new('Glimmer', 'item', color=(1.00, 0.86, 0.45), model='gem', desc='walk into floating motes; spend at waystones and Tidewells')
 GLOOM = _new('Gloom Dust', 'item', color=(0.42, 0.30, 0.62), model='lump', desc='left by gloomlings')
 BRICK = _new('Brick', 'item', color=(0.82, 0.46, 0.40), model='ingot')
 BERRIES = _new('Duskberries', 'food', food=3, color=(0.62, 0.36, 0.86), model='berries')
@@ -370,7 +370,7 @@ recipe([[M['carved_stone'], M['carved_stone'], M['carved_stone']],
         [M['carved_stone'], M['carved_stone'], M['carved_stone']]], M['waystone'])
 recipe([[M['polished_stone'], G_, M['polished_stone']],
         [G_, M['carved_stone'], G_],
-        [M['polished_stone'], G_, M['polished_stone']]], M['glimmer_font'])
+        [M['polished_stone'], G_, M['polished_stone']]], M['tidewell'])
 
 # ---- 1.4 phase 3: fishing rod
 recipe([[None, None, STICK.id], [None, STICK.id, M['linen']], [STICK.id, None, None]], ROD.id)

@@ -284,9 +284,9 @@ def build_crystal_cathedral(st, q, r, y):
         for i in range(1, 9):
             st.put(q, r + dr, y + i, plaster, force=True)
         st.put(q, r + dr, y + 9, tile, force=True)
-    # door at the facade, font and chest inside
+    # door at the facade, Tidewell and chest inside
     st.door(q + 5, r, y + 1, 0)
-    st.put(q, r, y + 1, M['glimmer_font'] if 'glimmer_font' in M else lamp, force=True)
+    st.put(q, r, y + 1, M['tidewell'], force=True)
     st.put(q, r + 1, y + 1, lamp, force=True)
     st.put(q, r - 1, y + 1, lamp, force=True)
     st.chest(q - 2, r, y + 1, LOOT_TEMPLE)

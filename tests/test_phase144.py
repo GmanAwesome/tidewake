@@ -215,14 +215,14 @@ def test_tutorial_grounds_are_spread_and_npcs_are_clear():
     far, _, _ = g.generate(8, 8)
     assert int((far > 0).sum()) == 0
     # path / themed stations still present
-    counts = {k: 0 for k in ('waystone', 'glimmer_font', 'tinker_bench', 'kiln', 'door', 'ladder',
+    counts = {k: 0 for k in ('waystone', 'tidewell', 'tinker_bench', 'kiln', 'door', 'ladder',
                              'chest', 'farmland', 'signpost')}
     for cq in range(-6, 8):
         for cr in range(-6, 8):
             cells, _, _ = g.generate(cq, cr)
             for k in counts:
                 counts[k] += int((cells == MT.ID[k]).sum())
-    assert counts['waystone'] >= 2 and counts['glimmer_font'] >= 1
+    assert counts['waystone'] >= 2 and counts['tidewell'] >= 1
     assert counts['tinker_bench'] == 1 and counts['kiln'] == 1
     assert counts['door'] >= 2 and counts['ladder'] >= 3
     assert counts['chest'] == 6 and counts['farmland'] >= 6

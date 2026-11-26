@@ -1,4 +1,4 @@
-"""In-game screens for Glimmer stations (waystones and the Font)."""
+"""In-game screens for Glimmer stations (waystones and the Tidewell)."""
 from .gui import INK, MUTED, ACCENT, WHITE
 from .screens import Screen, veil
 from .. import glimmer as G
@@ -26,10 +26,10 @@ class WaystoneScreen(Screen):
         attuned.sort(key=lambda kv: kv[1].get('name', ''))
         y = py + ph - 96 * s
         if not attuned:
-            gui.text('No other attuned shrines yet. Find another waystone and spend 1 Glimmer to attune it.',
+            gui.text('This waystone remembers you. Attune a second waystone (1 Glimmer) and you can travel between them here, for free.',
                      px + 28 * s, y, 12, MUTED, 'left', 'top', width=pw - 56 * s)
         else:
-            gui.text('Travel to an attuned shrine.', px + 28 * s, y, 11, MUTED, 'left', 'center')
+            gui.text('Travel to an attuned waystone. Travel is free.', px + 28 * s, y, 11, MUTED, 'left', 'center')
             y -= 28 * s
             vis = 7
             if gui.scroll:
@@ -46,34 +46,56 @@ class WaystoneScreen(Screen):
         app.set_screen(None)
 
 
-class FontScreen(Screen):
+class TidewellScreen(Screen):
+    """The Tidewell (the Glimmer Font before 1.4.4): explains Glimmer, then sells lasting gifts."""
+
     def build(self, gui, app, w, h):
         s = gui.s
         ses = app.session
         veil(gui, w, h, 0.35)
-        pw, ph = min(720 * s, w - 40 * s), min(520 * s, h - 40 * s)
+        pw, ph = min(760 * s, w - 40 * s), min(610 * s, h - 30 * s)
         px, py = (w - pw) / 2, (h - ph) / 2
         gui.panel(px, py, pw, ph)
-        gui.text('Glimmer Font', px + 28 * s, py + ph - 36 * s, 22, INK, 'left', 'center', font='title')
+        gui.text(G.NAME, px + 28 * s, py + ph - 36 * s, 22, INK, 'left', 'center', font='title')
         have = ses.inv.count(I.GLIMMER.id)
-        gui.text(f'You have {have} Glimmer. Spend it here for lasting attunements, saved with this sky.',
-                 px + 28 * s, py + ph - 64 * s, 11, MUTED, 'left', 'center', width=pw - 56 * s)
-        y = py + ph - 100 * s
+        gui.text(f'You have {have} Glimmer', px + pw - 28 * s, py + ph - 36 * s, 13, ACCENT, 'right', 'center',
+                 font='bold')
+        # how the loop works, in three short steps
+        bx, bw = px + 24 * s, pw - 48 * s
+        bh = 26 * s + 26 * s * len(G.HOW)
+        by = py + ph - 66 * s - bh
+        gui.rect(bx, by, bw, bh, (0.97, 0.95, 0.98, 1), 12 * s)
+        gui.text('How Glimmer works', bx + 16 * s, by + bh - 16 * s, 11, INK, 'left', 'center', font='bold')
+        yy = by + bh - 42 * s
+        for i, (head, line) in enumerate(G.HOW):
+            gui.text(f'{i + 1}. {head}', bx + 16 * s, yy, 11, ACCENT, 'left', 'center', font='bold')
+            gui.text(line, bx + 118 * s, yy, 10, INK, 'left', 'center', width=bw - 134 * s)
+            yy -= 26 * s
+        y = by - 30 * s
+        gui.text('Lasting gifts for this sky', px + 28 * s, y, 12, INK, 'left', 'center', font='bold')
+        y -= 30 * s
         for aid, title, cost, desc in G.ATTUNEMENTS:
             have_it = aid in ses.attune
-            label = f'{title}  —  attuned' if have_it else f'{title}  —  {cost} Glimmer'
             if have_it:
-                gui.text(label, px + 28 * s, y, 13, ACCENT, 'left', 'center', font='bold')
-            elif gui.button(px + 28 * s, y - 16 * s, pw - 56 * s, 34 * s, label, enabled=have >= cost, size=12):
-                if ses.buy_attunement(aid):
-                    app.audio.play('awaken', 0.6)
-            gui.text(desc, px + 40 * s, y - 28 * s, 10, MUTED, 'left', 'center', width=pw - 80 * s)
-            y -= 64 * s
-        if gui.button(px + pw / 2 - 80 * s, py + 22 * s, 160 * s, 36 * s, 'Done', primary=True):
+                gui.text(f'{title}  —  yours', px + 28 * s, y, 13, ACCENT, 'left', 'center', font='bold')
+            else:
+                short = cost - have
+                label = f'{title}  —  {cost} Glimmer' + (f'  (need {short} more)' if short > 0 else '')
+                if gui.button(px + 28 * s, y - 15 * s, pw - 56 * s, 32 * s, label, enabled=have >= cost, size=12):
+                    if ses.buy_attunement(aid):
+                        app.audio.play('awaken', 0.6)
+            gui.text(desc, px + 40 * s, y - 27 * s, 10, MUTED, 'left', 'center', width=pw - 80 * s)
+            y -= 58 * s
+        if gui.button(px + pw / 2 - 80 * s, py + 18 * s, 160 * s, 34 * s, 'Done', primary=True):
             app.set_screen(None)
 
     def escape(self, app):
         app.set_screen(None)
+
+
+# saves, tours and older code may still name the Font
+FontScreen = TidewellScreen
+
 
 class PathScreen(Screen):
     """The Path: a tree of goals that also explains how the sky works."""

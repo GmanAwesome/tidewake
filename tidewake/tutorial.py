@@ -44,8 +44,9 @@ NPCS = [
      ('A hoe tills turf or loam into a bed. Plant the seeds from the chest, then wait — they grow faster by a pool.',
       'When a crop is tall and ripe, break it to harvest. Three ears of skywheat bake into a loaf.')),
     (6, -32, 'Lumen', (0.92, 0.78, 0.48),
-     ('Glimmer is scarce in the wild, but a few motes practice here. Walk into a golden mote to catch one.',
-      'Spend 1 Glimmer on the waystone so it remembers you, then travel to the shrine on the far knoll. The Font spends Glimmer for lasting gifts.')),
+     ('Glimmer is the sky\'s spare light. Those floating motes are Glimmer: walk into one to catch it. Pale by day, golden and plentiful at dusk.',
+      'A waystone remembers you for 1 Glimmer. Attune this one, cross the bridge and attune the shrine on the knoll. Then right-click either stone to travel. Travel is free.',
+      'The Tidewell beside me turns 2 to 4 Glimmer into a lasting gift for this sky, like quicker feet or longer reach. Take the Glimmer in my chest to start.')),
 ]
 
 CHESTS = {
@@ -55,7 +56,7 @@ CHESTS = {
     (37, 51, SURF + 1): [(MT.ID['planks'], 16), (MT.ID['door'], 2), (MT.ID['ladder'], 6)],
     (7, 55, SURF + 1): [(I.ROD.id, 1), (I.BERRIES.id, 4)],
     (-25, 39, SURF + 1): [(I.HOE.id, 1), (I.GRAIN_SEEDS.id, 6), (I.ROOT_SEEDS.id, 4), (I.BERRY_SEEDS.id, 4)],
-    (5, -31, SURF + 1): [(I.GLIMMER.id, 4), (MT.ID['waystone'], 1)],
+    (5, -31, SURF + 1): [(I.GLIMMER.id, 4)],
 }
 
 # second waystone for travel practice, on the shrine knoll across the bridge
@@ -194,7 +195,7 @@ def generate_chunk(cq, cr):
     banner_leaf = _mat('leaf_banner', 'petals')
     banner_sky = _mat('sky_banner', 'petals')
     banner_honey = _mat('honey_banner', 'petals')
-    cosmic = _mat('cosmic_star', 'glimmer_font')
+    cosmic = _mat('cosmic_star', 'tidewell')
     brass = _mat('brass', 'copper_block' if 'copper_block' in M else 'stone')
     iron = _mat('wrought_iron', 'stone')
     pewter = _mat('pewter', 'stone')
@@ -355,7 +356,7 @@ def generate_chunk(cq, cr):
                         pass
     _put(cells, meta, cq, cr, 6, -32, SURF + 1, 0)  # Lumen stands here; waystone is beside
     _put(cells, meta, cq, cr, 8, -32, SURF + 1, M['waystone'], 0)
-    _put(cells, meta, cq, cr, 4, -33, SURF + 1, M['glimmer_font'], 0)
+    _put(cells, meta, cq, cr, 4, -33, SURF + 1, M['tidewell'], 0)
     _put(cells, meta, cq, cr, 8, -34, SURF + 1, clamp_violet)
     _put(cells, meta, cq, cr, 4, -30, SURF + 1, banner_honey)
 
@@ -534,3 +535,9 @@ def fill_tutorial_chests(session):
 def shrine_pos():
     x, z = center(10, -58)
     return x, (SURF + 4) * LAYER, z
+
+
+def mote_courts():
+    """Where practice motes drift: Lumen's Tidewell court and the shrine knoll."""
+    x, z = center(6, -32)
+    return [(x, (SURF + 1) * LAYER, z), shrine_pos()]

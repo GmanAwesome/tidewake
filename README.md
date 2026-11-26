@@ -76,7 +76,7 @@ Fishing and farming are part of the usual loop: a craftable rod, bites that chan
 
 ### Glimmer, the Path and creatures
 
-Golden **Glimmer** motes drift in the air, rarer in the day and richer at dusk. Spend them at a **waystone** to travel, or at the **Glimmer Font** for lasting gifts. The **Path** keeps track of what you have done and quietly points at what to try next.
+Floating **Glimmer** motes drift in the air: walk into one to catch it. They are pale and few by day, golden and plentiful at dusk, and waking a spire leaves some too. Spend 1 Glimmer so a **waystone** remembers you; attune two and you can travel between them for free. A **Tidewell** (the Glimmer Font before 1.4.4) turns 2–4 Glimmer into a lasting gift for that sky, such as Mote Sense, Keen Reach or Lightfoot. The **Path** keeps track of what you have done and quietly points at what to try next.
 
 Woolhops, pebblebeaks and mossbacks wander the meadows. At Dusktide, gloomlings and brutes creep out. **Skywhales** drift slowly between islands, and **fairies** glow near flowers as evening comes on — both peaceful, and kept off the lesson island. F5 cycles first person, third person and looking-at-you; the figure you see wears only what you are actually holding or have found.
 

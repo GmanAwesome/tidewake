@@ -1,16 +1,35 @@
-"""Glimmer systems: waystones (fast travel between attuned shrines) and the Font (spent Glimmer for lasting attunements)."""
+"""Glimmer: the sky's spare light.
+
+The loop, in plain words:
+  1. Catch it. Floating motes are Glimmer. Walk into one. Pale motes drift by day;
+     golden ones come thick at dusk. Waking a spire also leaves some.
+  2. Waystones. Spend 1 Glimmer so a waystone remembers you. Attune two, then
+     right-click either one to travel between them. Travel is free.
+  3. The Tidewell (called the Glimmer Font before 1.4.4). Spend 2-4 Glimmer on a
+     lasting gift for this sky.
+"""
 
 # id, title, cost, short how-to / effect
+# Ordered cheapest first. Mote Sense is the cheap starter: it helps you catch more.
 ATTUNEMENTS = [
-    ('reach', 'Keen Reach', 3, 'Your mining and placing reach grows by about a block and a half.'),
+    ('sense', 'Mote Sense', 2, 'More motes drift near you, they linger longer, and you catch them from farther away.'),
+    ('reach', 'Keen Reach', 3, 'You can mine and place about a block and a half farther.'),
     ('lightfoot', 'Lightfoot', 3, 'You walk and hurry a little faster.'),
     ('breath', 'Deep Breath', 3, 'Hunger drains more slowly, so food lasts longer.'),
-    ('sense', 'Mote Sense', 4, 'Dusk motes linger longer and you can catch them from slightly farther away.'),
-    ('brightwake', 'Brightwake', 4, 'A soft glow follows you, and you mend a little when well-fed.'),
+    ('brightwake', 'Brightwake', 4, 'A soft glow follows you, and you slowly mend while well-fed.'),
+]
+
+WAYSTONE_COST = 1
+NAME = 'Tidewell'
+HOW = [
+    ('Catch', 'Floating motes are Glimmer. Walk into one. Pale motes drift by day; golden ones come thick at dusk.'),
+    ('Waystones', 'Spend 1 Glimmer so a waystone remembers you. Attune two, then travel between them for free.'),
+    ('Tidewell', 'Spend 2-4 Glimmer here on a lasting gift. Gifts stay with this sky.'),
 ]
 
 WAYSTONE = 'waystone'
-FONT = 'glimmer_font'
+FONT = 'tidewell'
+LEGACY_FONT = 'glimmer_font'
 
 
 def key(q, r, y):

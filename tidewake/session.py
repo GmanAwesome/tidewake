@@ -31,7 +31,7 @@ NEEDS_GROUND = {M['sprout'], M['bloom'], M['crystal'], M['berry_bush'], M['glows
 MAX_HP = 20
 MAX_FOOD = 20
 STARTER = [(I.BERRIES.id, 4), (M['glowstick'], 3)]
-USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door'], M['waystone'], M['glimmer_font']}
+USE_BLOCKS = {M['tinker_bench'], M['kiln'], M['chest'], M['bedroll'], M['door'], M['waystone'], M['tidewell']}
 SPRITE_HELD = {'pick', 'axe', 'spade', 'blade', 'stick', 'rod', 'hoe'}
 PASSIVE_REALMS = {
     'woolhop': (0, 1, 5, 3, 7, 8, 9, 10, 14),
@@ -301,13 +301,20 @@ class Session:
             if self.dev:
                 rec['attuned'] = True
             elif self.inv.count(I.GLIMMER.id) < 1:
-                self.toast('The shrine is quiet', 'It wants 1 Glimmer to remember you.', 3)
+                self.toast('The waystone is quiet',
+                           'It wants 1 Glimmer to remember you. Catch a floating mote: just walk into it.', 4)
                 return
             else:
                 self.inv.remove(I.GLIMMER.id, 1)
                 rec['attuned'] = True
                 self.app.audio.play('awaken', 0.55)
-                self.toast('The waystone remembers you', 'Find another and you can travel between them.', 4)
+                others = sum(1 for k2, v in self.waystones.items() if v.get('attuned') and k2 != key)
+                if others:
+                    self.toast('The waystone remembers you',
+                               'Right-click it again to travel to any attuned waystone. Travel is free.', 4.5)
+                else:
+                    self.toast('The waystone remembers you',
+                               'Attune a second waystone, then right-click either to travel between them. Travel is free.', 5)
                 self.check_path()
                 return
         self.app.set_screen(WaystoneScreen(key))
@@ -349,14 +356,15 @@ class Session:
             return False
         _, title, cost, _ = rec
         if not self.dev and self.inv.count(I.GLIMMER.id) < cost:
-            self.toast('Not enough Glimmer', f'{title} wants {cost}.', 2.5)
+            need = cost - self.inv.count(I.GLIMMER.id)
+            self.toast('Not enough Glimmer', f'{title} costs {cost}. Catch {need} more: walk into floating motes.', 3.5)
             return False
         if not self.dev:
             self.inv.remove(I.GLIMMER.id, cost)
         self.attune.append(aid)
         self.apply_attune()
         self.app.audio.play('awaken', 0.6)
-        self.toast(title, 'The Font keeps this with the sky.', 3.5)
+        self.toast(title, 'The Tidewell keeps this gift with the sky.', 3.5)
         self.check_path()
         return True
 
@@ -910,7 +918,7 @@ class Session:
                 if cell_at(mob.x, mob.z) == (q, r) and math.floor(mob.y / LAYER) <= y <= math.floor((mob.y + mob.height) / LAYER):
                     return False
         meta0 = INITIAL_META.get(mat, 0)
-        if mat in (M['tinker_bench'], M['kiln'], M['chest'], M['door'], M['ladder'], M['waystone'], M['glimmer_font']):
+        if mat in (M['tinker_bench'], M['kiln'], M['chest'], M['door'], M['ladder'], M['waystone'], M['tidewell']):
             # face the front (drawer, firebox, latch, door, rungs) towards you
             from .hexgrid import DIR_NORMALS
             cx_, cz_ = center(q, r)
@@ -998,9 +1006,9 @@ class Session:
             self._toggle_door(q, r, y)
         elif m == M['waystone']:
             self._use_waystone(q, r, y)
-        elif m == M['glimmer_font']:
-            from .ui.systems import FontScreen
-            self.app.set_screen(FontScreen())
+        elif m == M['tidewell']:
+            from .ui.systems import TidewellScreen
+            self.app.set_screen(TidewellScreen())
             self.app.audio.play('chord', 0.5)
         elif m == M['bedroll']:
             cx, cz = center(q, r)
@@ -1741,9 +1749,10 @@ class Session:
             if self.world.get(q, r, math.floor(y / LAYER)) == 0:
                 gold = dusk > 0.45
                 if getattr(self, 'tutorial', False):
+                    # practice motes drift around whichever Glimmer court is nearer
                     from . import tutorial as TUT
-                    sx, sy, sz = TUT.shrine_pos()
-                    x, y, z = sx + random.uniform(-3, 3), sy + random.uniform(0.2, 1.6), sz + random.uniform(-3, 3)
+                    sx, sy, sz = min(TUT.mote_courts(), key=lambda c: (c[0] - p.x) ** 2 + (c[2] - p.z) ** 2)
+                    x, y, z = sx + random.uniform(-4, 4), sy + random.uniform(0.3, 1.8), sz + random.uniform(-4, 4)
                     gold = True
                 self.motes.append([x, y, z, random.uniform(0, 6.3), random.uniform(18, 40), gold])
         keep = []
@@ -1755,9 +1764,13 @@ class Session:
             m[2] += math.cos(m[3] * 0.5) * 0.4 * dt
             m[1] += math.sin(m[3] * 1.3) * 0.25 * dt
             d = math.sqrt((m[0] - ex) ** 2 + (m[1] - ey) ** 2 + (m[2] - ez) ** 2)
-            if d < (2.2 if sense else 1.5) and m[5]:
+            if d < (2.2 if sense else 1.5):
+                # every mote is Glimmer: pale by day, golden at dusk
                 self.inv.add(I.GLIMMER.id, 1)
                 self.stats['motes'] += 1
+                if self.stats['motes'] == 1:
+                    self.toast('You caught Glimmer!',
+                               '1 Glimmer attunes a waystone. 2-4 buys a lasting gift at a Tidewell.', 5.5)
                 self.app.audio.play('mote', 0.7)
                 self._spawn(m[0], m[1], m[2], (1.0, 0.84, 0.45), 6, homing=True)
                 continue
@@ -1881,7 +1894,7 @@ class Session:
         L = [(m[0] - cx, m[1] - cy, m[2] - cz, M['lantern']) for m in self.motes[:6] if m[5]]
         if 'brightwake' in getattr(self, 'attune', []):
             p = self.player
-            L.append((p.x - cx, p.y + 0.9 - cy, p.z - cz, M['glimmer_font']))
+            L.append((p.x - cx, p.y + 0.9 - cy, p.z - cz, M['tidewell']))
         lamp = M.get('lumen_lamp', M['lantern'])
         for mob in self.mobs:
             if mob.kind != 'fairy' or mob.dead:

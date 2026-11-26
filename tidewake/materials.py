@@ -134,7 +134,7 @@ _M = [
     ('Polished Stone Slab','slab', (0.90, 0.88, 0.84), (0.80, 0.78, 0.74), 0.0, True, (1, 0, 0, 0), 'stone'),
     # ---- 1.4 phase 3: glimmer stations
     ('Waystone',      'full', (0.86, 0.80, 0.98),  (0.62, 0.56, 0.78),   0.55, True, (0, 0, 1, 0), 'stone'),
-    ('Glimmer Font',  'full', (1.00, 0.90, 0.58),  (0.72, 0.62, 0.78),   0.85, True, (0, 0, 1, 0), 'glass'),
+    ('Tidewell',      'full', (1.00, 0.90, 0.58),  (0.72, 0.62, 0.78),   0.85, True, (0, 0, 1, 0), 'glass'),
     ('Farmland',      'full', (0.52, 0.38, 0.26),  (0.48, 0.36, 0.24),   0.0, True,  (1, 0, 0, 0), 'soft'),
     ('Skywheat',      'deco', (0.82, 0.72, 0.38),  (0.46, 0.62, 0.32),   0.0, False, (0, 0, 0, 1), 'leaf'),
     ('Sweetroot Crop','deco', (0.62, 0.48, 0.30),  (0.40, 0.62, 0.34),   0.0, False, (0, 0, 0, 1), 'leaf'),
@@ -157,6 +157,11 @@ if len(_M) > 256:
 
 NAMES = [m[0] for m in _M]
 ID = {m[0].lower().replace(' ', '_'): i for i, m in enumerate(_M)}
+# 1.4.4: the Glimmer Font is now the Tidewell. Same cell id (117), so saves are
+# unchanged; the old key still resolves for older code, tools and showcase JSON.
+LEGACY = {'glimmer_font': 'tidewell'}
+for _old, _new in LEGACY.items():
+    ID[_old] = ID[_new]
 N = len(_M)
 KIND = [m[1] for m in _M]
 TOP = np.array([m[2] for m in _M], dtype=np.float32)
@@ -222,7 +227,7 @@ LIGHTS = {
     ID['polished_starstone']: ((0.55, 0.45, 0.95), 5.0),
     ID['starstone_tiles']: ((0.50, 0.40, 0.90), 4.0),
     ID['waystone']: ((0.75, 0.65, 1.0), 10.0),
-    ID['glimmer_font']: ((1.0, 0.84, 0.45), 12.0),
+    ID['tidewell']: ((1.0, 0.84, 0.45), 12.0),
 }
 _EX = PAL.extras()
 for _name, _light in _EX['lights'].items():
@@ -323,7 +328,7 @@ def _tex_style(name, kind):
         return 'heather'
     if 'waystone' in n:
         return 'waystone'
-    if 'font' in n:
+    if n == 'tidewell' or 'font' in n:
         return 'font'
     if 'farmland' in n:
         return 'farm'

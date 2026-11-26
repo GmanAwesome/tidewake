@@ -24,8 +24,8 @@ def test_waystone_and_font_exist():
 
 def test_attunements_are_priced():
     ids = [a[0] for a in G.ATTUNEMENTS]
-    assert ids == ['reach', 'lightfoot', 'breath', 'sense', 'brightwake']
-    assert all(a[2] >= 3 for a in G.ATTUNEMENTS)
+    assert sorted(ids) == sorted(['reach', 'lightfoot', 'breath', 'sense', 'brightwake'])
+    assert all(a[2] >= 2 for a in G.ATTUNEMENTS)  # 1.4.4: Mote Sense is a 2-Glimmer starter
 
 
 def test_temples_place_waystones():
