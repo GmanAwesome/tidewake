@@ -1,0 +1,105 @@
+# Tidewake 2.1 roadmap
+
+Rust rewrite of Tidewake 1.4.6. The Python tree stays in place as the spec until
+this port matches it. The Rust project lives in `rust/` (a Cargo workspace).
+
+Version string on the title screen and the debug line: **2.1**.
+
+Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
+
+## Scaffold
+
+- [x] Cargo workspace under `rust/`
+- [x] Window opens and clears to the Lighttide sky (`winit` + `wgpu`)
+- [x] Title screen shows version `2.1` (Learn to play, My Skies, Settings)
+- [x] Debug line shows version `2.1` while playing
+- [x] My Skies starts empty and offers New Sky
+- [x] Loading screen; a failed chunk sets an error and Esc returns to the title
+- [x] Settings sliders (up and down choose, left and right change the twelve New Sky sliders)
+- [x] Walk, jump and step-up on solid ground. F4 toggles flight
+- [x] GitHub Actions workflow builds `Tidewake.exe` on `windows-latest` and uploads the zip
+- [ ] Confirm the exe on a Windows machine (manifest and icon are embedded by the Windows build)
+
+## World
+
+- [x] Axial hex grid maths (pointy-top `q, r`, floor chunking, 500 layers, 16×16)
+- [x] Column storage, edits, chunk streaming, unload margin (edits are saved and reapplied when a chunk streams back)
+- [~] v6 generator only (v1–v5 are not ported)
+  - [x] Seed temperament and slider settings (matches Python MT19937)
+  - [x] Main island scales (huge, large, medium, small) and skerries, checked against Python columns
+  - [x] Sky tiers (`skytiers.py`) stacked through the column
+  - [x] Tapered undersides on the main islands
+  - [x] Waterfalls that end in the air (about 40 layers, not down to the cloud sea)
+  - [x] Spike cleanup (tested: no 10-layer non-waterfall pillars inside a chunk)
+  - [x] 20 biomes on the column field, including Blossom Vale, Autumn Wilds, Azure Fields, Golden Steppe
+  - [x] Small and medium trees, including the v6 shapes (bush, blossom, autumn, cone, flat acacia)
+  - [x] Huge trees (18–34 layers, drawn across chunks: oak, cone, willow, acacia, toadstool)
+  - [x] Caves (worms, rooms, fissures, and cobble-framed mouths)
+  - [x] Lakes (surface pools)
+  - [x] Ores (emberite, verdigris, silverine, aetherite) and dormant spires
+- [x] Grand structures at the 1.4.6 rate (54.6% of regions): balloons, sky city,
+      fortress, world tree, colossus, megaspire, leviathan wreck, titan ruins,
+      villages, airships, watchtowers
+- [x] Smaller builds at 65% and skipped wherever a grand structure covers the chunk
+      (huts, shrines, windmills, lighthouses, wells)
+- [x] Rare wonders on about one in ten small rolls (clockwork tower, crystal nave,
+      hanging keep)
+- [x] Meshing (hex prisms, opaque and water)
+- [x] LOD that draws each vertical run, so stacked islands stay separate
+- [x] Distance fog (Lighttide clear)
+- [x] Fly camera over a generated v6 sky (release: about 10 ms/chunk, ~40 fps on llvmpipe)
+
+## Look
+
+- [x] Every material and block from 1.4.6 (ids, kinds, colours, emission, solidity)
+- [x] Drops, hardness and decorative part shapes for those blocks (times from items.py; slabs are half height; decorations are crossed quads)
+- [x] Procedural texture atlas from `tidewake/texpack.py` (our own tiles, not third-party pixels)
+- [x] Lighting follows the tide: warm Lighttide sun, violet Dusktide
+- [x] Sky gradient, a sun disc, and a cloud sea at the cloud layer
+- [x] Player model kept exactly: nude wanderer, rounded glutes, smooth front,
+      no genitals and no frontal bulge. F5 cycles first person / behind / in front
+
+## Play
+
+- [x] Walk, look, jump, hurry, and step up one layer. F4 flies
+- [x] Crouch (Shift) and glide (hold jump while falling, once Glide is granted)
+- [x] Fly and fall (F4 and /fly, Dreamer mode, a hard landing stings, the cloud sea carries you back to where you woke)
+- [x] Mine and place (left click breaks, right click places the held block; Keen Reach adds 1.5)
+- [x] Hotbar of 9, eating (food and a quarter of that as health), the Python recipe table, and a kiln (input, fuel, output, 4s smelts)
+- [x] Survival: food drains while walking, hunger hurts, eating heals, food above 16 regenerates health
+- [x] Doors (two cells, right-click opens), ladders and vines climb, beds set the waking spot and skip dusk, chests store 27 slots
+- [x] Fishing (rod, wait, bite window, reel) and farming (hoe, seeds, four growth stages, harvest)
+- [x] Creatures wander (woolhops, pebblebeaks, mossbacks, islekits, fairies, sky jellies). Gloomlings fade when the tide is light
+- [x] Glimmer motes, waystone cost 1, Tidewell gifts at 2–4 (Mote Sense through Brightwake)
+- [x] Spires (a full offering ring wakes the spire: Glide, then Updraft, then Tidecall on T) and the Path
+- [x] Tides (Lighttide / Dusktide colours and names from tide.py; gloomlings follow dusk)
+- [x] Lesson island ("Learn to play") uses the 1.4.6 land, path, stations and showpieces (plaza, clocktower, bazaar, hall, conservatory, monument, bounce park, observatory, grove, follies, maze, windmill, castle, gallery)
+- [ ] The 1.4.6 showpiece builds and the friendly cast on that island
+- [x] Commands (`/give`, `/fly`, `/dreamer`, `/tide`) and Dreamer mode
+
+## Shell
+
+- [x] Title (version 2.1, Learn to play, My Skies, Settings)
+- [x] My Skies starts empty; the lesson is not listed
+- [x] New Sky (type a seed, or leave it blank)
+- [x] New Sky sliders (the same twelve, applied when the sky is dreamed)
+- [x] Settings screen edits the sky sliders
+- [x] Loading screen that shows world-gen errors and lets Esc return
+- [x] Pause (Esc), then resume or save and leave
+- [x] Saves (new JSON format next to the game; the lesson is not listed; old Python saves are not loaded)
+- [x] Korobeiniki plays when a sky starts (public domain). The rest of the soundtrack and sound effects are still open
+- [x] Journal (J lists the Path)
+
+## Tests
+
+- [x] Generator is deterministic per seed (chunk bytes match a second generate)
+- [x] All 5 island tiers present (huge/large/medium/small on the main grids, tiny on sky tiers)
+- [x] No thin non-waterfall pillars in a generated chunk
+- [x] v6 columns match the Python generator on recorded seed-7 samples
+- [x] Other core logic now covered: crafting, glimmer costs, tide colours, hunger, kiln, fishing times, the Path counts
+
+## Notes
+
+- Saves from 1.4.x are not loaded. Generator versions v1–v5 are not ported.
+- Players need nothing installed: the Windows build is one statically linked exe.
+- Do not publish a GitHub release from this port. The owner's assistant publishes releases.

@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["crates/tidewake", "crates/tidewake-core"]
+
+[workspace.package]
+version = "2.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+winit = "0.30"
+wgpu = "23"
+glam = "0.29"
+pollster = "0.4"
+env_logger = "0.11"
+log = "0.4"
