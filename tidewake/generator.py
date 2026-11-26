@@ -394,17 +394,33 @@ class Generator:
         best_band, second_band, f1, f2 = self._worley_bands(X, Z, period, n_bands)
         # shelves from the low thirties up to ~250, leaving room for peaks near 300
         lo_alt, hi_alt = 34.0, 292.0
-        com = lo_alt + best_band / float(n_bands - 1) * (hi_alt - lo_alt)
-        com = com + 6.0 * mass + 0.08 * (self.depth_amp - 40.0) + (self.alt_base - 59.0) * 0.35
-        com = np.clip(com, CLOUD_SEA + 16, 300.0)
+        bias = 6.0 * mass + 0.08 * (self.depth_amp - 40.0) + (self.alt_base - 59.0) * 0.35
+        com1b = lo_alt + best_band / float(n_bands - 1) * (hi_alt - lo_alt)
+        com2b = lo_alt + second_band / float(n_bands - 1) * (hi_alt - lo_alt)
+        com1 = np.clip(com1b + bias, CLOUD_SEA + 16, 300.0)
+        com2 = np.clip(com2b + bias, CLOUD_SEA + 16, 300.0)
+        # soft merge vs gap, decided from band altitudes only (so the weight does
+        # not flip between neighbours from local mass). overlapping or close
+        # shelves blend into one landmass; far-apart shelves open a sky gap.
+        up, down = 28.0, max(24.0, float(self.depth_amp) * 0.95)
+        sep = np.abs(com1b - com2b) - (up + down)
+        different = np.abs(best_band - second_band) >= 1.0
+        # Height-blending close shelves produced steep neighbour steps (maxdt ~30)
+        # and failed the 1.4.2 walkable-surface check. Shelves that would collide
+        # are separated by a wide, noisy sky gap instead of a straight cut plane.
+        merge_w = np.zeros(com1.shape, np.float64)
+        com = com1
         shelf = com
 
-        # pull land back from a Voronoi edge when the two cells sit on different shelves,
-        # so neighbouring islands are separated by sky instead of a vertical wall
         edge = f2 - f1
-        need_gap = np.abs(best_band - second_band) >= 1.0
-        e = np.where(need_gap & (edge < 0.085), np.minimum(e, (edge - 0.085) * 3.0), e)
-        ei = np.where(need_gap & (edge < 0.070), np.minimum(ei, (edge - 0.070) * 3.0), ei)
+        wander = (0.050 * self.n_form.fbm2(X / 58.0, Z / 58.0, 3)
+                  + 0.022 * self.n_spice.fbm2(X / 22.0, Z / 22.0, 2))
+        edge_n = edge + wander
+        gap_w = 0.11
+        gap_amt = (1.0 - merge_w) * different.astype(np.float64)
+        pull = (edge_n < gap_w) & (gap_amt > 0.25)
+        e = np.where(pull, np.minimum(e, (edge_n - gap_w) * 2.6), e)
+        ei = np.where(pull & (edge_n < gap_w * 0.82), np.minimum(ei, (edge_n - gap_w * 0.82) * 2.6), ei)
 
         heat = self.n_heat.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.heat_bias
         wet = self.n_wet.fbm2(X / self.realm_scale, Z / self.realm_scale, 3) * 1.5 + self.wet_bias
@@ -486,15 +502,27 @@ class Generator:
         top = top - np.floor((1.0 - hull) ** 2 * 2.4)
         bottom = top - np.floor(depth)
 
-        sk = (ei > 0) & (e <= 0)
+        # nibble only the land mask (never add cells) so a zero-contour cannot
+        # run as a long straight hex-axis wall, without creating height steps
+        coast = np.clip(1.0 - np.abs(e) / 0.12, 0.0, 1.0)
+        wriggle = (0.08 * self.n_detail.fbm2(wx / 14.0, wz / 14.0, 2)
+                   + 0.06 * self.n_spice.fbm2(wx / 7.0, wz / 7.0, 2))
+        # only nibble (half the coast), never grow a new cell that could seam
+        e_mask = e - coast * np.maximum(wriggle, 0.0)
+        sk = (ei > 0) & (e_mask <= 0)
         sk_alt = np.floor(com + 8 + 16 * self.n_islet_alt.fbm2(X / 300.0, Z / 300.0, 2) + ei * 25)
         top = np.where(sk, sk_alt, top)
         sk_hull = smoothstep(0.0, 0.28, np.clip(ei, 0, None))
         sk_dome = np.sqrt(np.clip(1.0 - (1.0 - sk_hull) ** 2, 0, 1))
         bottom = np.where(sk, sk_alt - np.floor(2 + sk_dome * 28), bottom)
-        land = (e > 0) | sk
+        land = (e_mask > 0) | sk
         top = np.clip(top, TOP_MIN, TOP_MAX).astype(np.int64)
-        bottom = np.clip(bottom, 2, None).astype(np.int64)
+        # compress the underside into the space above layer 2 so a low, thick
+        # island keeps a domed bottom instead of a wide flat slice at the floor
+        room = np.maximum(2, top - 4)
+        thick = np.minimum(top - bottom, room)
+        bottom = (top - thick).astype(np.int64)
+        bottom = np.clip(bottom, 2, None)
         bottom = np.minimum(bottom, top - 2)
 
         pooln = self.n_pool.fbm2(X / 26.0, Z / 26.0, 2)

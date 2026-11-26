@@ -380,4 +380,18 @@ The version line is 1.4.2-test. After shots are in `screenshots-final/v1.4.2/`: 
 
 The version line is 1.4.2, without -test. The changelog and the README download link are updated, and the title hero and landscape shots on the README now show the new sky. This is going out as a full Latest release rather than another pre-release.
 
+# 1.4.3
 
+## November 25, 2026, 7:13 PM EST — Starting 1.4.3 from the playtest
+
+The lesson island is much slower than a normal sky, some islands still show straight cutoffs where they meet or overlap, and the wanderer should appear unclothed until something is crafted or found and put on. Profiling the tutorial first, then the cut faces, then the default figure.
+
+
+
+## November 25, 2026, 7:28 PM EST — Tutorial slowness, cutoffs, and the unclothed wanderer
+
+The tutorial was not remeshing, restamping, or leaking dirty flags. A 5s stand-still profile (vsync off, fps_limit 0, 1280×720) on the lesson island was 13.2 fps (p50 75 ms). Nearly all of that extra time was in `session.dynamic_models`: all 8 lesson NPCs call `models.guide()` every frame, which rebuilds prism meshes from scratch (`models.prisms` / `_faces_side`, 64 prism batches per frame, 3.26 s of a 5 s sample). Jobs, remesh, set() and collect exceptions were all zero; 258 chunks had already settled, 9 lights. A normal v3 sky on this box was also heavy to draw (frame times hit the 100 ms dt clamp, so reported fps was 10), but it spent almost nothing in figure meshing — on a machine where a normal sky is 60 fps, that ~65 ms/frame of prism work is what makes the lesson feel uniquely slow. Guide and wanderer poses are now cached.
+
+Straight cutoffs on seed -857535443 were Worley cell-edge pullbacks (`need_gap` along f2-f1, a square XZ grid, so long walls ran along hex axes) slicing one landmass, plus natural e=0 coasts that happened to be ruler-straight, plus low islands whose underside was clipped to a flat plane at layer 2. Different-band shelves already had a sky gap, but the margin was a straight Voronoi plane. Height-blending those shelves reintroduced 28-layer steps, so 1.4.3 keeps a gap for separated shelves and makes the margin wander, nibbles only the land mask (never adds a cell, so walkable steps stay ≤6), and compresses a too-deep underside instead of slicing it flat at the floor. Overlapping [bottom, top] volumes in the reported windows went to 0. The 25-cell wall at Cloudstep Isles is gone; remaining hex-axis coasts are ≤17 cells. `tests/test_phase143.py` flags 18+ cell ruler walls, 16+ cell canyons, and volume overlaps. 1.4.2 sheer-cliff tests still pass (0 v3 seams).
+
+The third-person wanderer is a uniform skin-tone mannequin with no outfit colours, plus two simple cheek blocks on the back of the hips. Gear still attaches only when a crafted or found item is held. Lesson guides keep their clothes.
