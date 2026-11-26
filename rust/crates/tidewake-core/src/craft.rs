@@ -26,6 +26,7 @@ struct Book {
     names: HashMap<u16, String>,
     food: HashMap<u16, i32>,
     smelt: HashMap<u16, u16>,
+    fuel: HashMap<u16, f32>,
 }
 
 #[derive(Deserialize)]
@@ -34,6 +35,7 @@ struct Raw {
     groups: HashMap<String, Vec<u16>>,
     recipes: Vec<RawRecipe>,
     smelt: HashMap<String, u16>,
+    fuel: HashMap<String, f32>,
     named: HashMap<String, u16>,
 }
 
@@ -90,9 +92,9 @@ fn book() -> &'static Book {
         let names = raw.items.iter().map(|i| (i.id, i.name.clone())).collect();
         let food = raw.items.iter().filter(|i| i.food > 0).map(|i| (i.id, i.food)).collect();
         let smelt = raw.smelt.into_iter().filter_map(|(k, v)| k.parse().ok().map(|id: u16| (id, v))).collect();
-        // named is checked by tests via the constants below; keep the parse honest
+        let fuel = raw.fuel.into_iter().filter_map(|(k, v)| k.parse().ok().map(|id: u16| (id, v))).collect();
         let _ = raw.named;
-        Book { recipes, groups: raw.groups, names, food, smelt }
+        Book { recipes, groups: raw.groups, names, food, smelt, fuel }
     })
 }
 
@@ -107,6 +109,13 @@ pub fn food_of(id: u16) -> i32 {
 pub fn smelt(id: u16) -> Option<u16> {
     book().smelt.get(&id).copied()
 }
+
+/// Seconds of burn one item gives, before it is multiplied by the smelt time.
+pub fn fuel_of(id: u16) -> Option<f32> {
+    book().fuel.get(&id).copied()
+}
+
+pub const SMELT_TIME: f32 = 4.0;
 
 fn in_group(group: &str, id: u16) -> bool {
     book().groups.get(group).map(|g| g.binary_search(&id).is_ok()).unwrap_or(false)

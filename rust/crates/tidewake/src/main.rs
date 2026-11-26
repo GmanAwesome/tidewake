@@ -21,6 +21,7 @@ use tidewake_core::mine;
 use tidewake_core::player::{raycast, Cells, Player};
 use tidewake_core::glimmer::Glimmer;
 use tidewake_core::save::{self, SkySave};
+use tidewake_core::stations::{Chest, Kiln};
 use tidewake_core::tide;
 use tidewake_core::settings::Settings;
 use winit::application::ApplicationHandler;
@@ -110,6 +111,13 @@ struct Game {
     glimmer: Glimmer,
     motes: Vec<(f64, f64, f64)>,
     mining: Option<((i64, i64, i32), f32)>,
+    panel: Option<Panel>,
+}
+
+#[derive(Clone, Copy)]
+enum Panel {
+    Kiln(usize),
+    Chest(usize),
 }
 
 struct App {
@@ -133,6 +141,13 @@ impl Cells for Game {
         let lq = q.rem_euclid(CHUNK as i64) as i32;
         let lr = r.rem_euclid(CHUNK as i64) as i32;
         self.chunks.get(&(cq, cr)).map(|s| s.cpu.get(lq, y, lr)).unwrap_or(0)
+    }
+
+    fn meta(&self, q: i64, r: i64, y: i32) -> u8 {
+        let (cq, cr) = chunk_of(q, r);
+        let lq = q.rem_euclid(CHUNK as i64) as i32;
+        let lr = r.rem_euclid(CHUNK as i64) as i32;
+        self.chunks.get(&(cq, cr)).map(|s| s.cpu.get_meta(lq, y, lr)).unwrap_or(0)
     }
 }
 
@@ -173,6 +188,7 @@ impl Game {
             glimmer: Glimmer::default(),
             motes: Vec::new(),
             mining: None,
+            panel: None,
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -304,6 +320,11 @@ impl Game {
                 let ang = i as f64 * 0.9;
                 let dist = 4.0 + (i % 4) as f64 * 2.0;
                 self.motes.push((x + ang.cos() * dist, y + 1.2, z + ang.sin() * dist));
+            }
+        }
+        if self.screen == Screen::Play {
+            for kiln in &mut self.save.kilns {
+                kiln.tick(dt);
             }
         }
         if self.screen == Screen::Play && self.keys.mine {
@@ -490,7 +511,15 @@ impl Game {
 
     fn place_block(&mut self) {
         let ((ex, ey, ez), (dx, dy, dz)) = self.aim();
-        let (_, prev) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), true);
+        let (hit, prev) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), true);
+        if !self.keys.down {
+            if let Some((q, r, y)) = hit {
+                let mat = self.get(q, r, y);
+                if self.use_block(q, r, y, mat) {
+                    return;
+                }
+            }
+        }
         let Some((q, r, y)) = prev else { return };
         if y < 1 || y >= tidewake_core::config::LAYERS - 1 {
             return;
@@ -512,11 +541,147 @@ impl Game {
         {
             return;
         }
-        self.set_cell(q, r, y, mat, 0);
+        if mat == tidewake_core::materials::id::DOOR {
+            let above = self.get(q, r, y + 1);
+            if above != 0 && above != tidewake_core::materials::id::WATER {
+                return;
+            }
+            self.set_cell(q, r, y, mat, 0);
+            self.set_cell(q, r, y + 1, mat, 16);
+        } else {
+            self.set_cell(q, r, y, mat, 0);
+        }
         let slot = &mut self.save.hotbar[sel];
         slot.count -= 1;
         if slot.count == 0 {
             slot.id = 0;
+        }
+    }
+
+    fn use_block(&mut self, q: i64, r: i64, y: i32, mat: u8) -> bool {
+        use tidewake_core::materials::id;
+        if mat == id::DOOR {
+            let mt = self.meta(q, r, y);
+            let opened = mt ^ 8;
+            self.set_cell(q, r, y, mat, opened);
+            let other_y = if mt & 16 != 0 { y - 1 } else { y + 1 };
+            if self.get(q, r, other_y) == id::DOOR {
+                let omt = self.meta(q, r, other_y);
+                self.set_cell(q, r, other_y, id::DOOR, (omt & !8) | (opened & 8) | (omt & 16));
+            }
+            return true;
+        }
+        if mat == id::BEDROLL {
+            let (x, z) = center(q, r);
+            self.spawn = (x, (y as f64 + 1.0) * LAYER + 0.01, z);
+            let dusk = tide::atmosphere(self.time).dusk;
+            if dusk > 0.4 {
+                self.time = 720.0 * self.time.div_euclid(720.0);
+            }
+            return true;
+        }
+        if mat == id::KILN {
+            let idx = if let Some(i) = self.save.kilns.iter().position(|k| k.q == q && k.r == r && k.y == y) {
+                i
+            } else {
+                self.save.kilns.push(Kiln::at(q, r, y));
+                self.save.kilns.len() - 1
+            };
+            self.panel = Some(Panel::Kiln(idx));
+            return true;
+        }
+        if mat == id::CHEST {
+            let idx = if let Some(i) = self.save.chests.iter().position(|c| c.q == q && c.r == r && c.y == y) {
+                i
+            } else {
+                self.save.chests.push(Chest::at(q, r, y));
+                self.save.chests.len() - 1
+            };
+            self.panel = Some(Panel::Chest(idx));
+            return true;
+        }
+        if mat == id::WAYSTONE {
+            let _ = self.glimmer.attune();
+            return true;
+        }
+        false
+    }
+
+    fn deposit_held(&mut self) {
+        let sel = self.save.selected;
+        let Some(slot) = self.save.hotbar.get(sel).cloned() else { return };
+        if slot.count == 0 {
+            return;
+        }
+        match self.panel {
+            Some(Panel::Kiln(i)) => {
+                let kiln = &mut self.save.kilns[i];
+                let dest = if tidewake_core::craft::fuel_of(slot.id).is_some() && kiln.input.count > 0 {
+                    &mut kiln.fuel
+                } else {
+                    &mut kiln.input
+                };
+                if dest.count == 0 {
+                    *dest = slot.clone();
+                    self.save.hotbar[sel] = tidewake_core::save::Slot { id: 0, count: 0 };
+                } else if dest.id == slot.id {
+                    dest.count = dest.count.saturating_add(slot.count);
+                    self.save.hotbar[sel] = tidewake_core::save::Slot { id: 0, count: 0 };
+                }
+            }
+            Some(Panel::Chest(i)) => {
+                let left = self.save.chests[i].deposit(slot.id, slot.count);
+                if left == 0 {
+                    self.save.hotbar[sel] = tidewake_core::save::Slot { id: 0, count: 0 };
+                } else {
+                    self.save.hotbar[sel].count = left;
+                }
+            }
+            None => {}
+        }
+    }
+
+    fn panel_line(&self) -> Option<String> {
+        match self.panel? {
+            Panel::Kiln(i) => {
+                let k = self.save.kilns.get(i)?;
+                Some(format!(
+                    "Kiln   in {} x{}   fuel {} x{}   out {} x{}   burn {:.0}s",
+                    tidewake_core::craft::name_of(k.input.id),
+                    k.input.count,
+                    tidewake_core::craft::name_of(k.fuel.id),
+                    k.fuel.count,
+                    tidewake_core::craft::name_of(k.output.id),
+                    k.output.count,
+                    k.burn.max(0.0)
+                ))
+            }
+            Panel::Chest(i) => {
+                let chest = self.save.chests.get(i)?;
+                let n: u16 = chest.slots.iter().map(|s| s.count).sum();
+                let first = chest.slots.iter().find(|s| s.count > 0);
+                let name = first.map(|s| tidewake_core::craft::name_of(s.id)).unwrap_or_else(|| "empty".into());
+                Some(format!("Chest   {n} items   next {name}   F store   V take"))
+            }
+        }
+    }
+
+    fn withdraw_panel(&mut self) {
+        let taken = match self.panel {
+            Some(Panel::Kiln(i)) => {
+                let out = self.save.kilns[i].output.clone();
+                if out.count > 0 {
+                    self.save.kilns[i].output = tidewake_core::save::Slot { id: 0, count: 0 };
+                    Some(out)
+                } else {
+                    None
+                }
+            }
+            Some(Panel::Chest(i)) => self.save.chests[i].withdraw(),
+            None => None,
+        };
+        if let Some(slot) = taken {
+            self.save.give(slot.id, slot.count);
         }
     }
 
@@ -528,6 +693,7 @@ impl Game {
         let muted = [0.82, 0.78, 0.90, 1.0];
         let paper = [0.95, 0.92, 0.86, 1.0];
         let accent = [0.36, 0.28, 0.55, 1.0];
+        let panel = self.panel_line();
         {
             let mut ui = Writer { fonts: &mut self.fonts, verts: &mut verts, w: fw, h: fh };
             let bw = 280.0;
@@ -622,7 +788,10 @@ impl Game {
                         false,
                     );
                     ui.text(1, &line, 16.0, 28.0, 16.0, [1.0, 1.0, 1.0, 0.9], false);
-                    ui.text(1, "R eat   C craft loaf   1-9 hotbar   Esc save and leave", 16.0, 50.0, 14.0, muted, false);
+                    ui.text(1, "R eat   C craft   E use   F store   V take   Shift crouch   Esc leave", 16.0, 50.0, 14.0, muted, false);
+                    if let Some(line) = panel.as_deref() {
+                        ui.text(1, &line, 16.0, 92.0, 15.0, [1.0, 0.95, 0.75, 1.0], false);
+                    }
                 }
             }
         }
@@ -877,6 +1046,16 @@ impl ApplicationHandler for App {
                         KeyCode::Backspace if down && game.screen == Screen::NewSky => { game.seed_text.pop(); }
                         KeyCode::KeyR if down && game.screen == Screen::Play => { game.save.eat(); }
                         KeyCode::KeyC if down && game.screen == Screen::Play => { game.save.craft_pocket(); }
+                        KeyCode::KeyE if down && game.screen == Screen::Play => {
+                            let ((ex, ey, ez), (dx, dy, dz)) = game.aim();
+                            let (hit, _) = raycast(game, ex, ey, ez, dx, dy, dz, game.reach(), true);
+                            if let Some((q, r, y)) = hit {
+                                let mat = game.get(q, r, y);
+                                game.use_block(q, r, y, mat);
+                            }
+                        }
+                        KeyCode::KeyF if down && game.screen == Screen::Play => game.deposit_held(),
+                        KeyCode::KeyV if down && game.screen == Screen::Play => game.withdraw_panel(),
                         KeyCode::KeyG if down && game.screen == Screen::Play => {
                             if let Some(id) = game.glimmer.next_gift() {
                                 game.glimmer.buy(id);
@@ -892,6 +1071,10 @@ impl ApplicationHandler for App {
                         KeyCode::Digit8 if down => game.save.selected = 7,
                         KeyCode::Digit9 if down => game.save.selected = 8,
                         KeyCode::Escape if down => {
+                            if game.panel.is_some() {
+                                game.panel = None;
+                                return;
+                            }
                             let _ = window.set_cursor_grab(CursorGrabMode::None);
                             window.set_cursor_visible(true);
                             game.grabbed = false;

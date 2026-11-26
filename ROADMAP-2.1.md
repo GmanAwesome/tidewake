@@ -62,12 +62,12 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 ## Play
 
 - [x] Walk, look, jump, hurry, and step up one layer. F4 flies
-- [ ] Crouch and glide
+- [x] Crouch (Shift) and glide (hold jump while falling, once Glide is granted)
 - [ ] Fly and fall (Dreamer flight, cloud-sea rescue)
 - [x] Mine and place (left click breaks, right click places the held block; Keen Reach adds 1.5)
-- [x] Hotbar of 9, eating (food and a quarter of that as health), and the Python recipe table on the 2×2 pocket. Kiln smelting table is loaded; the kiln screen is still open
+- [x] Hotbar of 9, eating (food and a quarter of that as health), the Python recipe table, and a kiln (input, fuel, output, 4s smelts)
 - [x] Survival: food drains while walking, hunger hurts, eating heals, food above 16 regenerates health
-- [ ] Doors, ladders, beds, chests
+- [x] Doors (two cells, right-click opens), ladders and vines climb, beds set the waking spot and skip dusk, chests store 27 slots
 - [ ] Fishing and farming
 - [x] Creatures wander (woolhops, pebblebeaks, mossbacks, islekits, fairies, sky jellies). Gloomlings fade when the tide is light
 - [x] Glimmer motes, waystone cost 1, Tidewell gifts at 2–4 (Mote Sense through Brightwake)

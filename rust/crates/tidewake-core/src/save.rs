@@ -39,6 +39,10 @@ pub struct SkySave {
     /// Cells the player changed. Reapplied when a chunk is generated again after unload.
     #[serde(default)]
     pub edits: Vec<CellEdit>,
+    #[serde(default)]
+    pub kilns: Vec<crate::stations::Kiln>,
+    #[serde(default)]
+    pub chests: Vec<crate::stations::Chest>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -74,6 +78,8 @@ impl SkySave {
             selected: 0,
             regen_t: 0.0,
             edits: Vec::new(),
+            kilns: Vec::new(),
+            chests: Vec::new(),
         }
     }
 
