@@ -761,9 +761,9 @@ def stamp_world(world, q, r, typ_name, cond=INTACT, seed=1, realm=0):
     st = Stamp(None, None, None, None, None, None, 0, 0, rng, cond, pal, world=world)
     y = st.ground(q, r) or 40
     kwargs = {}
-    if typ_name in ('hut', 'village'):
+    if typ_name in ('hut', 'village', 'hamlet'):
         kwargs['door_dir'] = seed % 6
-    if typ_name == 'sky_boat':
+    if typ_name in ('sky_boat', 'lighthouse', 'waterfall_temple'):
         # face the first empty neighbour if we can
         edir = 0
         for i, (dq, dr) in enumerate(DIRS):
@@ -957,6 +957,11 @@ def place_v5(gen, cq, cr, cells, meta, col, sl):
             types = [t for t in types if not t['buried']] or types
     if family == 'sky' and not types:
         types = [t for t in TYPES if t.get('sky') and t.get('min_version', 2) <= 5]
+    # rare wonders (~1 in 10 structure regions), fall back if none are registered
+    if ((h >> 22) % 10) == 0:
+        wtypes = [t for t in TYPES if t['family'] == 'wonder' and t.get('min_version', 2) <= 5]
+        if wtypes:
+            types = wtypes
     if not types:
         # fall back to a classic settlement if the family was empty
         types = [t for t in TYPES if t['family'] == 'settlement' and t.get('min_version', 2) <= 5]
@@ -1040,7 +1045,7 @@ def place_v5(gen, cq, cr, cells, meta, col, sl):
     kwargs = {}
     if typ['name'] in ('hut', 'village', 'hamlet'):
         kwargs['door_dir'] = (h >> 6) % 6
-    if typ['name'] in ('sky_boat', 'lighthouse'):
+    if typ['name'] in ('sky_boat', 'lighthouse', 'waterfall_temple'):
         kwargs['edge_dir'] = edir
     typ['fn'](st, q, r, y, **kwargs)
     return typ['name'], cond, q, r, y
@@ -1048,3 +1053,4 @@ def place_v5(gen, cq, cr, cells, meta, col, sl):
 
 # 1.4.4 builders (registers on import; min_version=5)
 from . import builds144 as _builds144  # noqa: F401
+from . import builds145 as _builds145  # noqa: F401
