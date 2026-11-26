@@ -6,7 +6,7 @@ HEX = 1.0                     # circumradius of one hex cell (world units)
 LAYER = 0.85                  # height of one layer of cells (taller blocks; player is 2 blocks)
 SQ3 = math.sqrt(3.0)
 CHUNK = 16                    # cells along q and r per chunk (a rhombus of 256 columns)
-LAYERS = 360                  # layers per column (v3 skies can reach ~300)
+LAYERS = 500                  # layers per column (1.4.4: 500 tall; v6 surfaces reach ~470, v3-v5 ~342)
 V2_LAYERS = 128               # 1.4 / 1.4.1 column height; old saves are this tall
 CLOUD_SEA = 12                # layer the cloud sea sits on (world y = 8.4)
 

@@ -41,7 +41,8 @@ DEFAULT = 50
 # 1 = pre-1.4 (no sliders). 2 = 1.4 / 1.4.1. 3 = 1.4.2 (higher, separated islands).
 # 4 = 1.4.3 (discrete spaced islands, no Worley cut planes).
 # 5 = 1.4.4 (larger islands plus a rare huge-continent tier).
-CURRENT = 5
+# 6 = 1.4.4 late (islands 50% larger again, shelves spread over 500 layers, grand structures).
+CURRENT = 6
 
 
 def defaults():
@@ -51,7 +52,7 @@ def defaults():
 def normalize(data, *, new=False):
     """A complete 0–100 int map. Missing keys become 50; unknown keys are dropped.
 
-    generator_version is not a slider. New skies get CURRENT (5). Existing skies
+    generator_version is not a slider. New skies get CURRENT (6). Existing skies
     keep the version they were saved with; a missing version means 2 (1.4 / 1.4.1).
     """
     out = defaults()

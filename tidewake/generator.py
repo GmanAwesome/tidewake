@@ -21,7 +21,8 @@ from . import gensettings as GS
 M = ID
 MEADOW, AMBER, ROSE, FROST, BASALT, FEN, DUNE, LUMEN = range(8)
 SALTWIND, CEDAR, LAVENDER, CINDER, CHALK, STARFALL, CLOUDSTEP, VERDIGRIS = range(8, 16)
-TOP_MAX = LAYERS - 18          # v3 ceiling (room for a surface near 300)
+TOP_MAX = 342                  # v3-v5 ceiling (was LAYERS - 18 when LAYERS was 360; fixed so old skies match)
+TOP_MAX_V6 = LAYERS - 18       # v6 ceiling: 482 of 500 layers
 TOP_MIN = CLOUD_SEA + 12
 V2_TOP_MAX = V2_LAYERS - 18    # 1.4 / 1.4.1 ceiling; must stay fixed
 V2_TOP_MIN = CLOUD_SEA + 12
@@ -119,6 +120,8 @@ class Generator:
         """Island shape for arrays of axial columns (any shape). Returns a dict of arrays."""
         if self.version == 1:
             return self._columns_v1(Q, R)
+        if self.version >= 6:
+            return self._columns_v5(Q, R, k=1.5, depth_k=1.80, alt=(392.0, 430.0), top_max=TOP_MAX_V6)
         if self.version >= 5:
             return self._columns_v5(Q, R)
         if self.version >= 4:
@@ -545,7 +548,8 @@ class Generator:
     # ------------------------------------------------------------------ spires
 
     def _v4_stamp(self, X, Z, Q, R, period, accept_p, jitter, h_off, rad_kind,
-                    reserved, allow, near_u, best_u, best_com, best_id, best_r, scale_id):
+                    reserved, allow, near_u, best_u, best_com, best_id, best_r, scale_id,
+                    alt_span=252.0, alt_max=300.0):
         """One jittered-grid island scale. Footprints stay inside `reserved`*period."""
         fx, fz = X / period, Z / period
         for di in (-2, -1, 0, 1, 2):
@@ -560,8 +564,8 @@ class Generator:
                 kind = rand01(ci, cj, self.h + h_off + 4)
                 rad = period * rad_kind(kind)
                 altn = rand01(ci, cj, self.h + h_off + 5)
-                com = 46.0 + altn * 252.0 + (self.alt_base - 59.0) * 0.35
-                com = np.clip(com, CLOUD_SEA + 16, 300.0)
+                com = 46.0 + altn * alt_span + (self.alt_base - 59.0) * 0.35
+                com = np.clip(com, CLOUD_SEA + 16, alt_max)
                 dx, dz = X - px, Z - pz
                 # lobes + warp, then clamp to the reserved radius so neighbours never meet
                 ang0 = rand01(ci, cj, self.h + h_off + 6) * 2.0 * np.pi
@@ -761,7 +765,7 @@ class Generator:
                 'band': best_id}
 
 
-    def _columns_v5(self, Q, R):
+    def _columns_v5(self, Q, R, k=1.0, depth_k=1.30, alt=(252.0, 300.0), top_max=TOP_MAX):
         """v4 layout, scaled up, plus a rare huge-continent tier.
 
         Standard, medium and large footprints (and depth) grow about 30%. A
@@ -769,6 +773,10 @@ class Generator:
         with mixed biomes, taller relief, valleys and inland lakes. Neighbours
         still cannot meet: each scale keeps a reserved radius inside the
         jittered centre gap, and smaller islands only spawn in open water.
+
+        v6 (1.4.4 late) reuses this with k=1.5: every tier's period and radius
+        grow 50%, undersides go deeper, and shelf altitudes spread over the
+        500-layer column (surfaces up to ~470). With k=1 the output is v5 exactly.
         """
         Q = np.asarray(Q, dtype=np.int64)
         R = np.asarray(R, dtype=np.int64)
@@ -776,10 +784,10 @@ class Generator:
         Z = HEX * 1.5 * R.astype(np.float64)
         scale = float(self.island_scale)
         # ~30% larger periods so radii can grow without eating the reserved gap.
-        period_H = float(np.clip(max(1100.0, scale * 3.80), 1100.0, 1250.0))
-        period_L = float(np.clip(max(468.0, scale * 2.40), 468.0, 832.0))
-        period_M = float(np.clip(max(221.0, scale * 1.17), 221.0, 390.0))
-        period_S = float(np.clip(max(104.0, scale * 0.62), 104.0, 195.0))
+        period_H = float(np.clip(max(1100.0, scale * 3.80), 1100.0, 1250.0)) * k
+        period_L = float(np.clip(max(468.0, scale * 2.40), 468.0, 832.0)) * k
+        period_M = float(np.clip(max(221.0, scale * 1.17), 221.0, 390.0)) * k
+        period_S = float(np.clip(max(104.0, scale * 0.62), 104.0, 195.0)) * k
         dens = (0.06 - float(self.coverage)) / 0.20
         accept_H = float(np.clip(0.12 - dens * 0.04, 0.07, 0.16))
         accept_L = float(np.clip(0.28 - dens * 0.10, 0.18, 0.40))
@@ -797,7 +805,7 @@ class Generator:
         near_H = np.full(X.shape, 10.0, np.float64)
         near_H, best_u, best_com, best_id, best_r = self._v4_stamp(
             X, Z, Q, R, period_H, accept_H, jitter, 10, rad_H, 0.38,
-            True, near_H, best_u, best_com, best_id, best_r, 3)
+            True, near_H, best_u, best_com, best_id, best_r, 3, alt[0], alt[1])
         near_u = np.minimum(near_u, near_H)
         def rad_L(kind):
             return np.where(kind > 0.82, 0.30, np.where(kind > 0.45, 0.24, 0.18))
@@ -805,7 +813,7 @@ class Generator:
         near_L = np.full(X.shape, 10.0, np.float64)
         near_L, best_u, best_com, best_id, best_r = self._v4_stamp(
             X, Z, Q, R, period_L, accept_L, jitter, 20, rad_L, 0.40,
-            allow_L, near_L, best_u, best_com, best_id, best_r, 0)
+            allow_L, near_L, best_u, best_com, best_id, best_r, 0, alt[0], alt[1])
         near_u = np.minimum(near_u, near_L)
         allow_M = (near_H > 1.32) & (near_L > 1.30)
         def rad_M(kind):
@@ -813,7 +821,7 @@ class Generator:
         near_M = np.full(X.shape, 10.0, np.float64)
         near_M, best_u, best_com, best_id, best_r = self._v4_stamp(
             X, Z, Q, R, period_M, accept_M, jitter, 40, rad_M, 0.38,
-            allow_M, near_M, best_u, best_com, best_id, best_r, 1)
+            allow_M, near_M, best_u, best_com, best_id, best_r, 1, alt[0], alt[1])
         near_u = np.minimum(near_u, near_M)
         allow_S = (near_H > 1.35) & (near_L > 1.35) & (near_M > 1.35)
         def rad_S(kind):
@@ -821,7 +829,7 @@ class Generator:
         near_S = np.full(X.shape, 10.0, np.float64)
         near_S, best_u, best_com, best_id, best_r = self._v4_stamp(
             X, Z, Q, R, period_S, accept_S, jitter, 60, rad_S, 0.36,
-            allow_S, near_S, best_u, best_com, best_id, best_r, 2)
+            allow_S, near_S, best_u, best_com, best_id, best_r, 2, alt[0], alt[1])
         near_u = np.minimum(near_u, near_S)
 
         inside = best_u < 1.0
@@ -832,7 +840,7 @@ class Generator:
         e = np.where(inside, 1.0 - best_u, 1.0 - near_u)
         com = best_com
         shelf = com
-        huge = best_r > 200.0
+        huge = best_r > 200.0 * k
 
         # shorter biome wavelength on huge land so one continent holds several landscapes
         rscale = np.where(huge, self.realm_scale * 0.42, self.realm_scale)
@@ -858,12 +866,12 @@ class Generator:
         realm[(wet < -0.02) & (heat > -0.14) & (heat < 0.32) & (sp < 0.18) & (lum <= 0.40)
               & np.isin(realm, (MEADOW, BASALT, DUNE, AMBER, CHALK))] = CHALK
         realm[(sp > 0.20) & (heat < 0.28) & (lum > -0.02) & (lum <= 0.40)] = STARFALL
-        realm[(inside) & (shelf > 170) & (lum <= 0.40)] = CLOUDSTEP
+        realm[(inside) & (shelf > (170 if k == 1.0 else 230)) & (lum <= 0.40)] = CLOUDSTEP
         realm[(wet > 0.04) & (heat > -0.16) & (heat < 0.36) & (sp > 0.00) & (sp < 0.36) & (lum <= 0.40)
               & np.isin(realm, (MEADOW, FEN, BASALT, AMBER, VERDIGRIS, SALTWIND))] = VERDIGRIS
         realm[lum > 0.40] = LUMEN
 
-        fade = np.where(best_r > 200.0, 0.08, np.where(best_r > 80.0, 0.12, np.where(best_r > 36.0, 0.20, 0.28)))
+        fade = np.where(best_r > 200.0 * k, 0.08, np.where(best_r > 80.0 * k, 0.12, np.where(best_r > 36.0 * k, 0.20, 0.28)))
         inner = (best_u - 1.0) / (fade - 1.0)
         inner = np.clip(inner, 0.0, 1.0)
         inner = inner * inner * (3.0 - 2.0 * inner)
@@ -895,7 +903,7 @@ class Generator:
         top = np.where(realm == ROSE, terr, top)
 
         # depth grows with the 30% footprint scale, still a cosine dome above layer 2
-        thick = self.depth_amp * 1.30 * (0.85 + 0.50 * self.n_depth.fbm2(X / 36.0, Z / 36.0, 3))
+        thick = self.depth_amp * depth_k * (0.85 + 0.50 * self.n_depth.fbm2(X / 36.0, Z / 36.0, 3))
         thick = thick * (1.0 + 0.28 * mounts)
         thick = np.where(huge, thick * 1.15, thick)
         dome = 0.5 * (1.0 + np.cos(np.pi * np.clip(best_u, 0, 1)))
@@ -909,8 +917,14 @@ class Generator:
         bottom = top - np.floor(depth)
 
         ei = self.n_islet.fbm2(X / 38.0, Z / 38.0, 3) - (0.70 - self.islet_rate)
+        if k != 1.0:
+            # v6: a few more tiny islets, scattered through the whole height for depth
+            ei = np.maximum(ei, self.n_islet.fbm2(X / 23.0 + 71.0, Z / 23.0 - 37.0, 2) - 0.62)
         sk = (~inside) & (ei > 0) & (near_u > 1.40)
         sk_alt = np.floor(46 + 40 * self.n_islet_alt.fbm2(X / 300.0, Z / 300.0, 2) + ei * 25)
+        if k != 1.0:
+            spread = 0.5 + 0.5 * self.n_islet_alt.fbm2(X / 140.0 + 19.0, Z / 140.0 - 53.0, 2)
+            sk_alt = np.floor(sk_alt + np.clip(spread, 0.0, 1.0) * 330.0)
         top = np.where(sk, sk_alt, top)
         sk_dome = np.sqrt(np.clip(ei / 0.35, 0, 1))
         sk_depth = 2.0 + sk_dome * 18.0
@@ -920,7 +934,7 @@ class Generator:
         land = inside | sk
         e = np.where(sk, np.maximum(e, ei), e)
 
-        top = np.clip(top, TOP_MIN, TOP_MAX).astype(np.int64)
+        top = np.clip(top, TOP_MIN, top_max).astype(np.int64)
         bottom = np.clip(bottom, 2, None).astype(np.int64)
         bottom = np.minimum(bottom, top - 2)
         col_rand = rand01(Q, R, self.h)
@@ -933,7 +947,7 @@ class Generator:
         pool_t = np.where(huge & (best_u < 0.72), pool_t - 0.16, pool_t)
         pooln = self.n_pool.fbm2(X / 26.0, Z / 26.0, 2)
         pool = land & ~sk & (e > 0.12) & (pooln > pool_t) & (wmul > 0.2)
-        fall = land & ~sk & (e > 0.0) & (e < 0.10) & (rand01(Q, R, self.h + 2) < (0.012 * wmul)) & \
+        fall = land & ~sk & (e > 0.0) & (e < 0.10) & (rand01(Q, R, self.h + 2) < (0.012 * wmul * (1.0 if k == 1.0 else 0.5))) & \
             np.isin(realm, (MEADOW, AMBER, FEN, BASALT, LUMEN, CEDAR, VERDIGRIS, CLOUDSTEP, LAVENDER))
         return {'e': e, 'land': land, 'top': top, 'bottom': bottom, 'realm': realm, 'pool': pool, 'fall': fall,
                 'skerry': sk, 'inner': inner, 'rand': col_rand, 'peak': land & (top > (com + 24)), 'com': com,
@@ -1204,8 +1218,13 @@ class Generator:
         ii, kk = np.nonzero(fall)
         for i, k in zip(ii, kk):
             t = top[i, k]
-            cells[i, CLOUD_SEA:t + 1, k] = M['water']
-            meta[i, CLOUD_SEA:t + 1, k] = 7
+            lo = CLOUD_SEA
+            if self.version >= 6:
+                # v6 shelves sit far higher; long falls thin out into the air instead of
+                # drawing 400-layer lines down to the cloud sea
+                lo = max(CLOUD_SEA, int(bot[i, k]) - 40)
+            cells[i, lo:t + 1, k] = M['water']
+            meta[i, lo:t + 1, k] = 7
 
         # small things: petals, glowcaps, crystals, lumen shards under the islands
         rnd = rand01(Q[sl], R[sl], self.h + 5)
@@ -1263,6 +1282,9 @@ class Generator:
         if self.version >= 2:
             from . import structures as ST
             ST.place(self, cq, cr, cells, meta, col, sl)
+        if self.version >= 6:
+            from . import grand as GR
+            GR.apply(self, cq, cr, cells, meta)
         return cells, meta, realm.astype(np.uint8)
 
     def _decorate_v2(self, cells, Q, R, top, bot, land, pool, fall, realm, surf_top, on_turf, free):

@@ -5090,3 +5090,276 @@ def phase144_craft_rose(app, log, shot, look_at, settled, arg):
     if app.menu:
         app.menu.escape(app)
     log('phase144_craft_rose finished')
+
+
+def phase144_tutorial2(app, log, shot, look_at, settled, arg):
+    """Rebuilt lesson island: spawn, aerials, each showpiece, gardens, creatures, Tidewell UI."""
+    from . import tutorial as T
+    from . import tutorial_builds as TB
+    from .hexgrid import center as hx
+    from .ui.systems import TidewellScreen, WaystoneScreen
+    only = set(a for a in (arg or '').split(',') if a)
+    _144_uncap(app, log, view=16, far=24)
+    yield 0.3
+    app.create_sky('Lesson Builds 144', 1, 'lesson', 'wanderer', tutorial=True)
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    S0 = T.SURF
+
+    def frame(q, r, ty, dist, az, elev):
+        """Camera `dist` from the target at hex (q, r), `ty` layers above the surface.
+        az: compass degrees the camera sits at, measured like yaw; elev: degrees up."""
+        tx, tz = hx(q, r)
+        tyw = (S0 + ty) * LAYER
+        a, e = math.radians(az), math.radians(elev)
+        cx = tx + math.sin(a) * math.cos(e) * dist
+        cz = tz - math.cos(a) * math.cos(e) * dist
+        cy = tyw + math.sin(e) * dist
+        _144_park(ses, cx, cy - EYE, cz, 0.0, 0.0)
+        look_at(p, tx, tyw, tz)
+
+    def want(n):
+        return not only or n in only
+
+    _144_hud(app, debug=False, hide=True)
+    # spawn
+    if want('spawn'):
+        q, r, top = T.SPAWN
+        x, z = hx(q, r)
+        _144_park(ses, x, (top + 1) * LAYER + 0.001, z, 0.0, 4.0)
+        yield _144_loaded(app)
+        yield 1.5
+        yield shot('spawn')
+        # spawn turned toward the plaza and clocktower
+        _144_park(ses, x, (top + 1) * LAYER + 0.001, z, 0.0, 0.0)
+        look_at(p, *[hx(28, 20)[0], (S0 + 16) * LAYER, hx(28, 20)[1]])
+        yield _144_loaded(app)
+        yield 1.0
+        yield shot('spawn_toward_clocktower')
+    shots = [
+        # name, q, r, target height (layers), distance, azimuth, elevation
+        ('aerial_overview', 18, 18, 0, 150, 200, 38),
+        ('aerial_south', 18, 14, 0, 140, 160, 30),
+        ('clocktower_plaza', 28, 20, 18, 62, 215, 14),
+        ('bazaar_ring', 28, 20, 4, 30, 140, 22),
+        ('hall_of_stones', 47, 22, 9, 44, 120, 16),
+        ('glass_conservatory', 10, 36, 5, 30, 200, 18),
+        ('conservatory_garden', 10, 36, 2, 7, 160, 35),
+        ('mossback_monument', 12, 12, 4, 22, 230, 18),
+        ('sky_funfair', 26, 4, 14, 46, 230, 16),
+        ('starwatch_observatory', 22, -24, 11, 38, 250, 10),
+        ('treehouse_grove', 24, 66, 10, 58, 15, 24),
+        ('windmill', 61, -11, 12, 46, 200, 12),
+        ('hedge_maze', -3, 29, 0, 26, 170, 50),
+        ('woolhop_statue', 34, 39, 8, 30, 120, 14),
+        ('sky_castle', -16, 18, 40, 62, 150, 8),
+        ('frost_and_ember', -35, 30, 3, 30, 270, 22),
+        ('tidewell_sanctuary', 6, -32, 4, 20, 160, 18),
+        ('block_gallery', -18, 3, 2, 14, 270, 24),
+    ]
+    mob_shots = [('mob_woolhop', 'woolhop', 5.0, 20), ('mob_mossturtle', 'mossturtle', 5.5, 18),
+                 ('mob_islekit', 'islekit', 3.2, 20), ('mob_crystalbeetle', 'crystalbeetle', 2.6, 25),
+                 ('mob_pebblebeak', 'pebblebeak', 3.4, 18), ('mob_skyjelly', 'skyjelly', 6.5, 5),
+                 ('mob_cloudray', 'cloudray', 12.0, 8)]
+    for name, q, r, ty, dist, az, elev in shots:
+        if not want(name):
+            continue
+        frame(q, r, ty, dist, az, elev)
+        yield _144_loaded(app)
+        yield 2.0
+        frame(q, r, ty, dist, az, elev)
+        yield 0.4
+        yield shot(name)
+    for name, kind, dist, elev in mob_shots:
+        if not want(name):
+            continue
+        home = next((m for m in TB.MOBS if m[0] == kind), None)
+        if not home:
+            continue
+        hx_, hz_ = hx(home[1], home[2])
+        _144_park(ses, hx_ + 6, (S0 + 8 + home[3]) * LAYER, hz_ + 6, 0.0, -30.0)
+        ses.hold = False
+        yield _144_loaded(app)
+        yield 2.5
+        mobs = [m for m in ses.mobs if m.kind == kind]
+        if not mobs:
+            log('no mob', kind)
+            continue
+        mob = min(mobs, key=lambda m: math.hypot(m.x - hx_, m.z - hz_))
+        from .entities import solid_at as _solid
+        best = None
+        mh = mob.height * mob.scale * 0.5
+        e = math.radians(elev)
+        for k in range(12):
+            a = math.radians(mob.yaw + 40 + k * 30)
+            cx = mob.x + math.sin(a) * math.cos(e) * dist
+            cz = mob.z - math.cos(a) * math.cos(e) * dist
+            cy = mob.y + mh + math.sin(e) * dist
+            clear = all(not _solid(ses.world, mob.x + (cx - mob.x) * t, mob.y + mh + (cy - mob.y - mh) * t,
+                                   mob.z + (cz - mob.z) * t) for t in (0.25, 0.4, 0.55, 0.7, 0.85, 1.0))
+            if clear:
+                best = (cx, cy, cz)
+                break
+        if best is None:
+            best = (cx, cy, cz)
+        for _ in range(2):
+            mob.vx = mob.vz = 0.0
+            mob.think = 30.0
+            mob.walking = False
+            _144_park(ses, best[0], best[1] - EYE, best[2], 0.0, 0.0)
+            look_at(p, mob.x, mob.y + mh, mob.z)
+            yield 0.5
+        yield shot(name)
+    ses.hold = True
+    # Glimmer: Tidewell screen and waystone screen
+    if want('ui'):
+        frame(6, -32, 2, 9, 160, 20)
+        yield _144_loaded(app)
+        yield 1.0
+        ses.give(I.GLIMMER.id, 5, quiet=True)
+        app.set_screen(TidewellScreen())
+        yield 0.6
+        yield shot('tidewell_screen')
+        app.set_screen(None)
+        yield 0.3
+        key = f'8,-32,{S0 + 1}'
+        ses.waystones[key] = {'name': ses._waystone_name(8, -32), 'attuned': True}
+        ses.waystones[f'10,-58,{S0 + 4}'] = {'name': ses._waystone_name(10, -58), 'attuned': True}
+        try:
+            app.set_screen(WaystoneScreen(key))
+            yield 0.6
+            yield shot('waystone_screen')
+        except Exception as e:
+            log('waystone screen error', e)
+        app.set_screen(None)
+        yield 0.3
+        _144_hud(app, debug=False, hide=False)
+        ses.toast('You caught Glimmer!', '1 Glimmer attunes a waystone. 2-4 buys a lasting gift at a Tidewell.', 8)
+        yield 0.6
+        yield shot('glimmer_toast')
+        _144_hud(app, debug=False, hide=True)
+    log('mobs', [(m.kind, round(m.x, 1), round(m.z, 1)) for m in ses.mobs])
+    log('gallery', len(TB._CACHE.get('gallery', [])), 'light_cap', getattr(app.renderer, 'light_cap', None))
+    log('phase144_tutorial2 finished')
+
+
+def phase144_grand(app, log, shot, look_at, settled, arg):
+    """Generator v6: island aerials and seeded grand structures found in the world (not stamped)."""
+    from .hexgrid import center as hx
+    from . import gensettings as GS
+    from . import grand as GR
+    from .entities import solid_at as _solid
+    args = dict(kv.split('=') for kv in (arg or '').split(',') if '=' in kv)
+    seed = int(args.get('seed', 7))
+    per = int(args.get('per', 1))
+    balloons = int(args.get('balloons', 6))
+    only = set(args.get('only', '').split('+')) - {''}
+    _144_uncap(app, log, view=int(args.get('vd', 12)), far=int(args.get('far', 22)))
+    yield 0.3
+    app.create_sky(f'Grand {seed}', seed, str(seed), 'wanderer', gen=GS.normalize({'generator_version': 6}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    gen = ses.world.gen if hasattr(ses.world, 'gen') else None
+    from .generator import Generator
+    gen = Generator(ses.seed, GS.normalize({'generator_version': 6}))
+    log('version', gen.version, 'seed', ses.seed)
+    _144_hud(app, debug=False, hide=True)
+    ses.phase = float(args.get('phase', 0.03))
+    ses.hold = True
+    if not only or 'islands' in only:
+        sx, sy, sz = p.x, p.y, p.z
+        log('spawn', round(sx, 1), round(sy, 1), round(sz, 1))
+        for name, pose in (('v6_spawn_aerial', (sx, sy + 110.0, sz + 150.0, 180.0, -32.0)),
+                           ('v6_spawn_vista', (sx + 60.0, sy + 40.0, sz + 60.0, 225.0, -10.0)),
+                           ('v6_high_wide', (sx, min(440.0, sy + 220.0), sz + 330.0, 180.0, -30.0))):
+            _144_park(ses, *pose)
+            ses.phase = float(args.get('phase', 0.03))
+            yield _144_loaded(app, min_chunks=100)
+            yield 1.5
+            yield shot(name)
+    sites = []
+    for rq in range(-6, 6):
+        for rr in range(-6, 6):
+            s = GR.site(gen, rq, rr)
+            if s:
+                sites.append((abs(rq) + abs(rr), rq, rr, s))
+    sites.sort(key=lambda t: t[0])
+    counts = {}
+    for _, rq, rr, s in sites:
+        kind = s['kind']
+        lim = balloons if kind == 'hot_air_balloon' else per
+        if only and kind not in only:
+            continue
+        if counts.get(kind, 0) >= lim:
+            continue
+        b = GR.build(gen, rq, rr)
+        if not b:
+            continue
+        info = b['info']
+        if kind == 'hot_air_balloon':
+            # several seeded variants: skip repeats of the same shape and pattern
+            sig = (info['shape'], info['pattern'])
+            seen = counts.setdefault('_sig', set())
+            if sig in seen and len(seen) < 5:
+                continue
+            seen.add(sig)
+        counts[kind] = counts.get(kind, 0) + 1
+        q, r, y = s['q'], s['r'], s['y']
+        if kind == 'hot_air_balloon':
+            ty = (info['top'] + info['bottom']) / 2
+            dist = info['R'] * SQ3_ * 3.3
+            elev = 6
+        elif kind == 'sky_city':
+            ty, dist, elev = y + 18, 125, 16
+        elif kind == 'floating_fortress':
+            ty, dist, elev = y + 2, info['R'] * SQ3_ * 3.6, 12
+        elif kind == 'world_tree':
+            ty, dist, elev = y + info['height'] * 0.55, info['height'] * LAYER * 1.7, 8
+        elif kind == 'colossus':
+            ty, dist, elev = y + info['height'] * 0.55, info['height'] * LAYER * 1.55, 6
+        elif kind == 'megaspire':
+            ty, dist, elev = y + info['height'] * 0.5, info['height'] * LAYER * 1.35, 5
+        elif kind == 'leviathan_wreck':
+            ty, dist, elev = y + 6, info['length'] * SQ3_ * 0.95, 28
+        else:
+            ty, dist, elev = y + 22, 115, 20
+        tx, tz = hx(q, r)
+        tyw = ty * LAYER
+        _144_park(ses, tx, tyw + 30, tz + dist * 0.5, 0.0, -20.0)
+        yield _144_loaded(app)
+        yield 1.5
+        best = None
+        e = math.radians(elev)
+        for k in range(12):
+            a = math.radians(200 + k * 30)
+            cx = tx + math.sin(a) * math.cos(e) * dist
+            cz = tz - math.cos(a) * math.cos(e) * dist
+            cy = tyw + math.sin(e) * dist
+            clear = all(not _solid(ses.world, tx + (cx - tx) * t, tyw + (cy - tyw) * t, tz + (cz - tz) * t)
+                        for t in (0.55, 0.65, 0.75, 0.85, 0.95, 1.0))
+            if clear:
+                best = (cx, cy, cz)
+                break
+        if best is None:
+            best = (cx, cy, cz)
+        _144_park(ses, best[0], best[1] - EYE, best[2], 0.0, 0.0)
+        look_at(p, tx, tyw, tz)
+        ses.phase = float(args.get('phase', 0.03))
+        yield _144_loaded(app)
+        yield 2.0
+        look_at(p, tx, tyw, tz)
+        yield 0.3
+        name = f'grand_{kind}_{counts[kind]}'
+        yield shot(name)
+        log('SHOT', name, 'q', q, 'r', r, 'y', y, 'info', info, 'cells', b['cells'],
+            'cam', [round(v, 1) for v in best])
+    log('phase144_grand finished', {k: v for k, v in counts.items() if k != '_sig'})
+
+
+SQ3_ = 3 ** 0.5

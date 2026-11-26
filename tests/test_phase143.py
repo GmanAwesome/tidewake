@@ -235,7 +235,7 @@ def test_old_versions_and_tutorial_stay_pinned():
     assert Generator(7, None).version == 1
     assert Generator(7, GS.normalize({})).version == 2
     assert Generator(7, GS.normalize({'generator_version': 3})).version == 3
-    assert Generator(7, GS.normalize({}, new=True)).version == 5
+    assert Generator(7, GS.normalize({}, new=True)).version == GS.CURRENT >= 5
     # lesson island dispatch is unchanged (tutorial flag, not the generator class)
     from tidewake import tutorial as TUT
     assert hasattr(TUT, 'generate_chunk')

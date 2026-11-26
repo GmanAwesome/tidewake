@@ -146,7 +146,38 @@ def _prisms(cx, cz, y0, y1, rad, ctop, cside_t, cside_b, emit, mask_top=None, ma
 
 
 def mesh_chunk(P, realm, cq, cr, Pm=None):
-    """P: padded cells (CHUNK+2, LAYERS, CHUNK+2). -> (opaque bytes, water bytes, lights (M,4) float32)"""
+    """P: padded cells (CHUNK+2, LAYERS, CHUNK+2). -> (opaque bytes, water bytes, lights (M,4) float32)
+
+    1.4.4: columns are 500 layers tall now, so mesh only the occupied band
+    (plus one empty layer above and below) and shift the result back up.
+    """
+    occ_y = np.flatnonzero(P.any(axis=(0, 2)))
+    if len(occ_y) == 0:
+        return b'', b'', np.zeros((0, 4), np.float32)
+    y0 = max(0, int(occ_y[0]) - 2) & ~1          # even, so 2-layer rose bands keep their phase
+    y1 = int(occ_y[-1]) + 2
+    if y1 >= P.shape[1] - 1 or (y0 == 0 and y1 >= P.shape[1] - 2):
+        return _mesh_core(P, realm, cq, cr, Pm, 0)
+    Pt = np.ascontiguousarray(P[:, y0:y1 + 1, :])
+    Pmt = np.ascontiguousarray(Pm[:, y0:y1 + 1, :]) if Pm is not None else None
+    ob, wb, L = _mesh_core(Pt, realm, cq, cr, Pmt, y0)
+    if y0:
+        dy = np.float32(y0 * LAYER)
+        if ob:
+            a = np.frombuffer(ob, VERT).copy()
+            a['p'][:, 1] += dy
+            ob = a.tobytes()
+        if wb:
+            a = np.frombuffer(wb, VERT).copy()
+            a['p'][:, 1] += dy
+            wb = a.tobytes()
+        if len(L):
+            L = L.copy()
+            L[:, 1] += dy
+    return ob, wb, L
+
+
+def _mesh_core(P, realm, cq, cr, Pm, yoff):
     core = P[1:-1, :, 1:-1]
     occ = OPAQUE[P]
     wat = MT.IS_WATER[P]
@@ -167,7 +198,7 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
     mat = core[nz]
     gq = lq.astype(np.int64) + cq * CHUNK
     gr = lr.astype(np.int64) + cr * CHUNK
-    jit = 0.94 + 0.10 * ((hash2(gq * 131 + ly, gr, 0x7E1) >> np.uint64(40)).astype(np.float64) / (1 << 24))
+    jit = 0.94 + 0.10 * ((hash2(gq * 131 + (ly + yoff), gr, 0x7E1) >> np.uint64(40)).astype(np.float64) / (1 << 24))
     cx = HEX * SQ3 * (lq + lr * 0.5)
     cz = HEX * 1.5 * lr.astype(np.float64)
     rl = realm[lq, lr]
@@ -180,10 +211,10 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
     top[canopy] = MT.REALM_CANOPY[rl[canopy]]
     side[canopy] = MT.REALM_CANOPY[rl[canopy]] * 0.9
     rose = mat == _ID['rosestone']
-    band = MT.ROSE_BANDS[(ly[rose] // 2) % len(MT.ROSE_BANDS)]
+    band = MT.ROSE_BANDS[((ly[rose] + yoff) // 2) % len(MT.ROSE_BANDS)]
     top[rose], side[rose] = band, band * 0.95
     sp = (mat == _ID['dormant_spire']) | (mat == _ID['awake_spire'])
-    rune = sp & (ly % 3 == 1)
+    rune = sp & ((ly + yoff) % 3 == 1)
     top[rune] = top[rune] * 0.75 + np.array([0.95, 0.85, 1.0]) * 0.35
     side[rune] = side[rune] * 0.7 + np.array([0.80, 0.72, 1.0]) * 0.4
     pet = mat == _ID['petals']
@@ -200,7 +231,7 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
     side_top[ore] = top[ore] * 0.9
 
     pq, pr = lq + 1, lr + 1
-    up = np.minimum(ly + 1, LAYERS - 1)
+    up = np.minimum(ly + 1, P.shape[1] - 1)
     dn = np.maximum(ly - 1, 0)
     is_full = OPAQUE[mat]
     out_o, out_w = [], []
@@ -210,7 +241,7 @@ def mesh_chunk(P, realm, cq, cr, Pm=None):
     if f.any():
         q_, y_, r_ = pq[f], ly[f], pr[f]
         u_, d_ = up[f], dn[f]
-        show_top = ~occ[q_, u_, r_] | (y_ == LAYERS - 1)
+        show_top = ~occ[q_, u_, r_] | (y_ == P.shape[1] - 1)
         show_bot = ~occ[q_, d_, r_] | (y_ == 0)
         sides = np.stack([~occ[q_ + dq, y_, r_ + dr] for dq, dr in DIRS], 1)
         occ_up = np.stack([occ[q_ + dq, u_, r_ + dr] for dq, dr in DIRS], 1).astype(np.float64)
