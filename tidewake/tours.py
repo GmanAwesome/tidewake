@@ -5299,6 +5299,51 @@ def phase144_grand(app, log, shot, look_at, settled, arg):
             look_at(p, tx, ty, tz)
             yield 0.2
             yield shot(name)
+    if 'trees' in only:
+        # huge v6 trees and the new landscapes: one per realm/form
+        seen = set()
+        trees = []
+        for gi in range(-24, 24):
+            for gj in range(-24, 24):
+                t = GR._tree_site(gen, gi, gj)
+                if t:
+                    trees.append((abs(gi) + abs(gj), t['info']))
+        trees.sort(key=lambda t: t[0])
+        n = 0
+        for _, info in trees:
+            sig = (info['realm'], info['form'])
+            if sig in seen or n >= int(args.get('trees', 6)):
+                continue
+            seen.add(sig)
+            n += 1
+            tx, tz = hx(info['q'], info['r'])
+            tyw = (info['top'] + info['H'] * 0.55) * LAYER
+            dist = info['H'] * LAYER * 2.6 + 12
+            best = None
+            for k in range(12):
+                a = math.radians(200 + k * 30)
+                cx, cz, cy = tx + math.sin(a) * dist, tz - math.cos(a) * dist, tyw + dist * 0.18
+                _144_park(ses, cx, cy - EYE, cz, 0.0, 0.0)
+                if k == 0:
+                    yield _144_loaded(app)
+                    yield 1.0
+                clear = all(not _solid(ses.world, tx + (cx - tx) * t, tyw + (cy - tyw) * t, tz + (cz - tz) * t)
+                            for t in (0.45, 0.6, 0.75, 0.9, 1.0))
+                if clear:
+                    best = (cx, cy, cz)
+                    break
+            best = best or (cx, cy, cz)
+            _144_park(ses, best[0], best[1] - EYE, best[2], 0.0, 0.0)
+            look_at(p, tx, tyw, tz)
+            ses.phase = float(args.get('phase', 0.03))
+            yield _144_loaded(app)
+            yield 1.5
+            look_at(p, tx, tyw, tz)
+            yield 0.3
+            from . import materials as _MT
+            name = f"tree_{_MT.REALMS[info['realm']].split()[0].lower()}_{info['form']}"
+            yield shot(name)
+            log('SHOT', name, info)
     sites = []
     for rq in range(-6, 6):
         for rr in range(-6, 6):
@@ -5332,9 +5377,11 @@ def phase144_grand(app, log, shot, look_at, settled, arg):
             dist = info['R'] * SQ3_ * 3.3
             elev = 6
         elif kind == 'sky_city':
-            ty, dist, elev = y + 18, 125, 16
+            ty, dist, elev = y + 18, 88, 16
         elif kind == 'floating_fortress':
-            ty, dist, elev = y + 2, info['R'] * SQ3_ * 3.6, 12
+            ty, dist, elev = y + 8, info['R'] * SQ3_ * 2.5, 12
+        elif kind == 'airship':
+            ty, dist, elev = y, info['length'] * SQ3_ * 1.5, 10
         elif kind == 'world_tree':
             ty, dist, elev = y + info['height'] * 0.55, info['height'] * LAYER * 1.7, 8
         elif kind == 'colossus':
@@ -5342,7 +5389,7 @@ def phase144_grand(app, log, shot, look_at, settled, arg):
         elif kind == 'megaspire':
             ty, dist, elev = y + info['height'] * 0.5, info['height'] * LAYER * 1.35, 5
         elif kind == 'leviathan_wreck':
-            ty, dist, elev = y + 6, info['length'] * SQ3_ * 0.95, 28
+            ty, dist, elev = y + 6, info['length'] * SQ3_ * 0.6, 24
         else:
             ty, dist, elev = y + 22, 115, 20
         tx, tz = hx(q, r)
@@ -5379,3 +5426,41 @@ def phase144_grand(app, log, shot, look_at, settled, arg):
 
 
 SQ3_ = 3 ** 0.5
+
+
+def phase144_showcase5(app, log, shot, look_at, settled, arg):
+    """The favourite seed, as generator v5 makes it (old saves stay byte-identical)."""
+    from . import gensettings as GS
+    args = dict(kv.split('=') for kv in (arg or '').split(',') if '=' in kv)
+    seed = int(args.get('seed', -1565669544))
+    x0, z0 = float(args.get('x', -1603)), float(args.get('z', -2679))
+    _144_uncap(app, log, view=int(args.get('vd', 12)), far=int(args.get('far', 24)))
+    yield 0.3
+    app.create_sky(f'Showcase {seed}', seed, str(seed), 'wanderer', gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    from .generator import Generator
+    from .hexgrid import cell_at as _ca
+    gen = Generator(ses.seed, GS.normalize({'generator_version': 5}))
+    q0, r0 = _ca(x0, z0)
+    c = gen.columns(np.array([q0]), np.array([r0]))
+    ground = (int(c['top'][0]) + 1) * LAYER if bool(c['land'][0]) else 160.0
+    log('version', gen.version, 'ground', ground, 'realm', int(c['realm'][0]))
+    _144_hud(app, debug=False, hide=True)
+    ses.hold = True
+    poses = (('seed5_cedar_vista', (x0 + 60, ground + 28, z0 + 80), (x0, ground, z0)),
+             ('seed5_cedar_high', (x0 - 140, ground + 90, z0 + 150), (x0, ground - 10, z0)),
+             ('seed5_cedar_ground', (x0 + 18, ground + 6, z0 + 22), (x0 - 20, ground + 4, z0 - 30)))
+    for name, (cx, cy, cz), (tx, ty, tz) in poses:
+        _144_park(ses, cx, cy - EYE, cz, 0.0, 0.0)
+        look_at(p, tx, ty, tz)
+        ses.phase = float(args.get('phase', 0.03))
+        yield _144_loaded(app, min_chunks=80)
+        yield 1.5
+        look_at(p, tx, ty, tz)
+        yield 0.3
+        yield shot(name)
+    log('phase144_showcase5 finished')

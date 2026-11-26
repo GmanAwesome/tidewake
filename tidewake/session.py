@@ -194,7 +194,7 @@ class Session:
             self.attune = list(d.get('attune', []))
             self.achieved = list(d.get('achieved', []))
         # 1.4.4: the lesson island is lamp-heavy; fewer per-pixel lights keeps it smooth
-        app.renderer.light_cap = 14 if getattr(self, 'tutorial', False) else 32
+        app.renderer.light_cap = 11 if getattr(self, 'tutorial', False) else 32
         self.world = World(self.seed, storage, app.renderer, app.pool, view_distance, far_distance,
                           gen_settings=self.gen_settings)
         self.sim = Simulation(self.world, self.seed & 0xFFFF)

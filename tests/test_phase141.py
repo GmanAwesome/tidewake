@@ -17,6 +17,7 @@ def test_tutorial_dialog_only_after_talk():
     t._npc_dist = Session._npc_dist.__get__(t)
     t.closest_npc = Session.closest_npc.__get__(t)
     t.nearby_talk = Session.nearby_talk.__get__(t)
+    t._frame_npc = lambda npc: None
     assert t.closest_npc().get('name') == 'Willow'
     assert t.nearby_talk() is None  # no popup until you talk
     t.app = SimpleNamespace(audio=SimpleNamespace(play=lambda *a, **k: None))

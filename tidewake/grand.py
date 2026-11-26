@@ -253,13 +253,14 @@ def build_hot_air_balloon(cv, rng, q, r, y, R=None):
             elif pattern == 'bands' or pattern == 'rainbow':
                 idx = (dy + span) * len(hues) // (2 * span + 1)
             elif pattern == 'harlequin':
-                idx = g + band
+                idx = g * 12 // gores + (dy + span) // 6
             elif pattern == 'spiral':
                 idx = int(g + (dy + span) / 2.5)
             elif pattern == 'chevron':
                 idx = (dy + span + abs((g % 6) - 3)) // 3
             else:
-                idx = (a * 7 + b * 13 + (dy // 3) * 5) % 97
+                # patchwork: big panels, not per-cell noise
+                idx = (g * 12 // gores) * 3 + ((dy + span) // max(3, span // 3)) * 5
             hue = hues[idx % len(hues)]
             fam = 'terrazzo'
             if accent != 'terrazzo' and (dy + span) % 7 == 3:
@@ -1285,3 +1286,107 @@ def nearby(gen, q, r, regions=2):
             if s:
                 out.append(dict(s, rq=a, rr=b))
     return out
+
+
+# ---------------------------------------------------------------------------
+# huge trees (v6): drawn across chunk edges, a few per island
+# ---------------------------------------------------------------------------
+TREE_GRID = 34
+TREE_CHANCE = 0.30
+_TREE_SPECIES = {
+    # realm: (wood, leaf, form)
+    0: ('heartwood', 'canopy', 'oak'), 1: ('dark_heartwood', 'canopy', 'oak'), 2: ('heartwood', 'canopy', 'oak'),
+    3: ('pale_heartwood', 'frost_canopy', 'cone'), 4: ('heartwood', 'canopy', 'oak'), 5: ('dark_heartwood', 'canopy', 'willow'),
+    7: ('pale_heartwood', 'canopy', 'toadstool'), 8: ('pale_heartwood', 'canopy', 'oak'),
+    9: ('cedar_heartwood', 'canopy', 'cone'), 10: ('dark_heartwood', 'violet_canopy', 'oak'),
+    13: ('dark_heartwood', 'violet_canopy', 'oak'), 14: ('pale_heartwood', 'canopy', 'cone'),
+    15: ('dark_heartwood', 'canopy', 'willow'),
+    16: ('pale_heartwood', 'blossom_canopy', 'oak'), 17: ('dark_heartwood', 'autumn_canopy', 'oak'),
+    18: ('pale_heartwood', 'frost_canopy', 'cone'), 19: ('heartwood', 'golden_canopy', 'acacia'),
+}
+_TREES = {}
+
+
+def _tree_site(gen, gi, gj):
+    key = (gen.h, gi, gj)
+    if key in _TREES:
+        return _TREES[key]
+    rng = _hash('tree', gen.h, gi, gj)
+    res = None
+    if rng.random() < TREE_CHANCE:
+        q = gi * TREE_GRID + rng.randint(6, TREE_GRID - 6)
+        r = gj * TREE_GRID + rng.randint(6, TREE_GRID - 6)
+        c = gen.columns(np.array([q]), np.array([r]))
+        realm = int(c['realm'][0])
+        if (bool(c['land'][0]) and not bool(c['skerry'][0]) and not bool(c['pool'][0]) and not bool(c['fall'][0])
+                and float(c['e'][0]) > 0.12 and realm in _TREE_SPECIES):
+            res = _build_tree(rng, q, r, int(c['top'][0]), realm)
+    if len(_TREES) > 4096:
+        _TREES.clear()
+    _TREES[key] = res
+    return res
+
+
+def _build_tree(rng, q, r, top, realm):
+    wood, leaf, form = _TREE_SPECIES[realm]
+    wood, leaf = M[wood], M[leaf]
+    cv = Canvas()
+    H = rng.randint(18, 34)
+    tr = 1 if H < 26 else 2
+    for y in range(top + 1, top + H):
+        cv.disk(q, r, y, tr if y < top + H - 6 else max(0, tr - 1), wood)
+    for d, (dq, dr) in enumerate(DIRS):        # buttress roots
+        cv.col(q + dq * (tr + 1), r + dr * (tr + 1), top + 1, top + 2 + d % 2, wood)
+    ty = top + H
+    if form == 'cone':
+        for i, y in enumerate(range(top + 6, ty + 4)):
+            rad = max(0, int(6 - i * 6 / (H - 2)))
+            cv.disk(q, r, y, rad, leaf)
+    elif form == 'toadstool':
+        for k in range(4):
+            cv.disk(q, r, ty + k, 7 - k * 2 if k else 7, leaf)
+        for a, b in hex_ring(q, r, 6)[::3]:
+            cv.put(a, b, ty - 1, M['glowcap'])
+    elif form == 'acacia':
+        for k, (dq, dr) in enumerate(DIRS[::2]):
+            cv.line3(q, r, ty - 4, q + dq * 4, r + dr * 4, ty, wood)
+            cv.disk(q + dq * 4, r + dr * 4, ty + 1, 3, leaf)
+        cv.disk(q, r, ty + 2, 4, leaf)
+    else:
+        R = rng.uniform(5.0, 8.0)
+        for a, b, d, ang in cv.round_cells(q, r, R):
+            hh = int(math.sqrt(max(0.0, R * R - d * d)) * 0.9)
+            for y in range(ty - hh // 2 - 1, ty + hh + 1):
+                cv.put(a, b, y, leaf)
+        for k, (dq, dr) in enumerate(DIRS):
+            cv.line3(q, r, ty - 6, q + dq * 4, r + dr * 4, ty - 2, wood)
+        if form == 'willow':
+            for a, b, d, ang in cv.round_cells(q, r, R):
+                if d > R - 1.2 and (a + b) % 2 == 0:
+                    cv.col(a, b, ty - 7, ty - 1, M['vine'])
+    packed = {}
+    for (a, b, y), (mat, meta) in cv.cells.items():
+        cq, cr = a // CHUNK, b // CHUNK
+        packed.setdefault((cq, cr), []).append((a - cq * CHUNK, y, b - cr * CHUNK, mat))
+    out = {k: np.array(v, np.int64) for k, v in packed.items()}
+    out['info'] = {'q': q, 'r': r, 'top': top, 'H': H, 'realm': realm, 'form': form}
+    return out
+
+
+def giant_trees(gen, cq, cr, cells):
+    """Stamp huge trees whose cells fall in this chunk, into air only."""
+    q0, r0 = cq * CHUNK, cr * CHUNK
+    n = 0
+    for gi in range((q0 - 12) // TREE_GRID, (q0 + CHUNK + 12) // TREE_GRID + 1):
+        for gj in range((r0 - 12) // TREE_GRID, (r0 + CHUNK + 12) // TREE_GRID + 1):
+            t = _tree_site(gen, gi, gj)
+            if not t:
+                continue
+            arr = t.get((cq, cr))
+            if arr is None:
+                continue
+            free = cells[arr[:, 0], arr[:, 1], arr[:, 2]] == 0
+            a = arr[free]
+            cells[a[:, 0], a[:, 1], a[:, 2]] = a[:, 3].astype(np.uint8)
+            n += 1
+    return n

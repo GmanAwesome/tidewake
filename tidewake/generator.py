@@ -21,6 +21,7 @@ from . import gensettings as GS
 M = ID
 MEADOW, AMBER, ROSE, FROST, BASALT, FEN, DUNE, LUMEN = range(8)
 SALTWIND, CEDAR, LAVENDER, CINDER, CHALK, STARFALL, CLOUDSTEP, VERDIGRIS = range(8, 16)
+BLOSSOM, AUTUMN, AZURE, GOLDEN = range(16, 20)     # 1.4.4 late, generator v6 only
 TOP_MAX = 342                  # v3-v5 ceiling (was LAYERS - 18 when LAYERS was 360; fixed so old skies match)
 TOP_MAX_V6 = LAYERS - 18       # v6 ceiling: 482 of 500 layers
 TOP_MIN = CLOUD_SEA + 12
@@ -870,6 +871,13 @@ class Generator:
         realm[(wet > 0.04) & (heat > -0.16) & (heat < 0.36) & (sp > 0.00) & (sp < 0.36) & (lum <= 0.40)
               & np.isin(realm, (MEADOW, FEN, BASALT, AMBER, VERDIGRIS, SALTWIND))] = VERDIGRIS
         realm[lum > 0.40] = LUMEN
+        if k != 1.0:
+            # v6: four more landscapes carved out of their neighbours
+            nb = self.n_spice.fbm2(X / (rscale * 0.55) + 113.0, Z / (rscale * 0.55) - 71.0, 2)
+            realm[(nb > 0.20) & np.isin(realm, (MEADOW, LAVENDER, ROSE))] = BLOSSOM
+            realm[(nb < -0.20) & np.isin(realm, (AMBER, CEDAR, VERDIGRIS))] = AUTUMN
+            realm[(nb > 0.16) & np.isin(realm, (FROST, CLOUDSTEP, SALTWIND, CHALK))] = AZURE
+            realm[(nb < -0.18) & np.isin(realm, (DUNE, MEADOW, CINDER))] = GOLDEN
 
         fade = np.where(best_r > 200.0 * k, 0.08, np.where(best_r > 80.0 * k, 0.12, np.where(best_r > 36.0 * k, 0.20, 0.28)))
         inner = (best_u - 1.0) / (fade - 1.0)
@@ -1018,7 +1026,11 @@ class Generator:
         body = np.where(Rm == SALTWIND, M['sandstone'], body)
         body = np.where(Rm == STARFALL, M['starstone'], body)
         body = np.where(Rm == CLOUDSTEP, M['pale_stone'], body)
-        mid = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS)), M['loam'], body)
+        body = np.where(Rm == AZURE, M['slate'], body)
+        body = np.where(Rm == GOLDEN, M['sandstone'], body)
+        body = np.where(Rm == BLOSSOM, M['rosestone'], body)
+        mid = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS,
+                                    BLOSSOM, AUTUMN, AZURE, GOLDEN)), M['loam'], body)
         mid = np.where(np.isin(Rm, (DUNE,)), M['sand'], mid)
         mid = np.where(Rm == SALTWIND, M['sandstone'], mid)
         mid = np.where(Rm == CHALK, M['chalk'], mid)
@@ -1026,7 +1038,8 @@ class Generator:
         mid = np.where(Rm == CLOUDSTEP, M['pale_stone'], mid)
         mid = np.where(Rm == STARFALL, M['starstone'], mid)
         mid = np.where(Rm == CINDER, M['cinder'], mid)
-        surf = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS, STARFALL, CLOUDSTEP)), M['turf'], body)
+        surf = np.where(np.isin(Rm, (MEADOW, AMBER, FEN, LUMEN, CEDAR, LAVENDER, VERDIGRIS, STARFALL, CLOUDSTEP,
+                                     BLOSSOM, AUTUMN, AZURE, GOLDEN)), M['turf'], body)
         surf = np.where(np.isin(Rm, (DUNE,)), M['sand'], surf)
         surf = np.where(Rm == CHALK, M['chalk'], surf)
         surf = np.where(Rm == SALTWIND, M['sandstone'], surf)
@@ -1046,6 +1059,9 @@ class Generator:
         surf = np.where((Rm == SALTWIND) & (det < 0.0), M['salt_block'], surf)
         surf = np.where((Rm == LAVENDER) & (det > 0.22), M['heather'], surf)
         surf = np.where((Rm == STARFALL) & (det < -0.2), M['starstone'], surf)
+        surf = np.where((Rm == AZURE) & (det > 0.30), M['ice'], surf)
+        surf = np.where((Rm == GOLDEN) & (det < -0.30), M['sand'], surf)
+        surf = np.where((Rm == AUTUMN) & (det > 0.32), M['clay'], surf)
         surf = np.where((Rm == CEDAR) & (det > 0.28), M['slate'], surf)
         peak = col['peak'][sl][:, None, :] & ~np.isin(Rm, (DUNE, LUMEN, SALTWIND, CINDER, CHALK))
         surf = np.where(peak, M['snow'], surf)
@@ -1267,7 +1283,8 @@ class Generator:
         # trees
         trnd = rand01(Q, R, self.h + 7)
         tree_rate = np.take([0.016, 0.05, 0.006, 0.02, 0.004, 0.022, 0.002, 0.03,
-                             0.004, 0.045, 0.012, 0.003, 0.005, 0.018, 0.008, 0.024], np.clip(col['realm'], 0, 15))
+                             0.004, 0.045, 0.012, 0.003, 0.005, 0.018, 0.008, 0.024,
+                             0.034, 0.042, 0.012, 0.006], np.clip(col['realm'], 0, 19))
         tree_rate = tree_rate * getattr(self, 'tree_mul', 1.0)
         tmask = col['land'] & ~col['pool'] & ~col['fall'] & (trnd < tree_rate) & (col['e'] > 0.035) & ~col['skerry']
         ii, kk = np.nonzero(tmask)
@@ -1279,6 +1296,9 @@ class Generator:
                        hash_ints(self.h, q, r, 9))
         for s in spires:
             self._stamp_spire(cells, meta, s, q0, r0)
+        if self.version >= 6:
+            from . import grand as GR
+            GR.giant_trees(self, cq, cr, cells)
         if self.version >= 2:
             from . import structures as ST
             ST.place(self, cq, cr, cells, meta, col, sl)
@@ -1317,6 +1337,11 @@ class Generator:
             CLOUDSTEP: [(M['grass'], 0.10), (M['petals'], 0.06), (M['crystal'], 0.03), (M['wildflower'], 0.03)],
             VERDIGRIS: [(M['vine'], 0.06), (M['mushroom'], 0.05), (M['reeds'], 0.05), (M['grass'], 0.10),
                         (M['shrub'], 0.04), (M['sprout'], 0.04)],
+            BLOSSOM:   [(M['petals'], 0.16), (M['bloom'], 0.06), (M['wildflower'], 0.08), (M['grass'], 0.12)],
+            AUTUMN:    [(M['mushroom'], 0.06), (M['berry_bush'], 0.04), (M['shrub'], 0.05), (M['grass'], 0.10),
+                        (M['pebble'], 0.02)],
+            AZURE:     [(M['crystal'], 0.05), (M['grass'], 0.08), (M['wildflower'], 0.04), (M['pebble'], 0.03)],
+            GOLDEN:    [(M['grass'], 0.22), (M['skywheat'], 0.03), (M['pebble'], 0.03), (M['shrub'], 0.02)],
         }
         planted = np.zeros(top.shape, bool)
         # ground-cover mixes: patchy surface swaps (heather, moss, cobble, clay) for sub-variation
@@ -1412,9 +1437,63 @@ class Generator:
             for dr in range(max(-radius, -dq - radius), min(radius, -dq + radius) + 1):
                 self._put(cells, lq + dq, y, lr + dr, mat, only_air)
 
+    def _tree_v6(self, cells, lq, lr, top, realm, rng):
+        """v6 trees: new kinds for the new landscapes, and a size class (small / medium) everywhere.
+        Huge trees are drawn across chunks by grand.giant_trees. Returns True if drawn."""
+        size = rng.random()
+        kinds = {BLOSSOM: ('pale_heartwood', 'blossom_canopy', 'round'),
+                 AUTUMN: ('dark_heartwood', 'autumn_canopy', 'tall'),
+                 AZURE: ('pale_heartwood', 'frost_canopy', 'cone'),
+                 GOLDEN: ('heartwood', 'golden_canopy', 'flat')}
+        if realm == LAVENDER and size < 0.35:
+            kinds[LAVENDER] = ('dark_heartwood', 'violet_canopy', 'round')
+        if realm not in kinds:
+            if size < 0.30 and realm not in (LUMEN, DUNE, CINDER, STARFALL):
+                # a small bush-tree
+                wood = M['cedar_heartwood'] if realm == CEDAR else M['heartwood']
+                h = rng.randint(2, 4)
+                for y in range(top + 1, top + 1 + h):
+                    self._put(cells, lq, y, lr, wood)
+                self._disk(cells, lq, lr, top + h + 1, 1, M['canopy'])
+                self._put(cells, lq, top + h + 2, lr, M['canopy'])
+                return True
+            return False
+        wood, leaf, form = kinds[realm]
+        wood, leaf = M[wood], M[leaf]
+        big = size > 0.65
+        if form == 'round':
+            h = rng.randint(5, 7) + (2 if big else 0)
+            for y in range(top + 1, top + h + 1):
+                self._put(cells, lq, y, lr, wood)
+            rad = 2 if not big else 3
+            self._disk(cells, lq, lr, top + h, rad, leaf)
+            self._disk(cells, lq, lr, top + h + 1, rad, leaf)
+            self._disk(cells, lq, lr, top + h + 2, rad - 1, leaf)
+        elif form == 'tall':
+            h = rng.randint(9, 12) + (3 if big else 0)
+            for y in range(top + 1, top + h + 1):
+                self._put(cells, lq, y, lr, wood)
+            for y in range(top + h - 4, top + h + 2):
+                self._disk(cells, lq, lr, y, 2 if y < top + h else 1, leaf)
+        elif form == 'cone':
+            h = rng.randint(8, 12) + (3 if big else 0)
+            for y in range(top + 1, top + h):
+                self._put(cells, lq, y, lr, wood)
+            for i, y in enumerate(range(top + 3, top + h + 1)):
+                rad = max(0, (3 if big else 2) - i // 3)
+                self._disk(cells, lq, lr, y, rad, leaf)
+        else:  # flat, acacia-like
+            h = rng.randint(6, 8) + (2 if big else 0)
+            for y in range(top + 1, top + h + 1):
+                self._put(cells, lq, y, lr, wood)
+            self._disk(cells, lq, lr, top + h + 1, 3 if big else 2, leaf)
+        return True
+
     def _tree(self, cells, lq, lr, top, realm, hsh):
         rng = random.Random(hsh)
         if not (-3 <= lq < CHUNK + 3 and -3 <= lr < CHUNK + 3):
+            return
+        if self.version >= 6 and self._tree_v6(cells, lq, lr, top, realm, rng):
             return
         wood, leaf = M['heartwood'], M['canopy']
         if realm == CEDAR:

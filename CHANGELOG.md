@@ -1,8 +1,56 @@
 # Changelog
 
+## 1.4.4 — 26 November 2026
+
+The current release. Skies from 1.4 through 1.4.3, and from the 1.4.4-test pre-release, still load and keep their original terrain. New skies use generator v6.
+
+### Worlds (generator v6)
+
+- Islands are about 50% larger, and their undersides go deeper. Island shelves spread through a 500-layer column, with surfaces up to about 440 and a ceiling of 482. A few more tiny islets float at many heights for depth.
+- Waterfalls end in the air below their island instead of drawing long lines to the cloud sea.
+- There are four new landscapes: Blossom Vale, Autumn Wilds, Azure Fields and Golden Steppe. Five new foliage blocks bring new colours: Blossom, Autumn, Frost, Violet and Golden Canopy.
+- Trees come in clearly different sizes:
+  - small bush-trees
+  - medium trees in new shapes (round blossom, tall autumn, frosted cone, flat-topped golden acacia, violet lavender)
+  - rare huge trees 18–34 layers tall: oaks, cedars, willows with vines, acacias and glowing toadstools
+- Grand procedural structures are seeded, so no two match:
+  - huge hot air balloons in many envelope shapes and colour patterns, with basket, deck, boat or cabin gondolas, ropes and a glowing burner
+  - sky cities, floating fortresses, world trees with branch huts, robed colossi and megaspires
+  - leviathan and airship wrecks, titan ruins, villages, flying airships and watchtowers
+
+  The smaller structures from 1.4.4-test still spawn too.
+
+### Building and creatures
+
+- 123 new blocks: 16 dyes and six decorative families with a dyed variant of each (patterned tile, terrazzo, woven panel, stained glass, crystal lamp, banner). The rest are plasters, metals, lattices, bounce jellies, checkers, stripes, shimmer cloud, cosmic star and the five canopies.
+- New sky-island creatures: sky jellies, cloud rays, moss turtles, crystal beetles and skittish islekits.
+- Rare wonders: a sky-whale skeleton, a clockwork tower, an upside-down hanging keep, a ring harbor, a crystal cathedral and a waterfall temple.
+
+### Glimmer
+
+- The Glimmer Font is now the **Tidewell**. Old saves keep theirs, with the same block id.
+- How the loop works:
+  - Walk into a floating mote to catch Glimmer.
+  - Spend 1 Glimmer to attune a waystone. Travel between attuned waystones is free.
+  - Spend 2–4 Glimmer at a Tidewell on a lasting gift for that sky.
+- The toasts say what to do next, and the Tidewell screen has a short "How Glimmer works" box.
+
+### Lesson island
+
+- The lesson island is packed with showpieces that together use every placeable block. They include a rainbow plaza and cosmic clocktower, a 16-colour bazaar, a Hall of Stones ziggurat, a stained-glass conservatory, a giant turtle monument, a bounce park with a sky funfair, an observatory, a treehouse grove, a windmill, a hedge maze, a floating sky castle and a block gallery.
+- A friendly cast of creatures lives there. No hostiles.
+
+### Fixes
+
+- Talk bubbles grow to fit their text, and starting a conversation keeps the NPC in view.
+- The first cloud rescue in a sky no longer stings, and a hint appears before you step off a shore.
+- Glass plus any dye makes stained glass of that colour on the 2×2 backpack grid.
+
+Windows builds still embed a Common Controls v6 manifest and the app icon in the exe.
+
 ## 1.4.4-test — 25 November 2026
 
-A playtest build. 1.4.3 remains the latest full release. Skies from 1.4, 1.4.1, 1.4.2 and 1.4.3 still load and keep their original terrain. These changes apply to new skies (generator v5) and the lesson island.
+A playtest build, superseded by 1.4.4. Skies from 1.4, 1.4.1, 1.4.2 and 1.4.3 still load and keep their original terrain. These changes apply to new skies (generator v5) and the lesson island.
 
 - New skies use generator v5: standard and medium islands grow about 30% in footprint and depth, and a rare huge-continent tier appears a few times per sky (around 350–500 cells across) with mixed biomes, peaks near 300, valleys and lakes. v4 stays for 1.4.3 saves; the lesson island and title showcases stay pinned.
 - 118 new building blocks (material IDs 129–246): 16 dyes, six decorative families with a dyed variant of each (patterned tile, terrazzo, woven panel, stained glass, crystal lamp, banner), plus plasters, metals, lattices, bounce jellies, checkers, stripes, shimmer cloud and cosmic star.
@@ -22,7 +70,7 @@ Windows builds still embed a Common Controls v6 manifest and the app icon in the
 
 ## 1.4.3 — 25 November 2026
 
-The current release. Skies from 1.4, 1.4.1 and 1.4.2 still load and keep their original terrain. These changes apply to new skies (generator v4).
+A previous release. Skies from 1.4, 1.4.1 and 1.4.2 still load and keep their original terrain. These changes apply to new skies (generator v4).
 
 - The lesson island is no longer uniquely slow. Eight tutorial people were being remeshed from scratch every frame; their poses are cached now.
 - New skies use generator v4: each island is a discrete, spaced object with its own centre, radius and a rounded underside, so volumes do not intersect and coasts no longer follow a grid-aligned cut plane. The sky mixes large irregular continents (hundreds of cells across, with walkable relief and trees) with medium and small islands. Older skies stay on v1–v3; the lesson island and title showcases stay on the land they were built for. Surfaces stay walkable, and peaks still reach about 300.

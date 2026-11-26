@@ -183,8 +183,8 @@ def _mesh_core(P, realm, cq, cr, Pm, yoff):
     wat = MT.IS_WATER[P]
     gls = MT.IS_GLASS[P]
     # sky light: is an (empty) cell roofed over, and is it enclosed from below too (a cave)?
-    roof = occ & (P != _ID['canopy'])
-    leaf = P == _ID['canopy']
+    leaf = np.isin(P, MT.LEAVES)
+    roof = occ & ~leaf
     cs = np.cumsum(roof[:, ::-1, :], axis=1)[:, ::-1, :]
     above = (cs - roof) > 0
     below = (np.cumsum(roof, axis=1) - roof) > 0
@@ -594,7 +594,7 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0, step=2):
     """Cheap far-away mesh for one chunk: per column one cap + one body prism (+ a canopy slab).
     No caves, plants or lights. -> VERT array, positions offset by (dx, dz)."""
     c = cells
-    can = c == _ID['canopy']
+    can = np.isin(c, MT.LEAVES)
     wood = np.isin(c, list(MT.WOODS))
     terr = (OPAQUE[c] | MT.IS_WATER[c]) & ~can & ~wood
     has = terr.any(1)

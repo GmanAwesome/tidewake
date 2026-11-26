@@ -7,7 +7,7 @@ from tidewake.generator import Generator
 from tidewake.materials import REALMS, N_REALMS, REALM_TURF, REALM_CANOPY
 from tidewake import gensettings as GS
 
-assert N_REALMS == 16 and len(REALMS) == 16 and len(REALM_TURF) == 16 and len(REALM_CANOPY) == 16
+assert N_REALMS == 20 and len(REALMS) == 20 and len(REALM_TURF) == 20 and len(REALM_CANOPY) == 20
 
 # sliders
 d = GS.normalize({'island_thickness': 80, 'nope': 1, 'water': -5})

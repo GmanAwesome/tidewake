@@ -63,13 +63,13 @@ def sheer_metric(gen, q0=0, r0=0, radius=160, thresh=THRESH):
 def test_versions_keep_old_skies_on_v2():
     assert Generator(7, None).version == 1
     assert Generator(7, GS.normalize({})).version == 2
-    assert Generator(7, GS.normalize({}, new=True)).version == 4
+    assert Generator(7, GS.normalize({}, new=True)).version == GS.CURRENT
     assert 'generator_version' not in GS.normalize({})
     assert GS.normalize({}, new=True)['generator_version'] == GS.CURRENT >= 5
     # a 1.4.1 save (sliders, no version field) fingerprints as v2
     assert GS.fingerprint({})[0] == 2
     assert GS.fingerprint(GS.normalize({}))[0] == 2
-    assert GS.fingerprint(GS.normalize({}, new=True))[0] == 4
+    assert GS.fingerprint(GS.normalize({}, new=True))[0] == GS.CURRENT
 
 
 def test_v2_stays_under_old_ceiling():

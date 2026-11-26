@@ -497,3 +497,17 @@ Generator v6 (new skies; v1–v5 skies unchanged): every island tier's spacing a
 Grand procedural structures (`tidewake/grand.py`, v6 only): one roll per 14×14-chunk region (42%), built once per process and stamped chunk by chunk so pieces line up. Kinds: hot air balloons (seeded size R 10–19, round / teardrop / tall / pumpkin / onion envelopes, gores / bands / harlequin / spiral / chevron / patchwork / rainbow palettes from the dyed blocks, basket / deck / boat / cabin gondolas, ropes, burner glow, cargo chests, pennants), sky cities, floating fortresses, world trees with branch huts and rope bridges, robed colossi (some fallen), megaspires up to ~250 layers (buttress, pagoda, crystal, helix), leviathan and airship wrecks, and titan ruins. The smaller v5 structures still spawn too.
 
 Candidate showcase seed: **-1565669544**, around x -1603, z -2679 (Cedar Highlands): a huge island packed with many biomes and colours. Its v5 output is pinned by the hash test.
+
+## November 26, 2026, 1:35 AM EST — new v6 landscapes and tree sizes, final shots, 1.4.4 release prep
+
+Generator v6 adds four landscapes carved out of their neighbours by a new noise field: Blossom Vale, Autumn Wilds, Azure Fields and Golden Steppe (realms 16–19). The tree-rate and decoration tables were extended, and surfaces were tuned (frosted ice patches in Azure, sand in Golden, clay in Autumn). It also adds five foliage blocks: Blossom, Autumn, Frost, Violet and Golden Canopy (ids 247–251, appended, N = 252 of 256). The mesher treats them all as leaves.
+
+Trees on v6 come in three clear sizes. Small bush-trees are 2–4 layers. Medium trees come in new shapes per landscape: round blossom, tall autumn, frosted cone, flat golden acacia and violet lavender. Huge trees are 18–34 layers tall: oak, cedar, willow, acacia and glowing toadstool. They sit on a 34-cell grid (30% chance per cell), are drawn into air only and stamped across chunk edges (`grand.giant_trees`, before the smaller structures).
+
+v1–v5 output is unchanged: the hash test covers seeds 7 and -1565669544, and the new test checks that v5 has no new realms or leaves.
+
+Balloon patchwork and harlequin envelopes use big panels now. The per-cell noise read as mud from a distance.
+
+Tutorial perf is 38.3 still / 37.6 walk (1280×720 uncapped, vd 8, 258 chunks, 11 lights), against 44.2 / 46.2 at the pre-rebuild commit on the same box. The showpieces cost about 15%. Lowering the light cap from 14 to 11 won back about 1.5 fps; mobs are not the cost.
+
+The showcase is in `/workspace/winbuild/tidewake-showcase/` (18 shots + README) and `tidewake-showcase.zip`. The seed -1565669544 shots there use generator v5. The final shots are in `screenshots-final/v1.4.4/{grand,islands_v6,trees_v6,tutorial2,seed5_v5}`.

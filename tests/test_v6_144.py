@@ -113,9 +113,43 @@ def test_trimmed_mesher_matches_full():
     assert np.allclose(L1, L2, atol=1e-3) and len(w1) == len(w2)
 
 
+
+def test_new_biomes_and_trees_v6_only():
+    from tidewake import materials as MT
+    from tidewake import grand as GR
+    assert MT.N <= 256 and len(MT.REALMS) == 20
+    assert MT.REALM_TURF.shape[0] == MT.REALM_CANOPY.shape[0] == len(MT.REALMS)
+    qs = np.arange(-1500, 1500, 9)
+    Q, R = np.meshgrid(qs, qs, indexing='ij')
+    new = set(range(16, 20))
+    g5 = Generator(7, GS.normalize({'generator_version': 5}))
+    g6 = Generator(7, GS.normalize({'generator_version': 6}))
+    r5 = set(np.unique(g5.columns(Q.ravel(), R.ravel())['realm']).tolist())
+    r6 = set(np.unique(g6.columns(Q.ravel(), R.ravel())['realm']).tolist())
+    assert not (r5 & new), r5
+    assert new <= r6, r6
+    sites = [GR._tree_site(g6, i, j) for i in range(-12, 12) for j in range(-12, 12)]
+    sites = [t['info'] for t in sites if t]
+    assert len(sites) >= 10, len(sites)
+    assert len({t['form'] for t in sites}) >= 2
+    hs = [t['H'] for t in sites]
+    assert min(hs) >= 18 and max(hs) <= 34
+    # coloured canopies show up in v6 chunks only
+    leaves = set(MT.LEAVES[1:])
+    found = False
+    for t in sites[:6]:
+        cq, cr = t['q'] // 16, t['r'] // 16
+        c6, _, _ = g6.generate(cq, cr)
+        c5, _, _ = g5.generate(cq, cr)
+        assert not np.isin(c5, list(leaves)).any()
+        found = found or (c6 == MT.ID['heartwood']).any() or np.isin(c6, list(leaves)).any()
+    assert found
+
+
 if __name__ == '__main__':
     test_columns_are_500_and_old_ceiling_fixed(); print('ok 500 layers, fixed old ceiling, v6 current')
     test_v5_output_unchanged(); print('ok v5 unchanged (incl. showcase seed -1565669544)')
     test_v6_islands_bigger_and_taller(); print('ok v6 islands bigger, taller, more islets')
     test_grand_structures_only_in_v6_and_deterministic(); print('ok grand structures')
     test_trimmed_mesher_matches_full(); print('ok trimmed mesher')
+    test_new_biomes_and_trees_v6_only(); print('ok new v6 biomes and tree sizes')

@@ -19,7 +19,7 @@ Mine, craft and build on an endless archipelago made of hexagonal prisms, not cu
 Get the game from **Releases**, not the green **Code → Download ZIP** button. That button gives you the source, which will not run without Python.
 
 1. Open the **[latest release](../../releases/latest)**.
-2. Under Assets, download **`Tidewake-1.4.3-Windows.zip`**.
+2. Under Assets, download **`Tidewake-1.4.4-Windows.zip`**.
 3. Right-click the zip, choose **Extract All…**, and open the `Tidewake` folder.
 4. Double-click **`Tidewake.exe`**.
 
@@ -37,7 +37,7 @@ Your skies, settings and snapshots are saved next to the exe (`skies/`, `setting
 
 Everything is built from hexagonal prism cells stacked in up to 500 layers. Cliffs, terraces, arches and overhangs come out softer and stranger than cubes. Every sky is generated from a seed — any number or words — and goes on forever above a sea of clouds.
 
-There are sixteen landscapes: Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass, Lumen Grove, Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires, Chalk Barrens, Starfall Veil, Cloudstep Isles and Verdigris Canyons. When you dream a new sky you can tune its shape with sliders for island size and thickness, mountains, caves, water, trees, Glimmer and more. Those sliders are saved with the sky.
+There are twenty landscapes: Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass, Lumen Grove, Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires, Chalk Barrens, Starfall Veil, Cloudstep Isles, Verdigris Canyons, and, from 1.4.4, Blossom Vale, Autumn Wilds, Azure Fields and Golden Steppe. When you dream a new sky you can tune its shape with sliders for island size and thickness, mountains, caves, water, trees, Glimmer and more. Those sliders are saved with the sky.
 
 Trees grow tall enough that you can walk under most canopies. Caves run under the islands without turning the land into cheese, even when those sliders are turned all the way up.
 
@@ -46,13 +46,21 @@ Trees grow tall enough that you can walk under most canopies. Caves run under th
     <td width="50%"><img src="docs/v1.4.3/islands.jpg" alt="A wide lavender forest on a generated continent, with taller and smaller islands floating around it"><br><sub>A generated sky on the 1.4.3 generator</sub></td>
     <td width="50%"><img src="docs/v1.4/canopy.jpg" alt="Looking up through a walkable tree canopy"><br><sub>Under a canopy in a generated world</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="docs/v1.4.4/islands.jpg" alt="Seed -1565669544 from above: a huge island of lavender, amber, cedar and snow forests around a winding lake"><br><sub>Seed -1565669544 near x -1603, z -2679</sub></td>
+    <td width="50%"><img src="docs/v1.4.4/balloon.jpg" alt="A huge banded hot air balloon with a wooden deck gondola drifting above the cloud sea"><br><sub>A seeded hot air balloon (generator v6)</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/v1.4.4/blossom.jpg" alt="A small floating island in Blossom Vale with pink-leaved trees of several sizes and one huge tree"><br><sub>Blossom Vale trees in three sizes (generator v6)</sub></td>
+    <td width="50%"></td>
+  </tr>
 </table>
 
 ### Settlements, ruins and a lesson island
 
 New skies can grow a hut, a small village, a temple, a ring of standing stones, a buried chamber or a sky boat moored at an island edge, weathered as intact, abandoned, ruined or overgrown. Buried chambers are lit, so the room at the bottom of the shaft is a place you can see.
 
-Skies from 1.4.4 on also hide rare grand structures, each one seeded so no two look alike: huge striped or patchwork hot air balloons drifting between islands, sky cities, floating fortresses, world trees with huts in their branches, robed colossi, megaspires, wrecked leviathans and airships, titan ruins, villages, flying airships and lone watchtowers.
+Skies from 1.4.4 on also hide rare grand structures, each one seeded so no two look alike: huge striped or patchwork hot air balloons drifting between islands, sky cities, floating fortresses, world trees with huts in their branches, robed colossi, megaspires, wrecked leviathans and airships, titan ruins, villages, flying airships and lone watchtowers. Those skies also add four landscapes (Blossom Vale, Autumn Wilds, Azure Fields and Golden Steppe) with pink, orange, frosted-blue, violet and golden foliage. Trees come in small, medium and huge sizes; huge oaks, cedars, willows, acacias and glowing toadstools stand 18 to 34 layers tall.
 
 **Learn to play** opens a hand-built lesson island that walks you through moving, gathering, crafting, doors, fishing, farming and Glimmer. It is crowded with showpieces built from every block in the game, plus gardens and friendly creatures.
 
@@ -183,7 +191,9 @@ The game ends up in `dist/Tidewake/`. The spec bundles the fonts, the showcase b
 
 ## Changelog
 
-**1.4.3** is the current release. New skies use generator v4: each island is a discrete, spaced object with its own centre and a rounded underside, so volumes do not intersect and coasts no longer follow a grid-aligned cut. The sky mixes large irregular continents (hundreds of cells across, with walkable relief and trees) with medium and small islands. The lesson island is no longer uniquely slow, and the wanderer starts as a plain, unclothed base figure. Skies from 1.4, 1.4.1 and 1.4.2 keep their original terrain.
+**1.4.4** is the current release. New skies use generator v6. Islands are about 50% larger, shelves spread through a 500-layer column, and a few more tiny islets float at many heights. Seeded grand structures appear: hot air balloons, sky cities, floating fortresses, world trees, colossi, megaspires, wrecks, titan ruins, villages, airships and watchtowers. There are four new landscapes, coloured foliage, and trees in small, medium and huge sizes. The Glimmer Font is now the Tidewell, and the Glimmer loop is spelled out. The lesson island is packed with showpieces that use every placeable block. Skies from 1.4 through 1.4.4-test keep their original terrain.
+
+**1.4.3** used generator v4: each island is a discrete, spaced object with its own centre and a rounded underside, so volumes do not intersect and coasts no longer follow a grid-aligned cut. The sky mixes large irregular continents (hundreds of cells across, with walkable relief and trees) with medium and small islands. The lesson island is no longer uniquely slow, and the wanderer starts as a plain, unclothed base figure. Skies from 1.4, 1.4.1 and 1.4.2 keep their original terrain.
 
 **1.4.2** used generator v3: neighbouring islands at different heights are separated by sky instead of a tall vertical wall, some surfaces reach layer 300, and large islands have real hills, ridges and mountains. The eight hand-built title scenes sit on that generator, with a larger Sky-boat Dock and a longer Twin Isles Bridge.
 
