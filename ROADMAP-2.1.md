@@ -11,10 +11,14 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 - [x] Cargo workspace under `rust/`
 - [x] Window opens and clears to the Lighttide sky (`winit` + `wgpu`)
-- [ ] Title screen shows version `2.1`
-- [ ] Debug overlay shows version `2.1`
-- [ ] Single-file Windows `Tidewake.exe` (no runtime to install)
-- [ ] GitHub Actions workflow builds the exe on `windows-latest` and uploads it
+- [x] Title screen shows version `2.1` (Learn to play, My Skies, Settings)
+- [x] Debug line shows version `2.1` while playing
+- [x] My Skies starts empty and offers New Sky
+- [x] Loading screen; a failed chunk sets an error and Esc returns to the title
+- [ ] Settings sliders (the screen is a placeholder)
+- [x] Walk, jump and step-up on solid ground. F4 toggles flight
+- [x] GitHub Actions workflow builds `Tidewake.exe` on `windows-latest` and uploads the zip
+- [ ] Confirm the exe on a Windows machine (manifest and icon are embedded by the Windows build)
 
 ## World
 
@@ -54,7 +58,8 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 ## Play
 
-- [ ] Walk, look, jump, crouch, hurry, glide
+- [x] Walk, look, jump, hurry, and step up one layer. F4 flies
+- [ ] Crouch and glide
 - [ ] Fly and fall (Dreamer flight, cloud-sea rescue)
 - [ ] Mine and place
 - [ ] Inventory, hotbar, crafting (2×2 and Tinker Bench), kiln
@@ -65,16 +70,18 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Glimmer motes, waystones, Tidewell gifts
 - [ ] Spires (Glide, Updraft, Tidecall) and the Path
 - [ ] Tides (Lighttide / Dusktide)
-- [ ] Lesson island ("Learn to play") with its showpiece builds and friendly cast
+- [~] Lesson island ("Learn to play") loads a hand-built disc with a path, pool, tree and cottage, and you can walk it
+- [ ] The 1.4.6 showpiece builds and the friendly cast on that island
 - [ ] Commands and Dreamer mode
 
 ## Shell
 
-- [ ] Title
-- [ ] My Skies (starts empty; the lesson is not listed)
-- [ ] New Sky (seed and sliders)
-- [ ] Settings
-- [ ] Loading screen that shows world-gen errors
+- [x] Title (version 2.1, Learn to play, My Skies, Settings)
+- [x] My Skies starts empty; the lesson is not listed
+- [x] New Sky (type a seed, or leave it blank)
+- [ ] New Sky sliders
+- [ ] Settings beyond the placeholder screen
+- [x] Loading screen that shows world-gen errors and lets Esc return
 - [ ] Pause / save and leave
 - [ ] Saves (new format; old Python saves are not loaded)
 - [ ] Music (Korobeiniki is public domain) and sounds

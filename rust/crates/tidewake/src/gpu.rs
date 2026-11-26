@@ -5,6 +5,7 @@ use std::sync::Arc;
 use winit::window::Window;
 
 use crate::mesh::Vert;
+use crate::text::{UiVert, ATLAS};
 
 /// Soft Lighttide sky. The Python renderer clears to a mix of horizon and zenith.
 pub const SKY_CLEAR: wgpu::Color = wgpu::Color {
@@ -44,6 +45,9 @@ pub struct Gpu {
     pipeline: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
     depth: wgpu::TextureView,
+    ui_pipeline: wgpu::RenderPipeline,
+    ui_bind: wgpu::BindGroup,
+    ui_tex: wgpu::Texture,
 }
 
 impl Gpu {
@@ -156,6 +160,7 @@ impl Gpu {
             cache: None,
         });
         let depth = depth_view(&device, config.width, config.height);
+        let (ui_pipeline, ui_bind, ui_tex) = ui_pipeline(&device, format);
 
         Ok(Self {
             surface,
@@ -166,7 +171,28 @@ impl Gpu {
             pipeline,
             layout,
             depth,
+            ui_pipeline,
+            ui_bind,
+            ui_tex,
         })
+    }
+
+    pub fn upload_atlas(&self, pixels: &[u8]) {
+        self.queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &self.ui_tex,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            pixels,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(ATLAS),
+                rows_per_image: Some(ATLAS),
+            },
+            wgpu::Extent3d { width: ATLAS, height: ATLAS, depth_or_array_layers: 1 },
+        );
     }
 
     pub fn adapter_name(&self) -> &str {
@@ -220,7 +246,12 @@ impl Gpu {
         self.queue.write_buffer(&mesh.uni, 0, bytemuck::bytes_of(uni));
     }
 
-    pub fn render<'a>(&mut self, draws: impl IntoIterator<Item = &'a GpuMesh>) -> Result<(), String> {
+    pub fn render<'a>(
+        &mut self,
+        clear: wgpu::Color,
+        draws: impl IntoIterator<Item = &'a GpuMesh>,
+        ui: &[UiVert],
+    ) -> Result<(), String> {
         let frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
@@ -241,7 +272,7 @@ impl Gpu {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(SKY_CLEAR),
+                        load: wgpu::LoadOp::Clear(clear),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -267,6 +298,29 @@ impl Gpu {
                 pass.draw_indexed(0..mesh.n_idx, 0, 0..1);
             }
         }
+        if !ui.is_empty() {
+            use wgpu::util::DeviceExt;
+            let buf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("ui"),
+                contents: bytemuck::cast_slice(ui),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("ui"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            pass.set_pipeline(&self.ui_pipeline);
+            pass.set_bind_group(0, &self.ui_bind, &[]);
+            pass.set_vertex_buffer(0, buf.slice(..));
+            pass.draw(0..ui.len() as u32, 0..1);
+        }
         self.queue.submit(std::iter::once(encoder.finish()));
         frame.present();
         Ok(())
@@ -286,6 +340,133 @@ fn depth_view(device: &wgpu::Device, w: u32, h: u32) -> wgpu::TextureView {
     });
     tex.create_view(&Default::default())
 }
+
+fn ui_pipeline(
+    device: &wgpu::Device,
+    format: wgpu::TextureFormat,
+) -> (wgpu::RenderPipeline, wgpu::BindGroup, wgpu::Texture) {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("ui"),
+        source: wgpu::ShaderSource::Wgsl(UI_SHADER.into()),
+    });
+    let tex = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("font"),
+        size: wgpu::Extent3d { width: ATLAS, height: ATLAS, depth_or_array_layers: 1 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::R8Unorm,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    let view = tex.create_view(&Default::default());
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("font"),
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("ui"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+    });
+    let bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("ui"),
+        layout: &layout,
+        entries: &[
+            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&view) },
+            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&sampler) },
+        ],
+    });
+    let pipe_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("ui"),
+        bind_group_layouts: &[&layout],
+        push_constant_ranges: &[],
+    });
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("ui"),
+        layout: Some(&pipe_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs"),
+            buffers: &[wgpu::VertexBufferLayout {
+                array_stride: std::mem::size_of::<UiVert>() as u64,
+                step_mode: wgpu::VertexStepMode::Vertex,
+                attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2, 2 => Float32x4],
+            }],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            cull_mode: None,
+            ..Default::default()
+        },
+        depth_stencil: None,
+        multisample: Default::default(),
+        multiview: None,
+        cache: None,
+    });
+    (pipeline, bind, tex)
+}
+
+const UI_SHADER: &str = r#"
+@group(0) @binding(0) var font_tex: texture_2d<f32>;
+@group(0) @binding(1) var font_samp: sampler;
+
+struct Vin {
+    @location(0) pos: vec2<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) col: vec4<f32>,
+}
+
+struct Vout {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+    @location(1) col: vec4<f32>,
+}
+
+@vertex
+fn vs(i: Vin) -> Vout {
+    var o: Vout;
+    o.clip = vec4<f32>(i.pos, 0.0, 1.0);
+    o.uv = i.uv;
+    o.col = i.col;
+    return o;
+}
+
+@fragment
+fn fs(i: Vout) -> @location(0) vec4<f32> {
+    let a = textureSample(font_tex, font_samp, i.uv).r * i.col.a;
+    return vec4<f32>(i.col.rgb, a);
+}
+"#;
 
 const SHADER: &str = r#"
 struct U {

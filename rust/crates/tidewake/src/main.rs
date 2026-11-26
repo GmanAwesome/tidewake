@@ -2,6 +2,7 @@
 
 mod gpu;
 mod mesh;
+mod text;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,16 +12,19 @@ use glam::{Mat4, Vec3};
 use tidewake_core::chunk::{self, Chunk};
 use tidewake_core::columns::Generator;
 use tidewake_core::config::{CHUNK, FOV_DEG, LAYER, VERSION};
-use tidewake_core::hex::{center, chunk_of};
+use tidewake_core::hex::{center, cell_at, chunk_of};
+use tidewake_core::lesson;
+use tidewake_core::player::{Cells, Player};
 use tidewake_core::settings::Settings;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{DeviceEvent, ElementState, KeyEvent, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Window, WindowId};
 
 use gpu::{FrameUni, Gpu, GpuMesh, FOG};
+use text::{Button, Fonts, Writer};
 const VIEW: i32 = 5;
 const LOD_AT: i32 = 3;
 const GEN_PER_FRAME: usize = 2;
@@ -51,6 +55,16 @@ struct Slot {
     dirty: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Screen {
+    Title,
+    Skies,
+    NewSky,
+    Settings,
+    Loading,
+    Play,
+}
+
 struct Game {
     gen: Generator,
     cam: Cam,
@@ -62,6 +76,16 @@ struct Game {
     fps_n: u32,
     shown_fps: f32,
     gen_ms: f32,
+    screen: Screen,
+    player: Player,
+    tutorial: bool,
+    fonts: Fonts,
+    mouse: [f32; 2],
+    clicked: bool,
+    seed_text: String,
+    load_err: Option<String>,
+    quit: bool,
+    jump_edge: bool,
 }
 
 struct App {
@@ -79,14 +103,20 @@ impl App {
     }
 }
 
+impl Cells for Game {
+    fn get(&self, q: i64, r: i64, y: i32) -> u8 {
+        let (cq, cr) = chunk_of(q, r);
+        let lq = q.rem_euclid(CHUNK as i64) as i32;
+        let lr = r.rem_euclid(CHUNK as i64) as i32;
+        self.chunks.get(&(cq, cr)).map(|s| s.cpu.get(lq, y, lr)).unwrap_or(0)
+    }
+}
+
 impl Game {
     fn boot() -> Self {
-        let gen = Generator::new(7, Settings::default());
-        let (x, y, z) = chunk::find_spawn(&gen);
-        log::info!("spawn at {x:.1}, {y:.1}, {z:.1}");
-        Self {
-            gen,
-            cam: Cam { x, y, z, yaw: 0.4, pitch: -0.45 },
+        let mut game = Self {
+            gen: Generator::new(7, Settings::default()),
+            cam: Cam { x: 0.0, y: 40.0, z: 0.0, yaw: 0.4, pitch: 0.0 },
             keys: Keys { w: false, a: false, s: false, d: false, up: false, down: false, fast: false },
             grabbed: false,
             chunks: HashMap::new(),
@@ -95,28 +125,71 @@ impl Game {
             fps_n: 0,
             shown_fps: 0.0,
             gen_ms: 0.0,
+            screen: Screen::Title,
+            player: Player::at_feet(0.0, 40.0, 0.0),
+            tutorial: false,
+            fonts: Fonts::load(),
+            mouse: [0.0, 0.0],
+            clicked: false,
+            seed_text: String::new(),
+            load_err: None,
+            quit: false,
+            jump_edge: false,
+        };
+        match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
+            Some("tutorial") => game.begin(true, 1),
+            Some("sky") => game.begin(false, 7),
+            _ => {}
         }
+        game
+    }
+
+    fn begin(&mut self, tutorial: bool, seed: i64) {
+        self.tutorial = tutorial;
+        self.chunks.clear();
+        self.load_err = None;
+        self.screen = Screen::Loading;
+        if tutorial {
+            let (x, y, z) = lesson::spawn();
+            self.player = Player::at_feet(x, y, z);
+            log::info!("lesson island at {x:.1}, {y:.1}, {z:.1}");
+        } else {
+            self.gen = Generator::new(seed, Settings::default());
+            let (x, _y, z) = chunk::find_spawn(&self.gen);
+            let (q, r) = cell_at(x, z);
+            let col = self.gen.sample(q, r);
+            let feet = (col.top as f64 + 1.0) * LAYER + 0.02;
+            self.player = Player::at_feet(x, feet, z);
+            log::info!("new sky seed {seed} at {x:.1}, feet {feet:.1}, {z:.1}");
+        }
+        self.player.yaw = 0.4;
+        self.player.pitch = -0.15;
+        self.sync_cam();
+    }
+
+    fn sync_cam(&mut self) {
+        let (x, y, z) = self.player.eye_pos();
+        self.cam.x = x;
+        self.cam.y = y;
+        self.cam.z = z;
+        self.cam.yaw = self.player.yaw;
+        self.cam.pitch = self.player.pitch;
     }
 
     fn step(&mut self, gpu: &Gpu, dt: f32) {
-        let (fx, _fy, fz) = look(self.cam.yaw, self.cam.pitch);
-        let flat = Vec3::new(fx, 0.0, fz);
-        let flat = if flat.length_squared() > 1e-6 { flat.normalize() } else { Vec3::Z };
-        let right = Vec3::new(flat.z, 0.0, -flat.x);
-        let mut wish = Vec3::ZERO;
-        if self.keys.w { wish += flat; }
-        if self.keys.s { wish -= flat; }
-        if self.keys.d { wish += right; }
-        if self.keys.a { wish -= right; }
-        if self.keys.up { wish += Vec3::Y; }
-        if self.keys.down { wish -= Vec3::Y; }
-        if wish.length_squared() > 1e-6 {
-            wish = wish.normalize();
+        if self.screen != Screen::Play && self.screen != Screen::Loading {
+            return;
         }
-        let speed = if self.keys.fast { 42.0 } else { 16.0 };
-        self.cam.x += wish.x as f64 * speed as f64 * dt as f64;
-        self.cam.y += wish.y as f64 * speed as f64 * dt as f64;
-        self.cam.z += wish.z as f64 * speed as f64 * dt as f64;
+        if self.screen == Screen::Play && self.load_err.is_none() {
+            let fwd = (self.keys.w as i32 as f32) - (self.keys.s as i32 as f32);
+            let strafe = (self.keys.d as i32 as f32) - (self.keys.a as i32 as f32);
+            let jump_pressed = self.jump_edge;
+            self.jump_edge = false;
+            let mut player = self.player.clone();
+            player.update(self, dt, fwd, strafe, self.keys.up, jump_pressed, self.keys.down, self.keys.fast);
+            self.player = player;
+            self.sync_cam();
+        }
 
         let (cq, cr) = chunk_of_cam(self.cam.x, self.cam.z);
         let mut want = Vec::new();
@@ -127,6 +200,7 @@ impl Game {
                 }
             }
         }
+        want.sort_by_key(|(a, b)| (a - cq).abs().max((b - cr).abs()));
         let mut made = 0;
         for key in &want {
             if self.chunks.contains_key(key) {
@@ -136,8 +210,11 @@ impl Game {
                 break;
             }
             let t = Instant::now();
-            let cpu = chunk::generate(&self.gen, key.0, key.1);
+            let cpu = self.make_chunk(key.0, key.1);
             self.gen_ms = t.elapsed().as_secs_f64() as f32 * 1000.0;
+            if self.load_err.is_some() {
+                break;
+            }
             let lod = (key.0 - cq).abs().max((key.1 - cr).abs()) >= LOD_AT;
             self.chunks.insert(*key, Slot { cpu, gpu: None, lod, dirty: true });
             for (dq, dr) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1)] {
@@ -184,6 +261,165 @@ impl Game {
             self.fps_t = 0.0;
             self.fps_n = 0;
         }
+        if self.screen == Screen::Loading && self.load_err.is_none() {
+            let ready = self.chunks.keys().filter(|(a, b)| (a - cq).abs().max((b - cr).abs()) <= 1).count();
+            if ready >= 9 {
+                self.screen = Screen::Play;
+                log::info!("sky ready, walking");
+            }
+        }
+    }
+
+    fn make_chunk(&mut self, cq: i32, cr: i32) -> Chunk {
+        if self.tutorial {
+            return lesson::generate(cq, cr);
+        }
+        let gen = &self.gen;
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| chunk::generate(gen, cq, cr))) {
+            Ok(chunk) => chunk,
+            Err(_) => {
+                self.load_err = Some("This sky failed to grow. Esc returns to the title.".into());
+                Chunk { cq, cr, cells: vec![0; (CHUNK * tidewake_core::config::LAYERS * CHUNK) as usize], realm: vec![0; (CHUNK * CHUNK) as usize] }
+            }
+        }
+    }
+
+    fn ui(&mut self, fw: f32, fh: f32) -> Vec<text::UiVert> {
+        let mut verts = Vec::new();
+        let clicked = self.clicked;
+        let (mx, my) = (self.mouse[0], self.mouse[1]);
+        let ink = [0.96, 0.94, 0.90, 1.0];
+        let muted = [0.82, 0.78, 0.90, 1.0];
+        let paper = [0.95, 0.92, 0.86, 1.0];
+        let accent = [0.36, 0.28, 0.55, 1.0];
+        {
+            let mut ui = Writer { fonts: &mut self.fonts, verts: &mut verts, w: fw, h: fh };
+            let bw = 280.0;
+            let bh = 46.0;
+            let bx = (fw - bw) * 0.5;
+            match self.screen {
+                Screen::Title => {
+                    ui.text(0, "Tidewake", fw * 0.5, fh * 0.28, 72.0, [1.0, 0.97, 0.90, 1.0], true);
+                    ui.text(1, "a sky of floating hexagon islands", fw * 0.5, fh * 0.36, 20.0, muted, true);
+                    let labels = ["Learn to play", "My Skies", "Settings"];
+                    for (i, label) in labels.iter().enumerate() {
+                        let y = fh * 0.46 + i as f32 * 58.0;
+                        let b = Button { x: bx, y, w: bw, h: bh };
+                        ui.rect(b.x, b.y, b.w, b.h, if i == 0 { [0.55, 0.42, 0.22, 1.0] } else { accent });
+                        ui.text(1, label, fw * 0.5, y + 32.0, 22.0, paper, true);
+                        if clicked && b.hit(mx, my) {
+                            // recorded below; the borrow of ui ends first
+                            let _ = i;
+                        }
+                    }
+                    ui.text(1, "Tidewake 2.1", 24.0, fh - 28.0, 16.0, muted, false);
+                }
+                Screen::Skies => {
+                    ui.rect(fw * 0.2, fh * 0.16, fw * 0.6, fh * 0.68, [0.12, 0.09, 0.18, 0.92]);
+                    ui.text(0, "My Skies", fw * 0.5, fh * 0.24, 40.0, ink, true);
+                    ui.text(1, "No skies yet. The lesson has its own button.", fw * 0.5, fh * 0.34, 18.0, muted, true);
+                    ui.rect(bx, fh * 0.48, bw, bh, accent);
+                    ui.text(1, "New Sky", fw * 0.5, fh * 0.48 + 32.0, 22.0, paper, true);
+                    ui.rect(bx, fh * 0.60, bw, bh, accent);
+                    ui.text(1, "Back", fw * 0.5, fh * 0.60 + 32.0, 22.0, paper, true);
+                }
+                Screen::NewSky => {
+                    ui.rect(fw * 0.2, fh * 0.18, fw * 0.6, fh * 0.6, [0.12, 0.09, 0.18, 0.92]);
+                    ui.text(0, "New Sky", fw * 0.5, fh * 0.28, 40.0, ink, true);
+                    ui.text(1, "Type a seed, or leave it blank.", fw * 0.5, fh * 0.36, 18.0, muted, true);
+                    let shown = if self.seed_text.is_empty() { "seed".to_string() } else { self.seed_text.clone() };
+                    ui.rect(bx, fh * 0.44, bw, bh, [0.08, 0.06, 0.12, 1.0]);
+                    ui.text(1, &shown, fw * 0.5, fh * 0.44 + 32.0, 22.0, ink, true);
+                    ui.rect(bx, fh * 0.55, bw, bh, [0.55, 0.42, 0.22, 1.0]);
+                    ui.text(1, "Dream", fw * 0.5, fh * 0.55 + 32.0, 22.0, paper, true);
+                    ui.rect(bx, fh * 0.66, bw, bh, accent);
+                    ui.text(1, "Back", fw * 0.5, fh * 0.66 + 32.0, 22.0, paper, true);
+                }
+                Screen::Settings => {
+                    ui.rect(fw * 0.2, fh * 0.22, fw * 0.6, fh * 0.5, [0.12, 0.09, 0.18, 0.92]);
+                    ui.text(0, "Settings", fw * 0.5, fh * 0.32, 40.0, ink, true);
+                    ui.text(1, "Fog, music and the tide cycle are still being brought over.", fw * 0.5, fh * 0.42, 16.0, muted, true);
+                    ui.rect(bx, fh * 0.55, bw, bh, accent);
+                    ui.text(1, "Back", fw * 0.5, fh * 0.55 + 32.0, 22.0, paper, true);
+                }
+                Screen::Loading => {
+                    let msg = self.load_err.clone().unwrap_or_else(|| {
+                        format!("Dreaming…  {} chunks", self.chunks.len())
+                    });
+                    ui.text(0, if self.tutorial { "The Lesson" } else { "New Sky" }, fw * 0.5, fh * 0.40, 42.0, ink, true);
+                    ui.text(1, &msg, fw * 0.5, fh * 0.50, 20.0, muted, true);
+                    if self.load_err.is_some() {
+                        ui.text(1, "Esc returns to the title", fw * 0.5, fh * 0.58, 16.0, muted, true);
+                    }
+                }
+                Screen::Play => {
+                    let (x, y, z) = self.player.eye_pos();
+                    let line = format!(
+                        "Tidewake {VERSION}   {:.0} fps   {:.0}, {:.0}, {:.0}   layer {:.0}{}",
+                        self.shown_fps,
+                        x,
+                        y,
+                        z,
+                        y / LAYER,
+                        if self.player.drifting { "   flying" } else { "" }
+                    );
+                    ui.text(1, &line, 16.0, 28.0, 16.0, [1.0, 1.0, 1.0, 0.9], false);
+                }
+            }
+        }
+        if clicked {
+            self.click_at(mx, my, fw, fh);
+        }
+        self.clicked = false;
+        verts
+    }
+
+    fn click_at(&mut self, mx: f32, my: f32, fw: f32, fh: f32) {
+        let bw = 280.0;
+        let bh = 46.0;
+        let bx = (fw - bw) * 0.5;
+        let hit = |i: usize| {
+            let y = fh * 0.46 + i as f32 * 58.0;
+            Button { x: bx, y, w: bw, h: bh }.hit(mx, my)
+        };
+        match self.screen {
+            Screen::Title => {
+                if hit(0) { self.begin(true, 1); }
+                else if hit(1) { self.screen = Screen::Skies; }
+                else if hit(2) { self.screen = Screen::Settings; }
+            }
+            Screen::Skies => {
+                let neu = Button { x: bx, y: fh * 0.48, w: bw, h: bh };
+                let back = Button { x: bx, y: fh * 0.60, w: bw, h: bh };
+                if neu.hit(mx, my) { self.screen = Screen::NewSky; self.seed_text.clear(); }
+                else if back.hit(mx, my) { self.screen = Screen::Title; }
+            }
+            Screen::NewSky => {
+                let dream = Button { x: bx, y: fh * 0.55, w: bw, h: bh };
+                let back = Button { x: bx, y: fh * 0.66, w: bw, h: bh };
+                if dream.hit(mx, my) { self.dream(); }
+                else if back.hit(mx, my) { self.screen = Screen::Skies; }
+            }
+            Screen::Settings => {
+                let back = Button { x: bx, y: fh * 0.55, w: bw, h: bh };
+                if back.hit(mx, my) { self.screen = Screen::Title; }
+            }
+            _ => {}
+        }
+    }
+
+    fn dream(&mut self) {
+        let seed = if self.seed_text.trim().is_empty() {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos() as i64)
+                .unwrap_or(7)
+        } else {
+            self.seed_text.trim().parse::<i64>().unwrap_or_else(|_| {
+                self.seed_text.bytes().fold(0i64, |h, b| h.wrapping_mul(31).wrapping_add(b as i64))
+            })
+        };
+        self.begin(false, seed);
     }
 
     fn draws(&self, gpu: &Gpu) -> Vec<&GpuMesh> {
@@ -265,66 +501,126 @@ impl ApplicationHandler for App {
                     gpu.resize(size.width, size.height);
                 }
             }
-            WindowEvent::MouseInput { state: ElementState::Pressed, .. } => {
-                let _ = window.set_cursor_grab(CursorGrabMode::Locked);
-                window.set_cursor_visible(false);
+            WindowEvent::CursorMoved { position, .. } => {
                 if let Some(game) = self.game.as_mut() {
-                    game.grabbed = true;
+                    game.mouse = [position.x as f32, position.y as f32];
                 }
             }
-            WindowEvent::KeyboardInput { event: KeyEvent { physical_key, state, .. }, .. } => {
-                let down = state == ElementState::Pressed;
+            WindowEvent::MouseInput { state: ElementState::Pressed, .. } => {
+                if let Some(game) = self.game.as_mut() {
+                    if game.screen == Screen::Play {
+                        let _ = window.set_cursor_grab(CursorGrabMode::Locked);
+                        window.set_cursor_visible(false);
+                        game.grabbed = true;
+                    } else {
+                        game.clicked = true;
+                    }
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                let down = event.state == ElementState::Pressed;
                 let Some(game) = self.game.as_mut() else { return };
-                if let PhysicalKey::Code(code) = physical_key {
+                if game.screen == Screen::NewSky && down {
+                    if let Some(text) = event.text.as_deref() {
+                        if text.chars().all(|c| c.is_ascii_digit() || c == '-') && game.seed_text.len() < 18 {
+                            game.seed_text.push_str(text);
+                        }
+                    }
+                }
+                if let PhysicalKey::Code(code) = event.physical_key {
                     match code {
                         KeyCode::KeyW => game.keys.w = down,
                         KeyCode::KeyA => game.keys.a = down,
                         KeyCode::KeyS => game.keys.s = down,
                         KeyCode::KeyD => game.keys.d = down,
-                        KeyCode::Space => game.keys.up = down,
+                        KeyCode::Space => {
+                            game.keys.up = down;
+                            if down { game.jump_edge = true; }
+                        }
                         KeyCode::ShiftLeft | KeyCode::ShiftRight => game.keys.down = down,
                         KeyCode::ControlLeft | KeyCode::ControlRight => game.keys.fast = down,
+                        KeyCode::F4 if down && game.screen == Screen::Play => {
+                            game.player.drifting = !game.player.drifting;
+                        }
+                        KeyCode::Enter | KeyCode::NumpadEnter if down && game.screen == Screen::NewSky => game.dream(),
+                        KeyCode::Backspace if down && game.screen == Screen::NewSky => { game.seed_text.pop(); }
                         KeyCode::Escape if down => {
                             let _ = window.set_cursor_grab(CursorGrabMode::None);
                             window.set_cursor_visible(true);
                             game.grabbed = false;
+                            if game.screen != Screen::Title {
+                                game.screen = Screen::Title;
+                                game.chunks.clear();
+                                game.load_err = None;
+                            }
                         }
                         _ => {}
                     }
                 }
             }
             WindowEvent::RedrawRequested => {
-                let Some(gpu) = self.gpu.as_mut() else { return };
-                let Some(game) = self.game.as_mut() else { return };
-                let now = Instant::now();
-                let dt = (now - game.last).as_secs_f32().clamp(0.0, 0.05);
-                game.last = now;
-                game.step(gpu, dt);
-                let draws: Vec<&GpuMesh> = game.draws(gpu);
+                let size = window.inner_size();
+                let (pixels, shown_fps, gen_ms, cam_y, fps_n, quit) = {
+                    let Some(game) = self.game.as_mut() else { return };
+                    let Some(gpu) = self.gpu.as_ref() else { return };
+                    let now = Instant::now();
+                    let dt = (now - game.last).as_secs_f32().clamp(0.0, 0.05);
+                    game.last = now;
+                    game.step(gpu, dt);
+                    let pixels = if game.fonts.dirty { Some(game.fonts.pixels.clone()) } else { None };
+                    (pixels, game.shown_fps, game.gen_ms, game.cam.y, game.fps_n, game.quit)
+                };
+                if quit {
+                    event_loop.exit();
+                    return;
+                }
+                if let Some(px) = pixels {
+                    if let Some(gpu) = self.gpu.as_ref() {
+                        gpu.upload_atlas(&px);
+                    }
+                    if let Some(game) = self.game.as_mut() {
+                        game.fonts.dirty = false;
+                    }
+                }
+                let ui = self.game.as_mut().unwrap().ui(size.width as f32, size.height as f32);
+                let playing = self.game.as_ref().unwrap().screen == Screen::Play
+                    || self.game.as_ref().unwrap().screen == Screen::Loading;
+                let draws: Vec<&GpuMesh> = if playing {
+                    self.game.as_ref().unwrap().draws(self.gpu.as_ref().unwrap())
+                } else {
+                    Vec::new()
+                };
                 let n = draws.len();
                 let tris: u32 = draws.iter().map(|m| m.n_idx / 3).sum();
-                if let Err(err) = gpu.render(draws) {
+                let ui_quads = ui.len() / 6;
+                let clear = if playing {
+                    gpu::SKY_CLEAR
+                } else {
+                    wgpu::Color { r: 0.10, g: 0.08, b: 0.16, a: 1.0 }
+                };
+                if let Err(err) = self.gpu.as_mut().unwrap().render(clear, draws, &ui) {
                     log::error!("render failed: {err}");
                     event_loop.exit();
                     return;
                 }
-                if game.fps_n == 0 {
+                if fps_n == 0 {
                     let _ = window.set_title(&format!(
                         "Tidewake {VERSION}  —  {:.0} fps  —  {} chunks  —  gen {:.1} ms",
-                        game.shown_fps, n, game.gen_ms
+                        shown_fps, n, gen_ms
                     ));
                 }
                 self.frames = self.frames.saturating_add(1);
                 if self.frame_limit.is_some_and(|lim| self.frames >= lim) {
                     log::info!(
-                        "drew {} frame(s) at {:.0} fps, {} chunks, {} tris, last gen {:.1} ms, cam y {:.1} (layer {:.0})",
+                        "drew {} frame(s) at {:.0} fps, {} chunks, {} tris, {} ui, last gen {:.1} ms, cam y {:.1} (layer {:.0})",
                         self.frames,
-                        game.shown_fps,
+                        shown_fps,
                         n,
                         tris,
-                        game.gen_ms,
-                        game.cam.y,
-                        game.cam.y / LAYER
+                        ui_quads,
+                        gen_ms,
+                        cam_y,
+                        cam_y / LAYER
                     );
                     event_loop.exit();
                 }
@@ -336,9 +632,10 @@ impl ApplicationHandler for App {
     fn device_event(&mut self, _event_loop: &ActiveEventLoop, _id: winit::event::DeviceId, event: DeviceEvent) {
         if let DeviceEvent::MouseMotion { delta } = event {
             if let Some(game) = self.game.as_mut() {
-                if game.grabbed {
-                    game.cam.yaw += delta.0 as f32 * 0.0025;
-                    game.cam.pitch = (game.cam.pitch - delta.1 as f32 * 0.0025).clamp(-1.45, 1.45);
+                if game.grabbed && game.screen == Screen::Play {
+                    game.player.yaw += delta.0 as f32 * 0.0025;
+                    game.player.pitch = (game.player.pitch - delta.1 as f32 * 0.0025).clamp(-1.45, 1.45);
+                    game.sync_cam();
                 }
             }
         }

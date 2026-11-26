@@ -49,6 +49,23 @@ pub fn hex_distance(q1: i64, r1: i64, q2: i64, r2: i64) -> i64 {
     (dq.abs() + dr.abs() + (dq + dr).abs()) / 2
 }
 
+/// Signed distance to a cell's outline. Negative is inside. Matches `hex_sdf`.
+pub fn hex_sdf(px: f64, pz: f64) -> f64 {
+    let inradius = HEX * SQ3 / 2.0;
+    let kx = -0.866025404;
+    let ky = 0.5;
+    let kz = 0.577350269;
+    let mut x = pz.abs();
+    let mut y = px.abs();
+    let d = 2.0 * (kx * x + ky * y).min(0.0);
+    x -= d * kx;
+    y -= d * ky;
+    let lim = kz * inradius;
+    x -= x.clamp(-lim, lim);
+    y -= inradius;
+    (x * x + y * y).sqrt() * if y > 0.0 { 1.0 } else { -1.0 }
+}
+
 pub fn chunk_of(q: i64, r: i64) -> (i32, i32) {
     ((q.div_euclid(CHUNK as i64)) as i32, (r.div_euclid(CHUNK as i64)) as i32)
 }
@@ -87,6 +104,12 @@ mod tests {
         assert_eq!(chunk_of(-1, -1), (-1, -1));
         assert_eq!(chunk_of(-16, 16), (-1, 1));
         assert_eq!(chunk_of(0, 0), (0, 0));
+    }
+
+    #[test]
+    fn sdf_is_inside_at_the_centre() {
+        assert!(hex_sdf(0.0, 0.0) < 0.0);
+        assert!(hex_sdf(2.0, 0.0) > 0.0);
     }
 
     #[test]

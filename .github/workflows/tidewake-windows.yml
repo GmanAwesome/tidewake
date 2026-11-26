@@ -1,0 +1,32 @@
+name: Tidewake Windows
+
+on:
+  push:
+    paths:
+      - "rust/**"
+      - "assets/fonts/**"
+      - ".github/workflows/tidewake-windows.yml"
+  pull_request:
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+      - name: Test the world core
+        run: cargo test --manifest-path rust/Cargo.toml -p tidewake-core --release
+      - name: Build Tidewake.exe
+        run: cargo build --release --manifest-path rust/Cargo.toml -p tidewake
+      - name: Pack a single exe
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path pack | Out-Null
+          Copy-Item rust/target/release/tidewake.exe pack/Tidewake.exe
+          Compress-Archive -Path pack/Tidewake.exe -DestinationPath Tidewake-2.1-Windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tidewake-2.1-Windows
+          path: Tidewake-2.1-Windows.zip
