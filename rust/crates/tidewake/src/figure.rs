@@ -62,6 +62,8 @@ pub fn place(mesh: &CpuMesh, yaw: f32, feet: [f64; 3], cam: [f64; 3]) -> CpuMesh
             ],
             nrm: [nwx, ny, nwz],
             col: v.col,
+            uv: [0.0, 0.0],
+            tex: [-1.0, 0.0],
         });
     }
     out
@@ -136,9 +138,9 @@ fn cap(mesh: &mut CpuMesh, ring: &[[f32; 3]; 6], y: f32, up: bool, col: [f32; 3]
 
 fn tri(mesh: &mut CpuMesh, a: [f32; 3], b: [f32; 3], c: [f32; 3], n: [f32; 3], ca: [f32; 3], cb: [f32; 3], cc: [f32; 3]) {
     let base = mesh.verts.len() as u32;
-    mesh.verts.push(Vert { pos: a, nrm: n, col: ca });
-    mesh.verts.push(Vert { pos: b, nrm: n, col: cb });
-    mesh.verts.push(Vert { pos: c, nrm: n, col: cc });
+    mesh.verts.push(Vert::plain(a, n, ca));
+    mesh.verts.push(Vert::plain(b, n, cb));
+    mesh.verts.push(Vert::plain(c, n, cc));
     mesh.idx.extend([base, base + 1, base + 2]);
 }
 

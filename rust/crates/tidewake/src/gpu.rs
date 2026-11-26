@@ -79,6 +79,9 @@ pub struct Gpu {
     sky_pipeline: wgpu::RenderPipeline,
     sky_bind: wgpu::BindGroup,
     sky_buf: wgpu::Buffer,
+    atlas_view: wgpu::TextureView,
+    atlas_sampler: wgpu::Sampler,
+    _atlas: wgpu::Texture,
 }
 
 impl Gpu {
@@ -132,18 +135,37 @@ impl Gpu {
             label: Some("terrain"),
             source: wgpu::ShaderSource::Wgsl(SHADER.into()),
         });
+        let (atlas, atlas_view, atlas_sampler) = load_atlas(&device, &queue);
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("frame"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
                 },
-                count: None,
-            }],
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
         });
         let pipe_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("terrain"),
@@ -159,7 +181,7 @@ impl Gpu {
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Vert>() as u64,
                     step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x3],
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x3, 3 => Float32x2, 4 => Float32x2],
                 }],
                 compilation_options: Default::default(),
             },
@@ -209,6 +231,9 @@ impl Gpu {
             sky_pipeline,
             sky_bind,
             sky_buf,
+            atlas_view,
+            atlas_sampler,
+            _atlas: atlas,
         })
     }
 
@@ -279,10 +304,17 @@ impl Gpu {
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("chunk-bind"),
             layout: &self.layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: uni.as_entire_binding(),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: uni.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&self.atlas_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&self.atlas_sampler),
+                },
+            ],
         });
         GpuMesh { vbuf, ibuf, uni, bind, n_idx: idx.len() as u32 }
     }
@@ -403,6 +435,43 @@ fn depth_view(device: &wgpu::Device, w: u32, h: u32) -> wgpu::TextureView {
         view_formats: &[],
     });
     tex.create_view(&Default::default())
+}
+
+fn load_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> (wgpu::Texture, wgpu::TextureView, wgpu::Sampler) {
+    const W: u32 = 1024;
+    const H: u32 = 3072;
+    let bytes = include_bytes!("../assets/atlas.bin");
+    let tex = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("texpack"),
+        size: wgpu::Extent3d { width: W, height: H, depth_or_array_layers: 1 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rg8Unorm,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+    queue.write_texture(
+        wgpu::ImageCopyTexture {
+            texture: &tex,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        bytes,
+        wgpu::ImageDataLayout { offset: 0, bytes_per_row: Some(W * 2), rows_per_image: Some(H) },
+        wgpu::Extent3d { width: W, height: H, depth_or_array_layers: 1 },
+    );
+    let view = tex.create_view(&Default::default());
+    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        label: Some("texpack"),
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        ..Default::default()
+    });
+    (tex, view, sampler)
 }
 
 fn sky_pipeline(
@@ -638,10 +707,17 @@ struct Vin {
     @location(0) pos: vec3<f32>,
     @location(1) nrm: vec3<f32>,
     @location(2) col: vec3<f32>,
+    @location(3) uv: vec2<f32>,
+    @location(4) tex: vec2<f32>,
 }
+@group(0) @binding(1) var atlas: texture_2d<f32>;
+@group(0) @binding(2) var atlas_samp: sampler;
 struct Vout {
     @builtin(position) clip: vec4<f32>,
-    @location(0) col: vec3<f32>,
+    @location(0) lit: vec3<f32>,
+    @location(1) uv: vec2<f32>,
+    @location(2) tex: vec2<f32>,
+    @location(3) fogf: f32,
 }
 
 @vertex
@@ -654,18 +730,25 @@ fn vs(i: Vin) -> Vout {
     let ndl = max(dot(n, sun), 0.0);
     let wrap = ndl * 0.5 + 0.5;
     let amb = mix(vec3<f32>(0.42, 0.48, 0.60), vec3<f32>(0.90, 0.93, 0.98), n.y * 0.5 + 0.5);
-    var lit = i.col * (amb * 0.62 + vec3<f32>(1.0, 0.96, 0.86) * (ndl * 0.55 + wrap * 0.12));
-    let grain = fract(sin(dot(i.pos.xz, vec2<f32>(12.9898, 78.233))) * 43758.5453);
-    let band = step(0.5, fract(i.pos.y * 1.7));
-    lit = lit * (0.90 + 0.10 * grain) * (0.96 + 0.04 * band);
-    let d = length(p);
-    let f = smoothstep(u.offset.w, u.fog.w, d);
-    o.col = mix(lit, u.fog.xyz, f);
+    o.lit = i.col * (amb * 0.62 + vec3<f32>(1.0, 0.96, 0.86) * (ndl * 0.55 + wrap * 0.12));
+    o.uv = i.uv;
+    o.tex = i.tex;
+    o.fogf = smoothstep(u.offset.w, u.fog.w, length(p));
     return o;
 }
 
 @fragment
 fn fs(i: Vout) -> @location(0) vec4<f32> {
-    return vec4<f32>(i.col, 1.0);
+    var detail = 1.0;
+    if (i.tex.x >= 0.0) {
+        let tile = i.tex.x * 2.0 + i.tex.y;
+        let col_i = tile % 16.0;
+        let row_i = floor(tile / 16.0);
+        let suv = (vec2<f32>(col_i, row_i) + clamp(i.uv, vec2<f32>(0.001), vec2<f32>(0.999))) * vec2<f32>(64.0 / 1024.0, 64.0 / 3072.0);
+        // Atlas stores brightness/2, so 0.5 means unchanged.
+        detail = textureSample(atlas, atlas_samp, suv).r * 2.0;
+    }
+    let lit = i.lit * detail;
+    return vec4<f32>(mix(lit, u.fog.xyz, i.fogf), 1.0);
 }
 "#;

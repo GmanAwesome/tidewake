@@ -53,7 +53,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 - [x] Every material and block from 1.4.6 (ids, kinds, colours, emission, solidity)
 - [ ] Drops, hardness and decorative part shapes for those blocks
-- [~] Procedural surface grain in the terrain shader (full texture atlas still open)
+- [x] Procedural texture atlas from `tidewake/texpack.py` (our own tiles, not third-party pixels)
 - [x] Lighting follows the tide: warm Lighttide sun, violet Dusktide
 - [x] Sky gradient and a sun disc that shifts with the tide
 - [x] Player model kept exactly: nude wanderer, rounded glutes, smooth front,

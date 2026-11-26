@@ -12,6 +12,16 @@ pub struct Vert {
     pub pos: [f32; 3],
     pub nrm: [f32; 3],
     pub col: [f32; 3],
+    /// Atlas UV inside one 64×64 tile.
+    pub uv: [f32; 2],
+    /// x = material id, y = 0 top / 1 side. Negative material means untextured.
+    pub tex: [f32; 2],
+}
+
+impl Vert {
+    pub fn plain(pos: [f32; 3], nrm: [f32; 3], col: [f32; 3]) -> Self {
+        Self { pos, nrm, col, uv: [0.0, 0.0], tex: [-1.0, 0.0] }
+    }
 }
 
 pub struct CpuMesh {
@@ -48,7 +58,7 @@ pub fn build(chunk: &Chunk, neighbors: NeighborFn<'_>, lod: bool) -> CpuMesh {
                         y1 = y;
                     }
                     y += 1;
-                    prism(&mut verts, &mut idx, &corners, dx, dz, y0, y1, layer, id, id, true);
+                    prism(&mut verts, &mut idx, &corners, dx, dz, y0, y1, layer, id, id);
                 }
             } else {
                 for y in 0..tidewake_core::config::LAYERS {
@@ -59,17 +69,17 @@ pub fn build(chunk: &Chunk, neighbors: NeighborFn<'_>, lod: bool) -> CpuMesh {
                     let up = neighbors(lq, y + 1, lr);
                     let dn = neighbors(lq, y - 1, lr);
                     if !hides_face(up, id) {
-                        cap(&mut verts, &mut idx, &corners, dx, dz, (y + 1) as f32 * layer, true, materials::get(id).top);
+                        cap(&mut verts, &mut idx, &corners, dx, dz, (y + 1) as f32 * layer, true, materials::get(id).top, id, 0.0);
                     }
                     if !hides_face(dn, id) {
-                        cap(&mut verts, &mut idx, &corners, dx, dz, y as f32 * layer, false, materials::get(id).side);
+                        cap(&mut verts, &mut idx, &corners, dx, dz, y as f32 * layer, false, materials::get(id).side, id, 1.0);
                     }
                     for (d, (dq, dr)) in hex::DIRS.iter().enumerate() {
                         let nid = neighbors(lq + dq, y, lr + dr);
                         if hides_face(nid, id) {
                             continue;
                         }
-                        side(&mut verts, &mut idx, &corners, dx, dz, y as f32 * layer, (y + 1) as f32 * layer, d, materials::get(id).side);
+                        side(&mut verts, &mut idx, &corners, dx, dz, y as f32 * layer, (y + 1) as f32 * layer, d, materials::get(id).side, id);
                     }
                 }
             }
@@ -84,27 +94,41 @@ fn draw_id(id: u8) -> bool {
     id != 0 && (materials::is_solid(id) || id == materials::id::WATER)
 }
 
-fn prism(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx: f32, dz: f32, y0: i32, y1: i32, layer: f32, top_id: u8, side_id: u8, _closed: bool) {
+fn prism(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx: f32, dz: f32, y0: i32, y1: i32, layer: f32, top_id: u8, side_id: u8) {
     let yb = y0 as f32 * layer;
     let yt = (y1 + 1) as f32 * layer;
-    cap(verts, idx, corners, dx, dz, yt, true, materials::get(top_id).top);
-    cap(verts, idx, corners, dx, dz, yb, false, materials::get(side_id).side);
+    cap(verts, idx, corners, dx, dz, yt, true, materials::get(top_id).top, top_id, 0.0);
+    cap(verts, idx, corners, dx, dz, yb, false, materials::get(side_id).side, side_id, 1.0);
     for d in 0..6 {
-        side(verts, idx, corners, dx, dz, yb, yt, d, materials::get(side_id).side);
+        side(verts, idx, corners, dx, dz, yb, yt, d, materials::get(side_id).side, side_id);
     }
 }
 
-fn cap(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx: f32, dz: f32, y: f32, up: bool, col: [f32; 3]) {
+fn hex_uv(dx: f32, dz: f32) -> [f32; 2] {
+    [0.5 + dx / 1.7320508, 0.5 + dz * 0.5]
+}
+
+fn cap(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx: f32, dz: f32, y: f32, up: bool, col: [f32; 3], mat: u8, side_flag: f32) {
     let n = if up { [0.0, 1.0, 0.0] } else { [0.0, -1.0, 0.0] };
-    let p = |i: usize| -> [f32; 3] { [dx + corners[i].0 as f32, y, dz + corners[i].1 as f32] };
-    if up {
-        fan(verts, idx, n, col, [p(0), p(1), p(2), p(3), p(4), p(5)]);
-    } else {
-        fan(verts, idx, n, col, [p(0), p(5), p(4), p(3), p(2), p(1)]);
+    let mut p = [[0.0; 3]; 6];
+    let mut uv = [[0.0; 2]; 6];
+    for i in 0..6 {
+        let ox = corners[i].0 as f32;
+        let oz = corners[i].1 as f32;
+        p[i] = [dx + ox, y, dz + oz];
+        uv[i] = hex_uv(ox, oz);
+    }
+    let order = if up { [0, 1, 2, 3, 4, 5] } else { [0, 5, 4, 3, 2, 1] };
+    let b = verts.len() as u32;
+    for i in order {
+        verts.push(Vert { pos: p[i], nrm: n, col, uv: uv[i], tex: [mat as f32, side_flag] });
+    }
+    for i in 1..5 {
+        idx.extend([b, b + i, b + i + 1]);
     }
 }
 
-fn side(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx: f32, dz: f32, yb: f32, yt: f32, d: usize, col: [f32; 3]) {
+fn side(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx: f32, dz: f32, yb: f32, yt: f32, d: usize, col: [f32; 3], mat: u8) {
     let i1 = (d + 1) % 6;
     let a = [dx + corners[d].0 as f32, yb, dz + corners[d].1 as f32];
     let b = [dx + corners[i1].0 as f32, yb, dz + corners[i1].1 as f32];
@@ -122,23 +146,13 @@ fn side(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx
     let mid_x = (a[0] + b[0]) * 0.5 - dx;
     let mid_z = (a[2] + b[2]) * 0.5 - dz;
     let n = if n[0] * mid_x + n[2] * mid_z < 0.0 { [-n[0], 0.0, -n[2]] } else { n };
-    quad(verts, idx, n, col, [a, e, c, b]);
+    quad(verts, idx, n, col, [a, e, c, b], [[0.0, 0.0], [0.0, 1.0], [1.0, 1.0], [1.0, 0.0]], mat);
 }
 
-fn fan(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, n: [f32; 3], col: [f32; 3], p: [[f32; 3]; 6]) {
+fn quad(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, n: [f32; 3], col: [f32; 3], p: [[f32; 3]; 4], uv: [[f32; 2]; 4], mat: u8) {
     let b = verts.len() as u32;
-    for pos in p {
-        verts.push(Vert { pos, nrm: n, col });
-    }
-    for i in 1..5 {
-        idx.extend([b, b + i, b + i + 1]);
-    }
-}
-
-fn quad(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, n: [f32; 3], col: [f32; 3], p: [[f32; 3]; 4]) {
-    let b = verts.len() as u32;
-    for pos in p {
-        verts.push(Vert { pos, nrm: n, col });
+    for i in 0..4 {
+        verts.push(Vert { pos: p[i], nrm: n, col, uv: uv[i], tex: [mat as f32, 1.0] });
     }
     idx.extend([b, b + 1, b + 2, b, b + 2, b + 3]);
 }
