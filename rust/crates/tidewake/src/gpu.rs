@@ -17,6 +17,32 @@ pub const SKY_CLEAR: wgpu::Color = wgpu::Color {
 
 pub const FOG: [f32; 3] = [0.62, 0.78, 0.92];
 
+/// Lighttide (t = 0) through Dusktide (t = 1). One full cycle is 720 seconds.
+pub fn tide_colors(time: f32) -> ([f32; 3], [f32; 3], [f32; 3]) {
+    let t = ((time / 720.0) * std::f32::consts::TAU).sin().mul_add(0.5, 0.5);
+    let mix = |a: [f32; 3], b: [f32; 3]| {
+        [
+            a[0] + (b[0] - a[0]) * t,
+            a[1] + (b[1] - a[1]) * t,
+            a[2] + (b[2] - a[2]) * t,
+        ]
+    };
+    (
+        mix([0.45, 0.66, 0.90], [0.16, 0.10, 0.32]),
+        mix([0.72, 0.84, 0.96], [0.62, 0.34, 0.52]),
+        mix([1.0, 0.96, 0.84], [0.90, 0.48, 0.58]),
+    )
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct SkyUni {
+    zenith: [f32; 4],
+    horizon: [f32; 4],
+    sun: [f32; 4],
+    misc: [f32; 4],
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct FrameUni {
@@ -48,6 +74,9 @@ pub struct Gpu {
     ui_pipeline: wgpu::RenderPipeline,
     ui_bind: wgpu::BindGroup,
     ui_tex: wgpu::Texture,
+    sky_pipeline: wgpu::RenderPipeline,
+    sky_bind: wgpu::BindGroup,
+    sky_buf: wgpu::Buffer,
 }
 
 impl Gpu {
@@ -161,6 +190,7 @@ impl Gpu {
         });
         let depth = depth_view(&device, config.width, config.height);
         let (ui_pipeline, ui_bind, ui_tex) = ui_pipeline(&device, format);
+        let (sky_pipeline, sky_bind, sky_buf) = sky_pipeline(&device, format);
 
         Ok(Self {
             surface,
@@ -174,7 +204,20 @@ impl Gpu {
             ui_pipeline,
             ui_bind,
             ui_tex,
+            sky_pipeline,
+            sky_bind,
+            sky_buf,
         })
+    }
+
+    pub fn write_sky(&self, zenith: [f32; 3], horizon: [f32; 3], sun: [f32; 3], time: f32) {
+        let uni = SkyUni {
+            zenith: [zenith[0], zenith[1], zenith[2], 1.0],
+            horizon: [horizon[0], horizon[1], horizon[2], 1.0],
+            sun: [sun[0], sun[1], sun[2], 1.0],
+            misc: [self.config.height as f32, time, self.config.width as f32, 0.0],
+        };
+        self.queue.write_buffer(&self.sky_buf, 0, bytemuck::bytes_of(&uni));
     }
 
     pub fn upload_atlas(&self, pixels: &[u8]) {
@@ -266,13 +309,32 @@ impl Gpu {
             label: Some("frame"),
         });
         {
-            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("sky"),
+            let mut sky = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("sky-dome"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(clear),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            sky.set_pipeline(&self.sky_pipeline);
+            sky.set_bind_group(0, &self.sky_bind, &[]);
+            sky.draw(0..3, 0..1);
+        }
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("terrain"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -340,6 +402,99 @@ fn depth_view(device: &wgpu::Device, w: u32, h: u32) -> wgpu::TextureView {
     });
     tex.create_view(&Default::default())
 }
+
+fn sky_pipeline(
+    device: &wgpu::Device,
+    format: wgpu::TextureFormat,
+) -> (wgpu::RenderPipeline, wgpu::BindGroup, wgpu::Buffer) {
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("sky"),
+        source: wgpu::ShaderSource::Wgsl(SKY_SHADER.into()),
+    });
+    let buf = device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some("sky-u"),
+        size: std::mem::size_of::<SkyUni>() as u64,
+        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    });
+    let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("sky"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        }],
+    });
+    let bind = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("sky"),
+        layout: &layout,
+        entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }],
+    });
+    let pipe_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("sky"),
+        bind_group_layouts: &[&layout],
+        push_constant_ranges: &[],
+    });
+    let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: Some("sky"),
+        layout: Some(&pipe_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: Some("vs"),
+            buffers: &[],
+            compilation_options: Default::default(),
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: Some("fs"),
+            targets: &[Some(wgpu::ColorTargetState {
+                format,
+                blend: None,
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
+            compilation_options: Default::default(),
+        }),
+        primitive: Default::default(),
+        depth_stencil: None,
+        multisample: Default::default(),
+        multiview: None,
+        cache: None,
+    });
+    (pipeline, bind, buf)
+}
+
+const SKY_SHADER: &str = r#"
+struct U {
+    zenith: vec4<f32>,
+    horizon: vec4<f32>,
+    sun: vec4<f32>,
+    misc: vec4<f32>,
+}
+@group(0) @binding(0) var<uniform> u: U;
+
+@vertex
+fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+    let x = f32(i32(i & 1u) * 4 - 1);
+    let y = f32(i32(i & 2u) * 2 - 1);
+    return vec4<f32>(x, y, 0.0, 1.0);
+}
+
+@fragment
+fn fs(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+    let h = max(u.misc.x, 1.0);
+    let t = clamp(pos.y / h, 0.0, 1.0);
+    var col = mix(u.horizon.rgb, u.zenith.rgb, smoothstep(0.0, 0.75, 1.0 - t));
+    let sun_uv = vec2<f32>(u.misc.z * 0.72, h * (0.28 + 0.25 * sin(u.misc.y * 0.008)));
+    let d = length(pos.xy - sun_uv) / h;
+    col = col + u.sun.rgb * smoothstep(0.08, 0.0, d);
+    return vec4<f32>(col, 1.0);
+}
+"#;
 
 fn ui_pipeline(
     device: &wgpu::Device,
@@ -498,6 +653,9 @@ fn vs(i: Vin) -> Vout {
     let wrap = ndl * 0.5 + 0.5;
     let amb = mix(vec3<f32>(0.42, 0.48, 0.60), vec3<f32>(0.90, 0.93, 0.98), n.y * 0.5 + 0.5);
     var lit = i.col * (amb * 0.62 + vec3<f32>(1.0, 0.96, 0.86) * (ndl * 0.55 + wrap * 0.12));
+    let grain = fract(sin(dot(i.pos.xz, vec2<f32>(12.9898, 78.233))) * 43758.5453);
+    let band = step(0.5, fract(i.pos.y * 1.7));
+    lit = lit * (0.90 + 0.10 * grain) * (0.96 + 0.04 * band);
     let d = length(p);
     let f = smoothstep(u.offset.w, u.fog.w, d);
     o.col = mix(lit, u.fog.xyz, f);

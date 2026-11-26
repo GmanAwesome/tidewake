@@ -24,7 +24,7 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Window, WindowId};
 
-use gpu::{FrameUni, Gpu, GpuMesh, FOG};
+use gpu::{FrameUni, Gpu, GpuMesh};
 use text::{Button, Fonts, Writer};
 const VIEW: i32 = 5;
 const LOD_AT: i32 = 3;
@@ -474,21 +474,23 @@ impl Game {
             let q0 = *cq as i64 * CHUNK as i64;
             let r0 = *cr as i64 * CHUNK as i64;
             let (ox, oz) = center(q0, r0);
+            let (_, horizon, sun) = gpu::tide_colors(self.time);
             let uni = FrameUni {
                 vp: vp.to_cols_array_2d(),
                 offset: [(ox - cx) as f32, (0.0 - cy) as f32, (oz - cz) as f32, 28.0],
-                fog: [FOG[0], FOG[1], FOG[2], if slot.lod { 220.0 } else { 150.0 }],
-                sun: [0.35, 0.86, 0.28, 0.0],
+                fog: [horizon[0], horizon[1], horizon[2], if slot.lod { 220.0 } else { 150.0 }],
+                sun: [sun[0], sun[1], sun[2], 0.0],
             };
             gpu.write_uni(mesh, &uni);
             out.push(mesh);
         }
         if let Some(mesh) = self.figure_gpu.as_ref() {
+            let (_, horizon, sun) = gpu::tide_colors(self.time);
             let uni = FrameUni {
                 vp: vp.to_cols_array_2d(),
                 offset: [0.0, 0.0, 0.0, 28.0],
-                fog: [FOG[0], FOG[1], FOG[2], 150.0],
-                sun: [0.35, 0.86, 0.28, 0.0],
+                fog: [horizon[0], horizon[1], horizon[2], 150.0],
+                sun: [sun[0], sun[1], sun[2], 0.0],
             };
             gpu.write_uni(mesh, &uni);
             out.push(mesh);
@@ -667,8 +669,11 @@ impl ApplicationHandler for App {
                 let n = draws.len();
                 let tris: u32 = draws.iter().map(|m| m.n_idx / 3).sum();
                 let ui_quads = ui.len() / 6;
+                let (zenith, horizon, sun) = gpu::tide_colors(self.game.as_ref().unwrap().time);
+                let play_time = self.game.as_ref().unwrap().time;
+                self.gpu.as_ref().unwrap().write_sky(zenith, horizon, sun, play_time);
                 let clear = if playing {
-                    gpu::SKY_CLEAR
+                    wgpu::Color { r: horizon[0] as f64, g: horizon[1] as f64, b: horizon[2] as f64, a: 1.0 }
                 } else {
                     wgpu::Color { r: 0.10, g: 0.08, b: 0.16, a: 1.0 }
                 };
