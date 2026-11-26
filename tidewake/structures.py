@@ -8,7 +8,7 @@ import random
 
 import numpy as np
 
-from .config import CHUNK, LAYERS
+from .config import CHUNK, LAYERS, CLOUD_SEA
 from .hexgrid import DIRS, hex_distance
 from .noise import hash2
 from . import materials as MT
@@ -34,7 +34,8 @@ TYPES = []
 
 
 def register(family, name, *, surface=True, buried=False, aerial=False,
-             min_thickness=6, max_slope=2, biomes=None, rarity=1.0, pad=3):
+             min_thickness=6, max_slope=2, biomes=None, rarity=1.0, pad=3,
+             min_version=2, sky=False):
     """Hook for adding a structure type without touching the placer."""
     def deco(fn):
         TYPES.append({
@@ -43,6 +44,7 @@ def register(family, name, *, surface=True, buried=False, aerial=False,
             'min_thickness': min_thickness, 'max_slope': max_slope,
             'biomes': set(biomes) if biomes is not None else None,
             'rarity': rarity, 'pad': pad,
+            'min_version': min_version, 'sky': sky,
         })
         return fn
     return deco
@@ -652,7 +654,10 @@ def _pick_condition(family, h):
 
 def place(gen, cq, cr, cells, meta, col, sl):
     """Try to stamp at most one structure into this chunk. Deterministic in the seed."""
-    if getattr(gen, 'version', 1) != 2:
+    ver = getattr(gen, 'version', 1)
+    if ver >= 5:
+        return place_v5(gen, cq, cr, cells, meta, col, sl)
+    if ver != 2:
         return None
     P = sl[0].start
     rq, rr = cq // REGION, cr // REGION
@@ -692,7 +697,7 @@ def place(gen, cq, cr, cells, meta, col, sl):
         # settlements want flatter ground
         if not any(c[0] <= 2 and not c[2] for c in cands) and edges:
             family = 'aerial' if fam_roll & 1 else 'ruin'
-    types = [t for t in TYPES if t['family'] == family]
+    types = [t for t in TYPES if t['family'] == family and t.get('min_version', 2) <= 2]
     if family == 'ruin':
         # prefer a chamber when the island is thick enough
         if thick and ((h >> 12) % 3 == 0):
@@ -842,5 +847,204 @@ def fill_chest(inv, table, seed, q, r, y):
             put(I.GLIMMER.id, 1, 3)
         if rng.random() < 0.25:
             put(M['ember_lamp'], 1, 1)
+    elif table == 7:
+        put(I.GLIMMER.id, 1, 4)
+        put(M['shimmer_cloud'], 1, 3)
+        put(M['cosmic_star'] if rng.random() < 0.35 else M['crystal'], 0, 2)
+        put(rng.choice(common_food), 1, 3)
+        if rng.random() < 0.4:
+            put(M['sky_crystal_lamp'] if 'sky_crystal_lamp' in M else M['lumen_lamp'], 1, 1)
     else:
         put(I.STICK.id, 1, 4)
+
+
+def _air_clear(col, P, a, b, y0, y1):
+    """True if this local column has no land intersecting [y0, y1]."""
+    land = col['land']
+    top = col['top']
+    bot = col['bottom']
+    pa, pb = a + P, b + P
+    if not (0 <= pa < land.shape[0] and 0 <= pb < land.shape[1]):
+        return False
+    if not land[pa, pb]:
+        return True
+    t, btm = int(top[pa, pb]), int(bot[pa, pb])
+    return t < y0 or btm > y1
+
+
+def place_v5(gen, cq, cr, cells, meta, col, sl):
+    """v5 placer: island builds, short bridges, and true sky structures."""
+    P = sl[0].start
+    REGION = 5
+    CHANCE = 50
+    rq, rr = cq // REGION, cr // REGION
+    h = _h64(rq, rr, gen.h + 0xB144)
+    # every region also has a reserved bridge opportunity
+    want_bridge = ((h >> 18) % 10) >= 8
+    if ((h >> 20) % 100) >= CHANCE and not want_bridge:
+        return None
+    aq = rq * REGION + (h % REGION)
+    ar = rr * REGION + ((h >> 8) % REGION)
+    if (aq, ar) != (cq, cr):
+        return None
+    top = col['top'][sl]
+    bot = col['bottom'][sl]
+    land = col['land'][sl]
+    realm = col['realm'][sl]
+    cands = []
+    edges = []
+    for a in range(3, CHUNK - 3):
+        for b in range(3, CHUNK - 3):
+            if not land[a, b]:
+                continue
+            th = int(top[a, b] - bot[a, b] + 1)
+            slp = _slope(col, P, a, b)
+            edge, edir = _is_edge(col, P, a, b)
+            rec = (slp, th, edge, edir, a, b, int(top[a, b]), int(realm[a, b]))
+            cands.append(rec)
+            if edge:
+                edges.append(rec)
+    # --- short bridges between close islands ---
+    if want_bridge and edges:
+        rng = _rng(h, cq, cr, 'bridge')
+        for slp, th, edge, edir, a, b, y, rm in edges:
+            dq, dr = DIRS[edir]
+            # look 4-8 cells outward for another shore
+            found = None
+            for dist in range(4, 9):
+                aa, bb = a + dq * dist, b + dr * dist
+                if not (0 <= aa < CHUNK and 0 <= bb < CHUNK):
+                    break
+                pa, pb = aa + P, bb + P
+                if not col['land'][pa, pb]:
+                    continue
+                y2 = int(col['top'][pa, pb])
+                if abs(y2 - y) <= 4:
+                    found = (aa, bb, y2, dist)
+                    break
+                break  # hit land too soon or tall mismatch; stop this ray
+            if found and found[3] >= 4:
+                pal_rm = rm
+                cond = _pick_condition('settlement', h)
+                pal = palette(pal_rm, cond)
+                st = Stamp(cells, meta, top, bot, land, realm, cq, cr, rng, cond, pal)
+                q0 = cq * CHUNK + a + dq
+                r0 = cr * CHUNK + b + dr
+                q1 = cq * CHUNK + found[0] - dq
+                r1 = cr * CHUNK + found[1] - dr
+                from . import builds144 as B
+                if B.build_bridge(st, q0, r0, q1, r1, y, found[2]):
+                    return 'bridge', cond, q0, r0, y
+        if ((h >> 20) % 100) >= CHANCE:
+            return None
+
+    fam_roll = (h >> 16) % 10
+    if fam_roll >= 7:
+        family = 'sky'
+    elif fam_roll >= 5:
+        family = 'ruin'
+    else:
+        family = 'settlement'
+        if cands and not any(c[0] <= 2 and not c[2] for c in cands) and edges:
+            family = 'sky' if fam_roll & 1 else 'aerial'
+
+    types = [t for t in TYPES if t['family'] == family and t.get('min_version', 2) <= 5]
+    if family == 'ruin':
+        thick = [c for c in cands if c[1] >= 14]
+        if thick and ((h >> 12) % 3 == 0):
+            types = [t for t in types if t['buried']] or types
+        else:
+            types = [t for t in types if not t['buried']] or types
+    if family == 'sky' and not types:
+        types = [t for t in TYPES if t.get('sky') and t.get('min_version', 2) <= 5]
+    if not types:
+        # fall back to a classic settlement if the family was empty
+        types = [t for t in TYPES if t['family'] == 'settlement' and t.get('min_version', 2) <= 5]
+    if not types:
+        return None
+    # weighted pick by rarity
+    typ = types[(h >> 4) % len(types)]
+
+    if typ.get('sky'):
+        # pick an open column, preferably near land, with room above the cloud sea
+        sky = []
+        near_top = [c[6] for c in cands] or [90]
+        import statistics
+        mid = int(sorted(near_top)[len(near_top) // 2])
+        y_sky = max(CLOUD_SEA + 24, min(280, mid + 16 + (h >> 9) % 24))
+        pad = typ.get('pad', 4)
+        for a in range(pad, CHUNK - pad):
+            for b in range(pad, CHUNK - pad):
+                if land[a, b]:
+                    continue
+                clear = True
+                for da in range(-pad, pad + 1):
+                    for db in range(-pad, pad + 1):
+                        if not _air_clear(col, P, a + da, b + db, y_sky - 3, y_sky + 10):
+                            clear = False
+                            break
+                    if not clear:
+                        break
+                if clear:
+                    # prefer sites close to an island edge
+                    dist = min((abs(a - c[4]) + abs(b - c[5]) for c in cands), default=20)
+                    sky.append((dist, a, b, y_sky, 0))
+        if not sky:
+            # try a settlement instead
+            typ = next((t for t in TYPES if t['name'] == 'hamlet'), typ)
+            if typ.get('sky'):
+                return None
+        else:
+            sky.sort()
+            dist, a, b, y, rm = sky[h % min(len(sky), 7)]
+            rm = int(cands[0][7]) if cands else 0
+            cond = _pick_condition('ruin' if typ['family'] == 'ruin' else 'settlement', h)
+            pal = palette(rm, cond)
+            rng = _rng(h, cq, cr, typ['name'], cond, y)
+            st = Stamp(cells, meta, top, bot, land, realm, cq, cr, rng, cond, pal)
+            q = cq * CHUNK + a
+            r = cr * CHUNK + b
+            typ['fn'](st, q, r, y)
+            return typ['name'], cond, q, r, y
+
+    # surface / aerial / buried on land
+    fit = []
+    for slp, th, edge, edir, a, b, y, rm in cands:
+        if typ['biomes'] is not None and rm not in typ['biomes']:
+            continue
+        if th < typ['min_thickness']:
+            continue
+        if typ['aerial'] and not typ.get('sky') and not edge:
+            continue
+        if typ['surface'] and not typ['aerial'] and slp > typ['max_slope']:
+            continue
+        if typ['name'] in ('village', 'hamlet', 'market', 'garden', 'observatory') and (edge or slp > typ['max_slope']):
+            continue
+        fit.append((slp, th, edge, edir, a, b, y, rm))
+    if not fit:
+        return None
+    if typ['aerial']:
+        fit.sort(key=lambda c: (0 if c[2] else 1, c[0], -c[1]))
+    elif typ['buried']:
+        fit.sort(key=lambda c: (-c[1], c[0]))
+    else:
+        fit.sort(key=lambda c: (c[0], -c[1]))
+    pick = fit[h % min(len(fit), 5)]
+    slp, th, edge, edir, a, b, y, rm = pick
+    cond = _pick_condition(typ['family'] if typ['family'] != 'sky' else 'settlement', h)
+    pal = palette(rm, cond)
+    rng = _rng(h, cq, cr, typ['name'], cond, y)
+    st = Stamp(cells, meta, top, bot, land, realm, cq, cr, rng, cond, pal)
+    q = cq * CHUNK + a
+    r = cr * CHUNK + b
+    kwargs = {}
+    if typ['name'] in ('hut', 'village', 'hamlet'):
+        kwargs['door_dir'] = (h >> 6) % 6
+    if typ['name'] in ('sky_boat', 'lighthouse'):
+        kwargs['edge_dir'] = edir
+    typ['fn'](st, q, r, y, **kwargs)
+    return typ['name'], cond, q, r, y
+
+
+# 1.4.4 builders (registers on import; min_version=5)
+from . import builds144 as _builds144  # noqa: F401
