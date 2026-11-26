@@ -5,8 +5,8 @@
 A playtest build. 1.4.2 remains the latest full release.
 
 - The lesson island is no longer uniquely slow. Eight tutorial people were being remeshed from scratch every frame; their poses are cached now.
-- Overlapping or neighbouring shelves no longer meet at a straight cut plane. Different-height islands keep a noisy sky gap, coasts are nibbled so they cannot run as a long hex-axis wall, and a low island's underside stays a dome instead of a flat slice at the world floor.
-- The wanderer starts as a plain, unclothed base figure. Clothing and gear appear only once crafted or found and equipped.
+- New skies use generator v4: each island is a discrete, spaced object with its own centre, radius and a rounded underside, so volumes do not intersect and coasts no longer follow a grid-aligned cut plane. The sky mixes large irregular continents (hundreds of cells across, with walkable relief and trees) with medium and small islands. Older skies stay on v1–v3; the lesson island and title showcases stay on the land they were built for. Surfaces stay walkable, and peaks still reach about 300.
+- The wanderer starts as a plain, unclothed base figure. The hips are part of the body: several stepped cheek boxes sit partly into the lower torso, with a centre cleft, a rounded lift, and a taper into the thighs. Clothing and gear appear only once crafted or found and equipped.
 
 
 ## 1.4.2 — 25 November 2026

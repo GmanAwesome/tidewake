@@ -409,3 +409,30 @@ Cutoff after-shots for seed -857535443 were taken at the seven reported position
 ## November 25, 2026, 7:35 PM EST — 1.4.3-test pre-release is up
 
 https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.3-test is a pre-release (target `main` / `42d3967`). 1.4.2 remains Latest. Assets: `Tidewake-1.4.3-test-Windows.zip` (manifest 1294 bytes, comctl32 v6, RT_ICON 6 + RT_GROUP_ICON 1) and `Tidewake-1.4.3-test-screenshots.zip`, plus a few individual shots (wanderer back/front, tutorial before/after, two cutoff afters).
+
+## November 25, 2026, 7:48 PM EST — 1.4.3 round 2 starts
+
+The first after-shots were not usable: too few chunks were drawn, the views were hazy and distant, and some still said 1.4.2. Round 2 redoes the cutoff check at the user's seven positions with a long view distance (about 1310 loaded, jobs 0, drawn in the same range as theirs), then, if straight cuts remain, switches new skies to generator v4: discrete islands with spacing so volumes do not intersect, no Worley shelf cut planes, and no chunk or region clamps. v1–v3 stay for old saves; the lesson island stays pinned. The wanderer's hips should read as part of the body (cheeks partly sunk into the torso, centre cleft, rounded lift, no z-fighting). Before-shots of the current v3 at full load are starting now.
+
+## November 25, 2026, 8:24 PM EST — 1.4.3 round 2 (v4 islands, embedded hips)
+
+Full-load v3 before-shots at the seven reported sites (seed `-857535443`, exact xyz, view_distance 20 / far 35) settled to 1243–1306 loaded, jobs 0, and 165–252 drawn, at 1280×720, labelled 1.4.3-test. The leftover cuts are clear: a long straight canyon at Chalk Barrens high, a vertical cut plane at Cloudstep far, and a flat-sliced underside in the Cloudstep side/under views. Exact user yaw/pitch were never recovered from the original HUD shots; these pairs use the same positions, a framed look at the leftover cuts, plus closer side and underside cameras. Tours live in `screenshots-final/v1.4.3/round2/before/` and `after/`.
+
+Root cause: v3 still places islands on grid-aligned Worley shelves. When neighbouring cells have different altitude bands, the pullback along the Voronoi edge draws a long hex-axis wall (up to 17 cells on this seed). Height-blending those shelves in round 1 reintroduced 28-layer cliffs, so v3 kept a noisy gap and a nibble instead. That was not enough for a 12-cell bar, so new skies move to generator v4.
+
+v4 (CURRENT=4): each island is a discrete object on one of three jittered grids (continents, medium, small) with a reserved radius smaller than the minimum centre gap, so footprints cannot meet and there is no Worley cut plane and no chunk/region/layer clamp. Large islands are lobed and nibble-only along the coast (not uniform spheroids), with a wide walkable plateau, trees and biome cover, and tops to about 300; undersides are rounded cosine domes compressed above layer 2. Skerries stay in the open water. v1–v3 stay for old saves; the lesson island is still the pinned hand-built one. Title JSON and seed showcases are pinned to generator v3 and still have land at their original site tops (dtop=0 on all 14).
+
+Tests (`PYTHONPATH=. venv/bin/python tests/test_phase143.py` and `tests/test_phase142.py`): 18 seeds × two windows, 0 runs of 12+ on walls, coasts or undersides, 0 volume overlaps, neighbour steps ≤ 6, peaks 301–302. Size mix includes continents of 148–155 cells across (10k+ columns) plus medium and small islands. All 1.4.2 v3 cliff/height tests still pass (0 v3 seams, 100% reduction).
+
+The first v4 after-shots at those same cameras were too small and too round (many similar blob islets). The three-scale grid brings the spread back: e.g. seed 7’s Lumen Grove continent in `v4_aerial_wide.png` and `v4_tall_islands_lookup_wide.png` (1254–1300 loaded, 190/156 drawn), comparable to the 1.4.2 `aerial_wide_2` / `tall_islands_lookup_wide` showcases. After-shots at the seven sites were retaken; Chalk Barrens high now looks out from a large chalk landmass (1303 loaded, 220 drawn) instead of a field of blobs, with no straight cuts.
+
+Wanderer hips: cheeks are several stepped, shaded skin-tone boxes, narrowed to sit inside the hip width, raised to the base of the torso, and sunk into a recessed pelvis so they read as one butt from the back, three-quarter and side (`wanderer_back.png`, `wanderer_three_quarter.png`, `wanderer_side.png`). Centre cleft and a slight lift kept; no other anatomical detail. The glute reference image was private to this subagent, so the shape follows the written brief only.
+
+FPS (wall-clock, vsync off, fps_limit 0, 1280×720, after settle; `app.tick` still clamps dt at 0.1 so the HUD can read 10): tutorial still 46.4 / walk 51.3 (round 1 was 42.7 / 47.1 after the figure cache). Normal new v4 sky, seed `-1740201319`, still 11.7 / walk 12.6 (round 1 v3 at this seed was 7.1 / 7.8). Tutorial stays cached-fast.
+
+Best screenshot paths (all under `screenshots-final/v1.4.3/round2/`):
+- before/after cuts: `before/before_chalk_barrens_high.png` (straight canyon) vs `after/after_chalk_barrens_high.png` and `_b.png`; `before/before_cloudstep_isles_far.png` (vertical wall) vs `after/after_cloudstep_isles_far.png`; `before/before_cloudstep_isles_far_side.png` (flat underside).
+- v4 landmasses: `v4_aerial_wide.png`, `v4_tall_islands_lookup_wide.png`, `v4_continent_surface.png`.
+- figure: `wanderer_back.png`, `wanderer_three_quarter.png`, `wanderer_side.png`.
+
+The v1.4.3-test pre-release will be replaced next (1.4.2 stays Latest).
