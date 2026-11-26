@@ -20,14 +20,14 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 - [x] Axial hex grid maths (pointy-top `q, r`, floor chunking, 500 layers, 16×16)
 - [ ] Column storage, edits, chunk streaming, unload margin
-- [ ] v6 generator only (v1–v5 are not ported)
-  - [ ] Seed temperament and slider settings
-  - [ ] Five island size tiers, random heights across the full vertical range
-  - [ ] Sky tiers (`skytiers.py`)
-  - [ ] Tapered undersides
-  - [ ] Waterfalls that end in the air
+- [~] v6 generator only (v1–v5 are not ported)
+  - [x] Seed temperament and slider settings (matches Python MT19937)
+  - [x] Main island scales (huge, large, medium, small) and skerries, checked against Python columns
+  - [ ] Sky tiers (`skytiers.py`) stacked through the column
+  - [x] Tapered undersides on the main islands
+  - [ ] Waterfalls that end in the air (flags are sampled; water cells come with chunk fill)
   - [ ] Spike cleanup (no thin non-waterfall pillars)
-  - [ ] 20 biomes, including Blossom Vale, Autumn Wilds, Azure Fields, Golden Steppe
+  - [x] 20 biomes on the column field, including Blossom Vale, Autumn Wilds, Azure Fields, Golden Steppe
   - [ ] Small, medium and huge trees
   - [ ] Caves, lakes, ores, spires
 - [ ] Grand structures: hot air balloons, sky city, floating fortress, world tree,
