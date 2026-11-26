@@ -1,5 +1,6 @@
 //! Tidewake 2.1. Fly a generated v6 sky: hex islands, fog, near and far meshes.
 
+mod figure;
 mod gpu;
 mod mesh;
 mod text;
@@ -86,6 +87,10 @@ struct Game {
     load_err: Option<String>,
     quit: bool,
     jump_edge: bool,
+    /// 0 first person, 1 behind, 2 in front. Starts behind so the wanderer is in view.
+    cam_view: u8,
+    time: f32,
+    figure_gpu: Option<GpuMesh>,
 }
 
 struct App {
@@ -135,6 +140,9 @@ impl Game {
             load_err: None,
             quit: false,
             jump_edge: false,
+            cam_view: 1,
+            time: 0.0,
+            figure_gpu: None,
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -180,6 +188,7 @@ impl Game {
         if self.screen != Screen::Play && self.screen != Screen::Loading {
             return;
         }
+        self.time += dt;
         if self.screen == Screen::Play && self.load_err.is_none() {
             let fwd = (self.keys.w as i32 as f32) - (self.keys.s as i32 as f32);
             let strafe = (self.keys.d as i32 as f32) - (self.keys.a as i32 as f32);
@@ -422,10 +431,41 @@ impl Game {
         self.begin(false, seed);
     }
 
+    fn view_cam(&self) -> (f64, f64, f64, f32, f32) {
+        let (ex, ey, ez) = self.player.eye_pos();
+        let yaw = self.player.yaw;
+        let pitch = self.player.pitch;
+        if self.cam_view == 0 || self.screen != Screen::Play {
+            return (ex, ey, ez, yaw, pitch);
+        }
+        let (fx, fy, fz) = look(yaw, pitch);
+        let sign = if self.cam_view == 2 { 1.0 } else { -1.0 };
+        let dist = if self.cam_view == 2 { 2.6 } else { 4.0 };
+        let mut best = (ex, ey, ez);
+        for i in 1..=16 {
+            let t = dist * i as f64 / 16.0;
+            let nx = ex + sign * fx as f64 * t;
+            let ny = ey + sign * fy as f64 * t;
+            let nz = ez + sign * fz as f64 * t;
+            let (q, r) = cell_at(nx, nz);
+            let ly = (ny / LAYER).floor() as i32;
+            if tidewake_core::materials::is_solid(self.get(q, r, ly)) {
+                break;
+            }
+            best = (nx, ny, nz);
+        }
+        if self.cam_view == 2 {
+            (best.0, best.1, best.2, yaw + std::f32::consts::PI, -pitch)
+        } else {
+            (best.0, best.1, best.2, yaw, pitch)
+        }
+    }
+
     fn draws(&self, gpu: &Gpu) -> Vec<&GpuMesh> {
         let aspect = gpu.aspect();
         let proj = Mat4::perspective_rh(FOV_DEG.to_radians(), aspect, 0.08, 800.0);
-        let (fx, fy, fz) = look(self.cam.yaw, self.cam.pitch);
+        let (cx, cy, cz, yaw, pitch) = self.view_cam();
+        let (fx, fy, fz) = look(yaw, pitch);
         let view = Mat4::look_to_rh(Vec3::ZERO, Vec3::new(fx, fy, fz), Vec3::Y);
         let vp = proj * view;
         let mut out = Vec::new();
@@ -436,8 +476,18 @@ impl Game {
             let (ox, oz) = center(q0, r0);
             let uni = FrameUni {
                 vp: vp.to_cols_array_2d(),
-                offset: [(ox - self.cam.x) as f32, (0.0 - self.cam.y) as f32, (oz - self.cam.z) as f32, 28.0],
+                offset: [(ox - cx) as f32, (0.0 - cy) as f32, (oz - cz) as f32, 28.0],
                 fog: [FOG[0], FOG[1], FOG[2], if slot.lod { 220.0 } else { 150.0 }],
+                sun: [0.35, 0.86, 0.28, 0.0],
+            };
+            gpu.write_uni(mesh, &uni);
+            out.push(mesh);
+        }
+        if let Some(mesh) = self.figure_gpu.as_ref() {
+            let uni = FrameUni {
+                vp: vp.to_cols_array_2d(),
+                offset: [0.0, 0.0, 0.0, 28.0],
+                fog: [FOG[0], FOG[1], FOG[2], 150.0],
                 sun: [0.35, 0.86, 0.28, 0.0],
             };
             gpu.write_uni(mesh, &uni);
@@ -542,6 +592,9 @@ impl ApplicationHandler for App {
                         KeyCode::F4 if down && game.screen == Screen::Play => {
                             game.player.drifting = !game.player.drifting;
                         }
+                        KeyCode::F5 if down && game.screen == Screen::Play => {
+                            game.cam_view = (game.cam_view + 1) % 3;
+                        }
                         KeyCode::Enter | KeyCode::NumpadEnter if down && game.screen == Screen::NewSky => game.dream(),
                         KeyCode::Backspace if down && game.screen == Screen::NewSky => { game.seed_text.pop(); }
                         KeyCode::Escape if down => {
@@ -581,6 +634,27 @@ impl ApplicationHandler for App {
                     if let Some(game) = self.game.as_mut() {
                         game.fonts.dirty = false;
                     }
+                }
+                let figure_cpu = {
+                    let game = self.game.as_ref().unwrap();
+                    if game.screen == Screen::Play && game.cam_view != 0 {
+                        let walking = game.player.vx.abs() + game.player.vz.abs() > 0.15;
+                        let (cx, cy, cz, _, _) = game.view_cam();
+                        Some(figure::place(
+                            &figure::wanderer(game.time, walking),
+                            game.player.yaw,
+                            [game.player.x, game.player.y, game.player.z],
+                            [cx, cy, cz],
+                        ))
+                    } else {
+                        None
+                    }
+                };
+                if let Some(cpu) = figure_cpu {
+                    let uploaded = self.gpu.as_ref().unwrap().upload(&cpu.verts, &cpu.idx);
+                    self.game.as_mut().unwrap().figure_gpu = Some(uploaded);
+                } else if let Some(game) = self.game.as_mut() {
+                    game.figure_gpu = None;
                 }
                 let ui = self.game.as_mut().unwrap().ui(size.width as f32, size.height as f32);
                 let playing = self.game.as_ref().unwrap().screen == Screen::Play

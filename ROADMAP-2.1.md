@@ -53,8 +53,8 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Procedural textures from the repo's own generator (no third-party pixels)
 - [ ] Lighting (sun, ambient, point lights, tide colours)
 - [ ] Sky dome, cloud sea, dusk/light cycle
-- [ ] Player model kept exactly: nude wanderer, rounded glutes, smooth front,
-      no genitals and no frontal bulge
+- [x] Player model kept exactly: nude wanderer, rounded glutes, smooth front,
+      no genitals and no frontal bulge. F5 cycles first person / behind / in front
 
 ## Play
 
