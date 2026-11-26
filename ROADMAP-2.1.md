@@ -23,7 +23,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 ## World
 
 - [x] Axial hex grid maths (pointy-top `q, r`, floor chunking, 500 layers, 16×16)
-- [ ] Column storage, edits, chunk streaming, unload margin
+- [x] Column storage, edits, chunk streaming, unload margin (edits are saved and reapplied when a chunk streams back)
 - [~] v6 generator only (v1–v5 are not ported)
   - [x] Seed temperament and slider settings (matches Python MT19937)
   - [x] Main island scales (huge, large, medium, small) and skerries, checked against Python columns
@@ -52,7 +52,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 ## Look
 
 - [x] Every material and block from 1.4.6 (ids, kinds, colours, emission, solidity)
-- [ ] Drops, hardness and decorative part shapes for those blocks
+- [x] Drops, hardness and decorative part shapes for those blocks (times from items.py; slabs are half height; decorations are crossed quads)
 - [x] Procedural texture atlas from `tidewake/texpack.py` (our own tiles, not third-party pixels)
 - [x] Lighting follows the tide: warm Lighttide sun, violet Dusktide
 - [x] Sky gradient, a sun disc, and a cloud sea at the cloud layer
@@ -64,7 +64,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [x] Walk, look, jump, hurry, and step up one layer. F4 flies
 - [ ] Crouch and glide
 - [ ] Fly and fall (Dreamer flight, cloud-sea rescue)
-- [ ] Mine and place
+- [x] Mine and place (left click breaks, right click places the held block; Keen Reach adds 1.5)
 - [x] Hotbar of 9, eating (food and a quarter of that as health), and the Python recipe table on the 2×2 pocket. Kiln smelting table is loaded; the kiln screen is still open
 - [x] Survival: food drains while walking, hunger hurts, eating heals, food above 16 regenerates health
 - [ ] Doors, ladders, beds, chests

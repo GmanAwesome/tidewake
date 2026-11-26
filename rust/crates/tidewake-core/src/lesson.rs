@@ -56,12 +56,7 @@ fn mat(name: &str) -> u8 {
 }
 
 pub fn generate(cq: i32, cr: i32) -> Chunk {
-    let mut chunk = Chunk {
-        cq,
-        cr,
-        cells: vec![0u8; (CHUNK * LAYERS * CHUNK) as usize],
-        realm: vec![0u8; (CHUNK * CHUNK) as usize],
-    };
+    let mut chunk = Chunk::blank(cq, cr);
     let q0 = cq as i64 * CHUNK as i64;
     let r0 = cr as i64 * CHUNK as i64;
     if q0 > 90 || (q0 + CHUNK as i64) < -60 || r0 > 90 || (r0 + CHUNK as i64) < -80 {

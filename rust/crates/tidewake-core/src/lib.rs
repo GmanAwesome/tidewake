@@ -11,6 +11,7 @@ pub mod glimmer;
 pub mod hex;
 pub mod lesson;
 pub mod materials;
+pub mod mine;
 pub mod mobs;
 pub mod player;
 pub mod noise;

@@ -126,20 +126,28 @@ pub fn build(chunk: &Chunk, neighbors: NeighborFn<'_>, lod: bool) -> CpuMesh {
                     if !draw_id(id) {
                         continue;
                     }
+                    let mat = materials::get(id);
+                    if mat.kind == materials::KIND_DECO {
+                        part(&mut verts, &mut idx, dx, dz, y as f32 * layer, layer, mat.top, id);
+                        continue;
+                    }
+                    let top_h = if mat.kind == materials::KIND_SLAB { 0.5 } else { 1.0 };
+                    let yb = y as f32 * layer;
+                    let yt = yb + top_h * layer;
                     let up = neighbors(lq, y + 1, lr);
                     let dn = neighbors(lq, y - 1, lr);
-                    if !hides_face(up, id) {
-                        cap(&mut verts, &mut idx, &corners, dx, dz, (y + 1) as f32 * layer, true, materials::get(id).top, id, 0.0);
+                    if top_h < 1.0 || !hides_face(up, id) {
+                        cap(&mut verts, &mut idx, &corners, dx, dz, yt, true, mat.top, id, 0.0);
                     }
                     if !hides_face(dn, id) {
-                        cap(&mut verts, &mut idx, &corners, dx, dz, y as f32 * layer, false, materials::get(id).side, id, 1.0);
+                        cap(&mut verts, &mut idx, &corners, dx, dz, yb, false, mat.side, id, 1.0);
                     }
                     for (d, (dq, dr)) in hex::DIRS.iter().enumerate() {
                         let nid = neighbors(lq + dq, y, lr + dr);
-                        if hides_face(nid, id) {
+                        if top_h >= 1.0 && hides_face(nid, id) {
                             continue;
                         }
-                        side(&mut verts, &mut idx, &corners, dx, dz, y as f32 * layer, (y + 1) as f32 * layer, d, materials::get(id).side, id);
+                        side(&mut verts, &mut idx, &corners, dx, dz, yb, yt, d, mat.side, id);
                     }
                 }
             }
@@ -151,7 +159,29 @@ pub fn build(chunk: &Chunk, neighbors: NeighborFn<'_>, lod: bool) -> CpuMesh {
 pub type NeighborFn<'a> = &'a dyn Fn(i32, i32, i32) -> u8;
 
 fn draw_id(id: u8) -> bool {
-    id != 0 && (materials::is_solid(id) || id == materials::id::WATER)
+    id != 0
+}
+
+/// A plant, banner or other decoration: two crossed quads, not a full prism.
+fn part(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, dx: f32, dz: f32, yb: f32, layer: f32, col: [f32; 3], mat: u8) {
+    let yt = yb + layer * 0.72;
+    let w = 0.28;
+    let quads = [
+        ([-w, 0.0, -w], [w, 0.0, w]),
+        ([-w, 0.0, w], [w, 0.0, -w]),
+    ];
+    for (a, b) in quads {
+        let p0 = [dx + a[0], yb, dz + a[2]];
+        let p1 = [dx + b[0], yb, dz + b[2]];
+        let p2 = [dx + b[0], yt, dz + b[2]];
+        let p3 = [dx + a[0], yt, dz + a[2]];
+        let n = [0.0, 1.0, 0.0];
+        let base = verts.len() as u32;
+        for (pos, uv) in [(p0, [0.2, 0.9]), (p1, [0.8, 0.9]), (p2, [0.8, 0.2]), (p3, [0.2, 0.2])] {
+            verts.push(Vert { pos, nrm: n, col, uv, tex: [mat as f32, 1.0] });
+        }
+        idx.extend([base, base + 1, base + 2, base, base + 2, base + 3, base, base + 2, base + 1, base, base + 3, base + 2]);
+    }
 }
 
 fn prism(verts: &mut Vec<Vert>, idx: &mut Vec<u32>, corners: &[(f64, f64); 6], dx: f32, dz: f32, y0: i32, y1: i32, layer: f32, top_id: u8, side_id: u8) {

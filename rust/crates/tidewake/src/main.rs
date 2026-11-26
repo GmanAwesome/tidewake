@@ -13,18 +13,19 @@ use std::time::Instant;
 use glam::{Mat4, Vec3};
 use tidewake_core::chunk::{self, Chunk};
 use tidewake_core::columns::Generator;
-use tidewake_core::config::{CHUNK, FOV_DEG, LAYER, VERSION};
+use tidewake_core::config::{CHUNK, FOV_DEG, LAYER, REACH, VERSION};
 use tidewake_core::hex::{center, cell_at, chunk_of};
 use tidewake_core::lesson;
 use tidewake_core::mobs::Mob;
-use tidewake_core::player::{Cells, Player};
+use tidewake_core::mine;
+use tidewake_core::player::{raycast, Cells, Player};
 use tidewake_core::glimmer::Glimmer;
 use tidewake_core::save::{self, SkySave};
 use tidewake_core::tide;
 use tidewake_core::settings::Settings;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{DeviceEvent, ElementState, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::{CursorGrabMode, Window, WindowId};
@@ -44,6 +45,8 @@ struct Keys {
     up: bool,
     down: bool,
     fast: bool,
+    mine: bool,
+    place: bool,
 }
 
 struct Cam {
@@ -106,6 +109,7 @@ struct Game {
     mob_gpu: Option<GpuMesh>,
     glimmer: Glimmer,
     motes: Vec<(f64, f64, f64)>,
+    mining: Option<((i64, i64, i32), f32)>,
 }
 
 struct App {
@@ -137,7 +141,7 @@ impl Game {
         let mut game = Self {
             gen: Generator::new(7, Settings::default()),
             cam: Cam { x: 0.0, y: 40.0, z: 0.0, yaw: 0.4, pitch: 0.0 },
-            keys: Keys { w: false, a: false, s: false, d: false, up: false, down: false, fast: false },
+            keys: Keys { w: false, a: false, s: false, d: false, up: false, down: false, fast: false, mine: false, place: false },
             grabbed: false,
             chunks: HashMap::new(),
             last: Instant::now(),
@@ -168,6 +172,7 @@ impl Game {
             mob_gpu: None,
             glimmer: Glimmer::default(),
             motes: Vec::new(),
+            mining: None,
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -301,6 +306,15 @@ impl Game {
                 self.motes.push((x + ang.cos() * dist, y + 1.2, z + ang.sin() * dist));
             }
         }
+        if self.screen == Screen::Play && self.keys.mine {
+            self.dig(dt);
+        } else {
+            self.mining = None;
+        }
+        if self.screen == Screen::Play && self.keys.place {
+            self.keys.place = false;
+            self.place_block();
+        }
         if self.screen == Screen::Play {
             let (px, py, pz) = (self.player.x, self.player.y + 1.0, self.player.z);
             self.motes.retain(|(x, y, z)| {
@@ -394,16 +408,115 @@ impl Game {
     }
 
     fn make_chunk(&mut self, cq: i32, cr: i32) -> Chunk {
-        if self.tutorial {
-            return lesson::generate(cq, cr);
-        }
-        let gen = &self.gen;
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| chunk::generate(gen, cq, cr))) {
-            Ok(chunk) => chunk,
-            Err(_) => {
-                self.load_err = Some("This sky failed to grow. Esc returns to the title.".into());
-                Chunk { cq, cr, cells: vec![0; (CHUNK * tidewake_core::config::LAYERS * CHUNK) as usize], realm: vec![0; (CHUNK * CHUNK) as usize] }
+        let mut chunk = if self.tutorial {
+            lesson::generate(cq, cr)
+        } else {
+            let gen = &self.gen;
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| chunk::generate(gen, cq, cr))) {
+                Ok(chunk) => chunk,
+                Err(_) => {
+                    self.load_err = Some("This sky failed to grow. Esc returns to the title.".into());
+                    Chunk::blank(cq, cr)
+                }
             }
+        };
+        self.save.apply_edits(&mut chunk);
+        chunk
+    }
+
+    fn reach(&self) -> f64 {
+        REACH + if self.glimmer.has("reach") { 1.5 } else { 0.0 }
+    }
+
+    fn aim(&self) -> ((f64, f64, f64), (f64, f64, f64)) {
+        let (ex, ey, ez) = self.player.eye_pos();
+        let (fx, fy, fz) = look(self.player.yaw, self.player.pitch);
+        ((ex, ey, ez), (fx as f64, fy as f64, fz as f64))
+    }
+
+    fn set_cell(&mut self, q: i64, r: i64, y: i32, mat: u8, meta: u8) {
+        let (cq, cr) = chunk_of(q, r);
+        let lq = q.rem_euclid(CHUNK as i64) as i32;
+        let lr = r.rem_euclid(CHUNK as i64) as i32;
+        if let Some(slot) = self.chunks.get_mut(&(cq, cr)) {
+            slot.cpu.set(lq, y, lr, mat);
+            slot.cpu.set_meta(lq, y, lr, meta);
+            slot.dirty = true;
+        }
+        let edge = [(lq == 0, -1, 0), (lq == CHUNK - 1, 1, 0), (lr == 0, 0, -1), (lr == CHUNK - 1, 0, 1)];
+        for (on, dq, dr) in edge {
+            if on {
+                if let Some(n) = self.chunks.get_mut(&(cq + dq, cr + dr)) {
+                    n.dirty = true;
+                }
+            }
+        }
+        self.save.record_edit(q, r, y, mat, meta);
+    }
+
+    fn dig(&mut self, dt: f32) {
+        let ((ex, ey, ez), (dx, dy, dz)) = self.aim();
+        let (hit, _) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), true);
+        let Some((q, r, y)) = hit else {
+            self.mining = None;
+            return;
+        };
+        let mat = self.get(q, r, y);
+        if mat == 0 || mine::unbreakable(mat) {
+            self.mining = None;
+            return;
+        }
+        let held = self.save.hotbar.get(self.save.selected).map(|s| if s.count > 0 { s.id } else { 0 }).unwrap_or(0);
+        let (secs, drops) = mine::mine_time(mat, held);
+        let prog = match self.mining {
+            Some((cell, p)) if cell == (q, r, y) => p,
+            _ => 0.0,
+        } + dt / secs;
+        if prog < 1.0 {
+            self.mining = Some(((q, r, y), prog));
+            return;
+        }
+        self.set_cell(q, r, y, 0, 0);
+        if drops {
+            let roll = ((q.wrapping_mul(13) ^ r.wrapping_mul(7) ^ y as i64) as u32 % 1000) as f32 / 1000.0;
+            for (id, n) in mine::drops_for(mat, roll) {
+                if id != 0 {
+                    self.save.give(id, n);
+                }
+            }
+        }
+        self.mining = None;
+    }
+
+    fn place_block(&mut self) {
+        let ((ex, ey, ez), (dx, dy, dz)) = self.aim();
+        let (_, prev) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), true);
+        let Some((q, r, y)) = prev else { return };
+        if y < 1 || y >= tidewake_core::config::LAYERS - 1 {
+            return;
+        }
+        let cur = self.get(q, r, y);
+        let petals = tidewake_core::materials::id_named("petals").unwrap_or(0);
+        if cur != 0 && cur != tidewake_core::materials::id::WATER && cur != petals {
+            return;
+        }
+        let sel = self.save.selected;
+        let Some(slot) = self.save.hotbar.get(sel) else { return };
+        if slot.count == 0 || slot.id == 0 || slot.id >= 256 {
+            return;
+        }
+        let mat = slot.id as u8;
+        let feet = (self.player.y / LAYER).floor() as i32;
+        let head = ((self.player.y + self.player.eye) / LAYER).floor() as i32;
+        if (feet..=head).contains(&y) && self.player.columns(self.player.x, self.player.z).contains(&(q, r)) && tidewake_core::materials::is_solid(mat)
+        {
+            return;
+        }
+        self.set_cell(q, r, y, mat, 0);
+        let slot = &mut self.save.hotbar[sel];
+        slot.count -= 1;
+        if slot.count == 0 {
+            slot.id = 0;
         }
     }
 
@@ -715,13 +828,19 @@ impl ApplicationHandler for App {
                     game.mouse = [position.x as f32, position.y as f32];
                 }
             }
-            WindowEvent::MouseInput { state: ElementState::Pressed, .. } => {
+            WindowEvent::MouseInput { state, button, .. } => {
                 if let Some(game) = self.game.as_mut() {
                     if game.screen == Screen::Play {
-                        let _ = window.set_cursor_grab(CursorGrabMode::Locked);
-                        window.set_cursor_visible(false);
-                        game.grabbed = true;
-                    } else {
+                        if !game.grabbed && state == ElementState::Pressed {
+                            let _ = window.set_cursor_grab(CursorGrabMode::Locked);
+                            window.set_cursor_visible(false);
+                            game.grabbed = true;
+                        } else if button == MouseButton::Left {
+                            game.keys.mine = state == ElementState::Pressed;
+                        } else if button == MouseButton::Right && state == ElementState::Pressed {
+                            game.keys.place = true;
+                        }
+                    } else if state == ElementState::Pressed {
                         game.clicked = true;
                     }
                 }

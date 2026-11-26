@@ -36,6 +36,19 @@ pub struct SkySave {
     pub selected: usize,
     #[serde(default)]
     pub regen_t: f32,
+    /// Cells the player changed. Reapplied when a chunk is generated again after unload.
+    #[serde(default)]
+    pub edits: Vec<CellEdit>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CellEdit {
+    pub q: i64,
+    pub r: i64,
+    pub y: i32,
+    pub mat: u8,
+    #[serde(default)]
+    pub meta: u8,
 }
 
 impl SkySave {
@@ -60,6 +73,30 @@ impl SkySave {
             },
             selected: 0,
             regen_t: 0.0,
+            edits: Vec::new(),
+        }
+    }
+
+    pub fn record_edit(&mut self, q: i64, r: i64, y: i32, mat: u8, meta: u8) {
+        if let Some(edit) = self.edits.iter_mut().find(|e| e.q == q && e.r == r && e.y == y) {
+            edit.mat = mat;
+            edit.meta = meta;
+        } else {
+            self.edits.push(CellEdit { q, r, y, mat, meta });
+        }
+    }
+
+    pub fn apply_edits(&self, chunk: &mut crate::chunk::Chunk) {
+        let q0 = chunk.cq as i64 * crate::config::CHUNK as i64;
+        let r0 = chunk.cr as i64 * crate::config::CHUNK as i64;
+        let span = crate::config::CHUNK as i64;
+        for edit in &self.edits {
+            let lq = edit.q - q0;
+            let lr = edit.r - r0;
+            if (0..span).contains(&lq) && (0..span).contains(&lr) {
+                chunk.set(lq as i32, edit.y, lr as i32, edit.mat);
+                chunk.set_meta(lq as i32, edit.y, lr as i32, edit.meta);
+            }
         }
     }
 
@@ -200,6 +237,17 @@ mod tests {
         s.hotbar[3] = Slot { id: 0, count: 0 };
         assert!(s.craft_pocket());
         assert!(s.hotbar.iter().any(|x| x.id == crate::craft::PLANKS && x.count == 4));
+    }
+
+    #[test]
+    fn an_edit_comes_back_when_the_chunk_is_rebuilt() {
+        let mut s = SkySave::fresh("e", 1, false, 0.0, 1.0, 0.0);
+        s.record_edit(3, 4, 40, 26, 0);
+        s.record_edit(3, 4, 40, 0, 0);
+        let mut chunk = crate::chunk::Chunk::blank(0, 0);
+        chunk.set(3, 40, 4, 1);
+        s.apply_edits(&mut chunk);
+        assert_eq!(chunk.get(3, 40, 4), 0);
     }
 
     #[test]

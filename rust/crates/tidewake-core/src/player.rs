@@ -11,6 +11,46 @@ pub trait Cells {
     fn get(&self, q: i64, r: i64, y: i32) -> u8;
 }
 
+/// March a look ray. Returns the first solid cell and the empty cell before it.
+/// Matches `player.raycast` (step 0.05). Water is skipped when `skip_water` is set.
+pub fn raycast<W: Cells + ?Sized>(
+    world: &W,
+    ox: f64,
+    oy: f64,
+    oz: f64,
+    dx: f64,
+    dy: f64,
+    dz: f64,
+    reach: f64,
+    skip_water: bool,
+) -> (Option<(i64, i64, i32)>, Option<(i64, i64, i32)>) {
+    let step = 0.05;
+    let n = (reach / step) as i32;
+    let mut prev = None;
+    let mut last = None;
+    let mut x = ox;
+    let mut y = oy;
+    let mut z = oz;
+    for _ in 0..n {
+        x += dx * step;
+        y += dy * step;
+        z += dz * step;
+        let (q, r) = cell_at(x, z);
+        let ly = (y / LAYER).floor() as i32;
+        let cell = (q, r, ly);
+        if Some(cell) == last {
+            continue;
+        }
+        let m = world.get(q, r, ly);
+        if m != 0 && !(skip_water && m == materials::id::WATER) {
+            return (Some(cell), prev);
+        }
+        prev = Some(cell);
+        last = Some(cell);
+    }
+    (None, None)
+}
+
 #[derive(Clone)]
 pub struct Player {
     pub x: f64,
@@ -67,9 +107,19 @@ impl Player {
         for (q, r) in self.columns(x, z) {
             for ly in ly0..=ly1 {
                 let id = world.get(q, r, ly);
-                if materials::is_solid(id) {
-                    return true;
+                if !materials::is_solid(id) {
+                    continue;
                 }
+                let mat = materials::get(id);
+                if mat.kind == materials::KIND_SLAB {
+                    let bottom = ly as f64 * LAYER;
+                    let top = bottom + LAYER * 0.5;
+                    if y1 > bottom && y0 < top {
+                        return true;
+                    }
+                    continue;
+                }
+                return true;
             }
         }
         false

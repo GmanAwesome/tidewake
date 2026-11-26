@@ -19,6 +19,8 @@ pub struct Chunk {
     pub cq: i32,
     pub cr: i32,
     pub cells: Vec<u8>,
+    /// Per-cell extra bits (door facing, crop stage). Same index as `cells`.
+    pub meta: Vec<u8>,
     pub realm: Vec<u8>,
 }
 
@@ -39,6 +41,31 @@ impl Chunk {
             return;
         }
         self.cells[Self::index(lq, y, lr)] = mat;
+    }
+
+    pub fn get_meta(&self, lq: i32, y: i32, lr: i32) -> u8 {
+        if lq < 0 || lr < 0 || y < 0 || lq >= CHUNK || lr >= CHUNK || y >= LAYERS {
+            return 0;
+        }
+        self.meta[Self::index(lq, y, lr)]
+    }
+
+    pub fn set_meta(&mut self, lq: i32, y: i32, lr: i32, meta: u8) {
+        if lq < 0 || lr < 0 || y < 0 || lq >= CHUNK || lr >= CHUNK || y >= LAYERS {
+            return;
+        }
+        self.meta[Self::index(lq, y, lr)] = meta;
+    }
+
+    pub fn blank(cq: i32, cr: i32) -> Self {
+        let n = (CHUNK * LAYERS * CHUNK) as usize;
+        Self {
+            cq,
+            cr,
+            cells: vec![0; n],
+            meta: vec![0; n],
+            realm: vec![0; (CHUNK * CHUNK) as usize],
+        }
     }
 }
 
@@ -133,12 +160,7 @@ pub fn generate(gen: &Generator, cq: i32, cr: i32) -> Chunk {
         }
     }
 
-    let mut chunk = Chunk {
-        cq,
-        cr,
-        cells: vec![0u8; (CHUNK * LAYERS * CHUNK) as usize],
-        realm: vec![0u8; (CHUNK * CHUNK) as usize],
-    };
+    let mut chunk = Chunk::blank(cq, cr);
     for i in 0..CHUNK {
         for k in 0..CHUNK {
             let c = at(&cols, i + PAD, k + PAD);
