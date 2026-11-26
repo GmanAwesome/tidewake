@@ -23,6 +23,9 @@ use tidewake_core::glimmer::Glimmer;
 use tidewake_core::save::{self, SkySave};
 use tidewake_core::stations::{Chest, Kiln};
 use tidewake_core::tide;
+use tidewake_core::farm;
+use tidewake_core::fish;
+use tidewake_core::path;
 use tidewake_core::settings::Settings;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -73,6 +76,7 @@ enum Screen {
     Settings,
     Loading,
     Play,
+    Pause,
 }
 
 struct Game {
@@ -112,6 +116,12 @@ struct Game {
     motes: Vec<(f64, f64, f64)>,
     mining: Option<((i64, i64, i32), f32)>,
     panel: Option<Panel>,
+    settings: Settings,
+    slider: usize,
+    cast: Option<fish::Cast>,
+    command: Option<String>,
+    journal: bool,
+    crops: Vec<(i64, i64, i32, f32)>,
 }
 
 #[derive(Clone, Copy)]
@@ -189,6 +199,12 @@ impl Game {
             motes: Vec::new(),
             mining: None,
             panel: None,
+            settings: Settings::default(),
+            slider: 0,
+            cast: None,
+            command: None,
+            journal: false,
+            crops: Vec::new(),
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -208,7 +224,7 @@ impl Game {
             self.player = Player::at_feet(x, y, z);
             log::info!("lesson island at {x:.1}, {y:.1}, {z:.1}");
         } else {
-            self.gen = Generator::new(seed, Settings::default());
+            self.gen = Generator::new(seed, self.settings);
             let (x, _y, z) = chunk::find_spawn(&self.gen);
             let (q, r) = cell_at(x, z);
             let col = self.gen.sample(q, r);
@@ -297,7 +313,27 @@ impl Game {
                     self.save.health = 20.0;
                     self.save.food = 12.0;
                 }
+                if self.player.landed > 0.0 {
+                    self.save.health = (self.save.health - self.player.landed).max(1.0);
+                    self.player.landed = 0.0;
+                }
+                let cloud = tidewake_core::config::CLOUD_SEA as f64 * LAYER - 2.0;
+                if self.player.y < cloud && !self.player.drifting {
+                    self.player.x = self.spawn.0;
+                    self.player.y = self.spawn.1;
+                    self.player.z = self.spawn.2;
+                    self.player.vx = 0.0;
+                    self.player.vy = 0.0;
+                    self.player.vz = 0.0;
+                    if !self.save.dreamer {
+                        self.save.health = (self.save.health - 3.0).max(1.0);
+                    }
+                }
             }
+            self.save.stats.play += dt;
+            self.grow_crops(dt);
+            self.tick_cast(dt);
+            let _ = path::poll(&mut self.save.stats);
             self.sync_cam();
             let dusk = ((self.time / 720.0) * std::f32::consts::TAU).sin().mul_add(0.5, 0.5);
             for mob in &mut self.mobs {
@@ -323,9 +359,13 @@ impl Game {
             }
         }
         if self.screen == Screen::Play {
+            let mut smelted = 0;
             for kiln in &mut self.save.kilns {
-                kiln.tick(dt);
+                if kiln.tick(dt) {
+                    smelted += 1;
+                }
             }
+            self.save.stats.smelted += smelted;
         }
         if self.screen == Screen::Play && self.keys.mine {
             self.dig(dt);
@@ -342,6 +382,7 @@ impl Game {
                 let d = ((x - px).powi(2) + (y - py).powi(2) + (z - pz).powi(2)).sqrt();
                 if d < 1.4 {
                     self.glimmer.catch_mote();
+                    self.save.stats.motes += 1;
                     false
                 } else {
                     true
@@ -497,8 +538,16 @@ impl Game {
             self.mining = Some(((q, r, y), prog));
             return;
         }
+        let meta = self.meta(q, r, y);
         self.set_cell(q, r, y, 0, 0);
-        if drops {
+        if farm::is_crop(mat) {
+            for (id, n) in farm::harvest(mat, meta) {
+                self.save.give(id, n);
+            }
+            if meta >= farm::STAGES - 1 {
+                self.save.stats.farmed += 1;
+            }
+        } else if drops {
             let roll = ((q.wrapping_mul(13) ^ r.wrapping_mul(7) ^ y as i64) as u32 % 1000) as f32 / 1000.0;
             for (id, n) in mine::drops_for(mat, roll) {
                 if id != 0 {
@@ -506,12 +555,20 @@ impl Game {
                 }
             }
         }
+        self.save.stats.mined += 1;
         self.mining = None;
     }
 
     fn place_block(&mut self) {
         let ((ex, ey, ez), (dx, dy, dz)) = self.aim();
         let (hit, prev) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), true);
+        if self.cast.is_some() {
+            self.reel();
+            return;
+        }
+        if self.try_tool() {
+            return;
+        }
         if !self.keys.down {
             if let Some((q, r, y)) = hit {
                 let mat = self.get(q, r, y);
@@ -555,6 +612,154 @@ impl Game {
         slot.count -= 1;
         if slot.count == 0 {
             slot.id = 0;
+        }
+        self.save.stats.placed += 1;
+        if mat == tidewake_core::materials::id::DOOR {
+            self.save.stats.doors += 1;
+        }
+        if mat == tidewake_core::materials::id::TINKER_BENCH {
+            self.save.stats.tinker += 1;
+        }
+        self.stir_spire(q, r, y);
+    }
+
+    fn held_id(&self) -> u16 {
+        self.save.hotbar.get(self.save.selected).map(|s| if s.count > 0 { s.id } else { 0 }).unwrap_or(0)
+    }
+
+    fn try_tool(&mut self) -> bool {
+        let held = self.held_id();
+        if held == fish::ROD {
+            return self.cast_line();
+        }
+        if held == farm::HOE {
+            return self.till();
+        }
+        if farm::plant_of(held).is_some() {
+            return self.sow(held);
+        }
+        false
+    }
+
+    fn cast_line(&mut self) -> bool {
+        if self.cast.is_some() {
+            return false;
+        }
+        let ((ex, ey, ez), (dx, dy, dz)) = self.aim();
+        let (hit, _) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), false);
+        let Some((q, r, y)) = hit else { return false };
+        if self.get(q, r, y) != tidewake_core::materials::id::WATER {
+            return false;
+        }
+        self.cast = Some(fish::Cast::start(((q as u32).wrapping_mul(17) ^ (r as u32)) as f32 / 1000.0 % 1.0));
+        true
+    }
+
+    fn till(&mut self) -> bool {
+        let ((ex, ey, ez), (dx, dy, dz)) = self.aim();
+        let (hit, _) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), true);
+        let Some((q, r, y)) = hit else { return false };
+        if !farm::tillable(self.get(q, r, y)) {
+            return false;
+        }
+        self.set_cell(q, r, y, tidewake_core::materials::id::FARMLAND, 0);
+        self.save.stats.tilled += 1;
+        true
+    }
+
+    fn sow(&mut self, seed: u16) -> bool {
+        let ((ex, ey, ez), (dx, dy, dz)) = self.aim();
+        let (hit, _) = raycast(self, ex, ey, ez, dx, dy, dz, self.reach(), true);
+        let Some((q, r, y)) = hit else { return false };
+        if self.get(q, r, y) != tidewake_core::materials::id::FARMLAND {
+            return false;
+        }
+        if self.get(q, r, y + 1) != 0 {
+            return false;
+        }
+        let Some(crop) = farm::plant_of(seed) else { return false };
+        self.set_cell(q, r, y + 1, crop, 0);
+        self.crops.push((q, r, y + 1, 0.0));
+        let sel = self.save.selected;
+        let slot = &mut self.save.hotbar[sel];
+        slot.count -= 1;
+        if slot.count == 0 {
+            slot.id = 0;
+        }
+        true
+    }
+
+    fn tick_cast(&mut self, dt: f32) {
+        let Some(cast) = self.cast.as_mut() else { return };
+        if cast.tick(dt) == Some(false) {
+            self.cast = None;
+        }
+    }
+
+    fn reel(&mut self) {
+        let Some(cast) = self.cast else { return };
+        if cast.t >= cast.wait && cast.t < cast.wait + cast.window {
+            let dusk = tide::atmosphere(self.time).dusk > 0.45;
+            let (id, n) = fish::catch_id(cast.t.fract(), dusk);
+            self.save.give(id, n);
+            self.save.stats.fished += 1;
+        }
+        self.cast = None;
+    }
+
+    fn grow_crops(&mut self, dt: f32) {
+        let mut grown = Vec::new();
+        for crop in &mut self.crops {
+            crop.3 += dt;
+            if crop.3 >= farm::grow_interval(false) {
+                crop.3 = 0.0;
+                grown.push((crop.0, crop.1, crop.2));
+            }
+        }
+        for (q, r, y) in grown {
+            let mat = self.get(q, r, y);
+            if !farm::is_crop(mat) {
+                continue;
+            }
+            let meta = self.meta(q, r, y);
+            if meta + 1 < farm::STAGES {
+                self.set_cell(q, r, y, mat, meta + 1);
+            }
+        }
+        let keep: Vec<bool> = self.crops.iter().map(|(q, r, y, _)| farm::is_crop(self.get(*q, *r, *y))).collect();
+        let mut i = 0;
+        self.crops.retain(|_| {
+            let ok = keep[i];
+            i += 1;
+            ok
+        });
+    }
+
+    fn stir_spire(&mut self, q: i64, r: i64, y: i32) {
+        use tidewake_core::hex::DIRS;
+        use tidewake_core::materials::id;
+        for (dq, dr) in DIRS {
+            let (sq, sr) = (q + dq as i64, r + dr as i64);
+            if self.get(sq, sr, y) != id::DORMANT_SPIRE {
+                continue;
+            }
+            let full = DIRS.iter().all(|(aq, ar)| self.get(sq + *aq as i64, sr + *ar as i64, y) != 0);
+            if !full {
+                continue;
+            }
+            let mut yy = y;
+            while self.get(sq, sr, yy) == id::DORMANT_SPIRE {
+                self.set_cell(sq, sr, yy, id::AWAKE_SPIRE, 0);
+                yy += 1;
+            }
+            self.save.give(263, 6);
+            self.save.give(260, 1);
+            self.save.stats.spires += 1;
+            match self.save.stats.spires {
+                1 => self.player.can_glide = true,
+                2 => self.player.can_updraft = true,
+                _ => {}
+            }
         }
     }
 
@@ -601,7 +806,9 @@ impl Game {
             return true;
         }
         if mat == id::WAYSTONE {
-            let _ = self.glimmer.attune();
+            if self.glimmer.attune() {
+                self.save.stats.waystones += 1;
+            }
             return true;
         }
         false
@@ -638,6 +845,32 @@ impl Game {
                 }
             }
             None => {}
+        }
+    }
+
+    fn run_command(&mut self) {
+        let line = self.command.take().unwrap_or_default();
+        let mut parts = line.split_whitespace();
+        match parts.next() {
+            Some("fly") => self.player.drifting = !self.player.drifting,
+            Some("dreamer") => {
+                self.save.dreamer = !self.save.dreamer;
+                self.player.drifting = self.save.dreamer;
+                self.player.can_glide = true;
+                self.player.can_updraft = true;
+            }
+            Some("tide") => self.time += 180.0,
+            Some("give") => {
+                let name = parts.next().unwrap_or("").replace('_', " ");
+                let n: u16 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(1);
+                for id in 1..400u16 {
+                    if tidewake_core::craft::name_of(id).eq_ignore_ascii_case(&name) {
+                        self.save.give(id, n);
+                        break;
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
@@ -736,7 +969,9 @@ impl Game {
                 Screen::NewSky => {
                     ui.rect(fw * 0.2, fh * 0.18, fw * 0.6, fh * 0.6, [0.12, 0.09, 0.18, 0.92]);
                     ui.text(0, "New Sky", fw * 0.5, fh * 0.28, 40.0, ink, true);
-                    ui.text(1, "Type a seed, or leave it blank.", fw * 0.5, fh * 0.36, 18.0, muted, true);
+                    ui.text(1, "Type a seed. Arrows change the sky sliders.", fw * 0.5, fh * 0.34, 16.0, muted, true);
+                    let key = tidewake_core::settings::KEYS[self.slider % 12];
+                    ui.text(1, &format!("{key} {}", self.settings.get(key)), fw * 0.5, fh * 0.40, 16.0, ink, true);
                     let shown = if self.seed_text.is_empty() { "seed".to_string() } else { self.seed_text.clone() };
                     ui.rect(bx, fh * 0.44, bw, bh, [0.08, 0.06, 0.12, 1.0]);
                     ui.text(1, &shown, fw * 0.5, fh * 0.44 + 32.0, 22.0, ink, true);
@@ -746,11 +981,21 @@ impl Game {
                     ui.text(1, "Back", fw * 0.5, fh * 0.66 + 32.0, 22.0, paper, true);
                 }
                 Screen::Settings => {
-                    ui.rect(fw * 0.2, fh * 0.22, fw * 0.6, fh * 0.5, [0.12, 0.09, 0.18, 0.92]);
-                    ui.text(0, "Settings", fw * 0.5, fh * 0.32, 40.0, ink, true);
-                    ui.text(1, "Fog, music and the tide cycle are still being brought over.", fw * 0.5, fh * 0.42, 16.0, muted, true);
-                    ui.rect(bx, fh * 0.55, bw, bh, accent);
-                    ui.text(1, "Back", fw * 0.5, fh * 0.55 + 32.0, 22.0, paper, true);
+                    ui.rect(fw * 0.2, fh * 0.18, fw * 0.6, fh * 0.64, [0.12, 0.09, 0.18, 0.92]);
+                    ui.text(0, "Settings", fw * 0.5, fh * 0.24, 40.0, ink, true);
+                    let key = tidewake_core::settings::KEYS[self.slider % 12];
+                    ui.text(1, &format!("{key}   {}", self.settings.get(key)), fw * 0.5, fh * 0.36, 22.0, ink, true);
+                    ui.text(1, "Up and down choose a slider. Left and right change it.", fw * 0.5, fh * 0.44, 16.0, muted, true);
+                    ui.rect(bx, fh * 0.62, bw, bh, accent);
+                    ui.text(1, "Back", fw * 0.5, fh * 0.62 + 32.0, 22.0, paper, true);
+                }
+                Screen::Pause => {
+                    ui.rect(fw * 0.3, fh * 0.28, fw * 0.4, fh * 0.4, [0.12, 0.09, 0.18, 0.94]);
+                    ui.text(0, "Paused", fw * 0.5, fh * 0.36, 40.0, ink, true);
+                    ui.rect(bx, fh * 0.46, bw, bh, [0.55, 0.42, 0.22, 1.0]);
+                    ui.text(1, "Resume", fw * 0.5, fh * 0.46 + 32.0, 22.0, paper, true);
+                    ui.rect(bx, fh * 0.56, bw, bh, accent);
+                    ui.text(1, "Save and leave", fw * 0.5, fh * 0.56 + 32.0, 22.0, paper, true);
                 }
                 Screen::Loading => {
                     let msg = self.load_err.clone().unwrap_or_else(|| {
@@ -790,7 +1035,19 @@ impl Game {
                     ui.text(1, &line, 16.0, 28.0, 16.0, [1.0, 1.0, 1.0, 0.9], false);
                     ui.text(1, "R eat   C craft   E use   F store   V take   Shift crouch   Esc leave", 16.0, 50.0, 14.0, muted, false);
                     if let Some(line) = panel.as_deref() {
-                        ui.text(1, &line, 16.0, 92.0, 15.0, [1.0, 0.95, 0.75, 1.0], false);
+                        ui.text(1, line, 16.0, 92.0, 15.0, [1.0, 0.95, 0.75, 1.0], false);
+                    }
+                    if self.cast.is_some() {
+                        let biting = self.cast.is_some_and(|c| c.t >= c.wait && c.t < c.wait + c.window);
+                        ui.text(1, if biting { "The bobber dips — press E" } else { "The line is out" }, 16.0, 114.0, 15.0, ink, false);
+                    }
+                    if let Some(cmd) = &self.command {
+                        ui.text(1, &format!("/{cmd}"), 16.0, fh - 40.0, 16.0, ink, false);
+                    }
+                    if self.journal {
+                        for (i, line) in path::lines(&self.save.stats).iter().take(8).enumerate() {
+                            ui.text(1, line, 16.0, 140.0 + i as f32 * 18.0, 13.0, muted, false);
+                        }
                     }
                 }
             }
@@ -845,8 +1102,19 @@ impl Game {
                 else if back.hit(mx, my) { self.screen = Screen::Skies; }
             }
             Screen::Settings => {
-                let back = Button { x: bx, y: fh * 0.55, w: bw, h: bh };
+                let back = Button { x: bx, y: fh * 0.62, w: bw, h: bh };
                 if back.hit(mx, my) { self.screen = Screen::Title; }
+            }
+            Screen::Pause => {
+                let resume = Button { x: bx, y: fh * 0.46, w: bw, h: bh };
+                let leave = Button { x: bx, y: fh * 0.56, w: bw, h: bh };
+                if resume.hit(mx, my) {
+                    self.screen = Screen::Play;
+                } else if leave.hit(mx, my) {
+                    self.write_save();
+                    self.screen = Screen::Title;
+                    self.chunks.clear();
+                }
             }
             _ => {}
         }
@@ -1017,7 +1285,15 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } => {
                 let down = event.state == ElementState::Pressed;
                 let Some(game) = self.game.as_mut() else { return };
-                if game.screen == Screen::NewSky && down {
+                if game.command.is_some() && down {
+                    if let Some(text) = event.text.as_deref() {
+                        if let Some(cmd) = game.command.as_mut() {
+                            if text.chars().all(|c| c.is_ascii_graphic() || c == ' ') && cmd.len() < 48 {
+                                cmd.push_str(text);
+                            }
+                        }
+                    }
+                } else if game.screen == Screen::NewSky && down {
                     if let Some(text) = event.text.as_deref() {
                         if text.chars().all(|c| c.is_ascii_digit() || c == '-') && game.seed_text.len() < 18 {
                             game.seed_text.push_str(text);
@@ -1043,22 +1319,51 @@ impl ApplicationHandler for App {
                             game.cam_view = (game.cam_view + 1) % 3;
                         }
                         KeyCode::Enter | KeyCode::NumpadEnter if down && game.screen == Screen::NewSky => game.dream(),
-                        KeyCode::Backspace if down && game.screen == Screen::NewSky => { game.seed_text.pop(); }
+                        KeyCode::Enter | KeyCode::NumpadEnter if down && game.command.is_some() => game.run_command(),
+                        KeyCode::Backspace if down && game.screen == Screen::NewSky && game.command.is_none() => { game.seed_text.pop(); }
+                        KeyCode::Backspace if down => { if let Some(cmd) = game.command.as_mut() { cmd.pop(); } }
+                        KeyCode::ArrowUp if down && (game.screen == Screen::NewSky || game.screen == Screen::Settings) => {
+                            game.slider = (game.slider + 11) % 12;
+                        }
+                        KeyCode::ArrowDown if down && (game.screen == Screen::NewSky || game.screen == Screen::Settings) => {
+                            game.slider = (game.slider + 1) % 12;
+                        }
+                        KeyCode::ArrowLeft if down && (game.screen == Screen::NewSky || game.screen == Screen::Settings) => {
+                            game.settings.nudge(game.slider, -5);
+                        }
+                        KeyCode::ArrowRight if down && (game.screen == Screen::NewSky || game.screen == Screen::Settings) => {
+                            game.settings.nudge(game.slider, 5);
+                        }
                         KeyCode::KeyR if down && game.screen == Screen::Play => { game.save.eat(); }
-                        KeyCode::KeyC if down && game.screen == Screen::Play => { game.save.craft_pocket(); }
+                        KeyCode::KeyC if down && game.screen == Screen::Play => {
+                            if game.save.craft_pocket() {
+                                game.save.stats.crafted += 1;
+                            }
+                        }
+                        KeyCode::KeyJ if down && game.screen == Screen::Play => game.journal = !game.journal,
+                        KeyCode::Slash if down && game.screen == Screen::Play => game.command = Some(String::new()),
+                        KeyCode::KeyT if down && game.screen == Screen::Play && game.save.stats.spires >= 3 => {
+                            game.time += 180.0;
+                        }
                         KeyCode::KeyE if down && game.screen == Screen::Play => {
-                            let ((ex, ey, ez), (dx, dy, dz)) = game.aim();
-                            let (hit, _) = raycast(game, ex, ey, ez, dx, dy, dz, game.reach(), true);
-                            if let Some((q, r, y)) = hit {
-                                let mat = game.get(q, r, y);
-                                game.use_block(q, r, y, mat);
+                            if game.cast.is_some() {
+                                game.reel();
+                            } else if !game.try_tool() {
+                                let ((ex, ey, ez), (dx, dy, dz)) = game.aim();
+                                let (hit, _) = raycast(game, ex, ey, ez, dx, dy, dz, game.reach(), true);
+                                if let Some((q, r, y)) = hit {
+                                    let mat = game.get(q, r, y);
+                                    game.use_block(q, r, y, mat);
+                                }
                             }
                         }
                         KeyCode::KeyF if down && game.screen == Screen::Play => game.deposit_held(),
                         KeyCode::KeyV if down && game.screen == Screen::Play => game.withdraw_panel(),
                         KeyCode::KeyG if down && game.screen == Screen::Play => {
                             if let Some(id) = game.glimmer.next_gift() {
-                                game.glimmer.buy(id);
+                                if game.glimmer.buy(id) {
+                                    game.save.stats.gifts += 1;
+                                }
                             }
                         }
                         KeyCode::Digit1 if down => game.save.selected = 0,
@@ -1071,8 +1376,27 @@ impl ApplicationHandler for App {
                         KeyCode::Digit8 if down => game.save.selected = 7,
                         KeyCode::Digit9 if down => game.save.selected = 8,
                         KeyCode::Escape if down => {
+                            if game.command.is_some() {
+                                game.command = None;
+                                return;
+                            }
+                            if game.journal {
+                                game.journal = false;
+                                return;
+                            }
                             if game.panel.is_some() {
                                 game.panel = None;
+                                return;
+                            }
+                            if game.screen == Screen::Play {
+                                game.screen = Screen::Pause;
+                                let _ = window.set_cursor_grab(CursorGrabMode::None);
+                                window.set_cursor_visible(true);
+                                game.grabbed = false;
+                                return;
+                            }
+                            if game.screen == Screen::Pause {
+                                game.screen = Screen::Play;
                                 return;
                             }
                             let _ = window.set_cursor_grab(CursorGrabMode::None);

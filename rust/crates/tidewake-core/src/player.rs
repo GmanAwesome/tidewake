@@ -73,6 +73,8 @@ pub struct Player {
     pub can_updraft: bool,
     pub air_jumps: i32,
     pub climbing: bool,
+    /// Damage from the landing that just happened. The caller clears it.
+    pub landed: f32,
 }
 
 impl Player {
@@ -95,6 +97,7 @@ impl Player {
             can_updraft: false,
             air_jumps: 0,
             climbing: false,
+            landed: 0.0,
         }
     }
 
@@ -288,6 +291,9 @@ impl Player {
             if !self.collides(world, self.x, ny, self.z) {
                 self.y = ny;
             } else if self.vy < 0.0 {
+                if self.vy < -13.5 {
+                    self.landed = ((-self.vy) as f32 - 13.5) * 0.9 + 1.0;
+                }
                 let mut top = None;
                 for (q, r) in self.columns(self.x, self.z) {
                     let ly = ((ny + LAYER * 0.55) / LAYER).floor() as i32;

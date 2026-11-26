@@ -70,6 +70,24 @@ impl Settings {
             _ => 50,
         }
     }
+
+    pub fn nudge(&mut self, index: usize, delta: i32) {
+        let slot = match index % KEYS.len() {
+            0 => &mut self.island_size,
+            1 => &mut self.island_thickness,
+            2 => &mut self.sky_density,
+            3 => &mut self.terrain_roughness,
+            4 => &mut self.mountain_height,
+            5 => &mut self.flatness,
+            6 => &mut self.cave_amount,
+            7 => &mut self.cave_size,
+            8 => &mut self.water,
+            9 => &mut self.biome_size,
+            10 => &mut self.tree_density,
+            _ => &mut self.glimmer_rarity,
+        };
+        *slot = (*slot + delta).clamp(0, 100);
+    }
 }
 
 /// Map a 0–100 slider to a multiplier: 0→lo, 50→mid, 100→hi.

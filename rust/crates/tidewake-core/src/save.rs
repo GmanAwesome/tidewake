@@ -43,6 +43,10 @@ pub struct SkySave {
     pub kilns: Vec<crate::stations::Kiln>,
     #[serde(default)]
     pub chests: Vec<crate::stations::Chest>,
+    #[serde(default)]
+    pub stats: crate::path::Stats,
+    #[serde(default)]
+    pub dreamer: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -80,6 +84,8 @@ impl SkySave {
             edits: Vec::new(),
             kilns: Vec::new(),
             chests: Vec::new(),
+            stats: crate::path::Stats::default(),
+            dreamer: false,
         }
     }
 

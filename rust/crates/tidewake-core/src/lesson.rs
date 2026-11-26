@@ -4,7 +4,7 @@
 //! showpiece overlay is `showpieces`.
 
 use crate::chunk::Chunk;
-use crate::config::{CHUNK, LAYERS};
+use crate::config::CHUNK;
 use crate::hex::{hex_distance, hex_line, DIRS};
 use crate::materials::{id_named, id};
 use crate::showpieces::{self, SURF};

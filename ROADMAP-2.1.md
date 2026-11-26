@@ -15,7 +15,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [x] Debug line shows version `2.1` while playing
 - [x] My Skies starts empty and offers New Sky
 - [x] Loading screen; a failed chunk sets an error and Esc returns to the title
-- [ ] Settings sliders (the screen is a placeholder)
+- [x] Settings sliders (up and down choose, left and right change the twelve New Sky sliders)
 - [x] Walk, jump and step-up on solid ground. F4 toggles flight
 - [x] GitHub Actions workflow builds `Tidewake.exe` on `windows-latest` and uploads the zip
 - [ ] Confirm the exe on a Windows machine (manifest and icon are embedded by the Windows build)
@@ -63,32 +63,32 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 - [x] Walk, look, jump, hurry, and step up one layer. F4 flies
 - [x] Crouch (Shift) and glide (hold jump while falling, once Glide is granted)
-- [ ] Fly and fall (Dreamer flight, cloud-sea rescue)
+- [x] Fly and fall (F4 and /fly, Dreamer mode, a hard landing stings, the cloud sea carries you back to where you woke)
 - [x] Mine and place (left click breaks, right click places the held block; Keen Reach adds 1.5)
 - [x] Hotbar of 9, eating (food and a quarter of that as health), the Python recipe table, and a kiln (input, fuel, output, 4s smelts)
 - [x] Survival: food drains while walking, hunger hurts, eating heals, food above 16 regenerates health
 - [x] Doors (two cells, right-click opens), ladders and vines climb, beds set the waking spot and skip dusk, chests store 27 slots
-- [ ] Fishing and farming
+- [x] Fishing (rod, wait, bite window, reel) and farming (hoe, seeds, four growth stages, harvest)
 - [x] Creatures wander (woolhops, pebblebeaks, mossbacks, islekits, fairies, sky jellies). Gloomlings fade when the tide is light
 - [x] Glimmer motes, waystone cost 1, Tidewell gifts at 2–4 (Mote Sense through Brightwake)
-- [ ] Spires (Glide, Updraft, Tidecall) and the Path
+- [x] Spires (a full offering ring wakes the spire: Glide, then Updraft, then Tidecall on T) and the Path
 - [x] Tides (Lighttide / Dusktide colours and names from tide.py; gloomlings follow dusk)
 - [x] Lesson island ("Learn to play") uses the 1.4.6 land, path, stations and showpieces (plaza, clocktower, bazaar, hall, conservatory, monument, bounce park, observatory, grove, follies, maze, windmill, castle, gallery)
 - [ ] The 1.4.6 showpiece builds and the friendly cast on that island
-- [ ] Commands and Dreamer mode
+- [x] Commands (`/give`, `/fly`, `/dreamer`, `/tide`) and Dreamer mode
 
 ## Shell
 
 - [x] Title (version 2.1, Learn to play, My Skies, Settings)
 - [x] My Skies starts empty; the lesson is not listed
 - [x] New Sky (type a seed, or leave it blank)
-- [ ] New Sky sliders
-- [ ] Settings beyond the placeholder screen
+- [x] New Sky sliders (the same twelve, applied when the sky is dreamed)
+- [x] Settings screen edits the sky sliders
 - [x] Loading screen that shows world-gen errors and lets Esc return
-- [ ] Pause / save and leave
+- [x] Pause (Esc), then resume or save and leave
 - [x] Saves (new JSON format next to the game; the lesson is not listed; old Python saves are not loaded)
 - [x] Korobeiniki plays when a sky starts (public domain). The rest of the soundtrack and sound effects are still open
-- [ ] Journal
+- [x] Journal (J lists the Path)
 
 ## Tests
 
@@ -96,7 +96,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [x] All 5 island tiers present (huge/large/medium/small on the main grids, tiny on sky tiers)
 - [x] No thin non-waterfall pillars in a generated chunk
 - [x] v6 columns match the Python generator on recorded seed-7 samples
-- [ ] Other core logic (hex rounding, crafting, glimmer costs, saves)
+- [x] Other core logic now covered: crafting, glimmer costs, tide colours, hunger, kiln, fishing times, the Path counts
 
 ## Notes
 
