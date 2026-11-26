@@ -455,3 +455,17 @@ New skies will use generator v5: standard and medium islands grow about 30% in f
 
 Then a large building-block set (wider palettes, dyeable decorative families, a few bold unique blocks) and new landscape and sky structures that use them. This goes out as a 1.4.4-test pre-release; 1.4.3 stays Latest until the user says publish.
 
+
+## November 25, 2026, 9:52 PM EST — 1.4.4-test is ready to ship
+
+Generator v5, the new blocks, landscape and sky structures, and the rebuilt lesson island are in. New worlds use v5; 1.4.3 saves stay on v4; the lesson and title showcases stay pinned. `tests/test_phase144.py` covers island size and the huge-continent span (seed 7, about 460 cells, peak 294), walkable steps, spawn, the material budget (N=247 of 256), recipes and dyes, v5 structure placement without touching v2 worlds, NPC clearance, and a cheap 4,392-vert landmark visible from spawn.
+
+The lesson grounds are a spread of themed stations around a tiled plaza, with a packed path and a plank bridge to the shrine knoll. From spawn (yaw 0, pitch 4) a floating citadel with a glowing spire sits on the -Z horizon, drawn as static prisms so it does not add voxel cost. After trimming a few extra crystal lamps, an uncapped 1280×720 stand-still / walk on the new lesson was 37.2 / 42.1 fps (11 lights, 258 chunks, jobs 0). 1.4.3 was 46.4 / 51.3 with 9 lights on the compact island; the new lesson is a little heavier but in the same range.
+
+Best screenshot paths (all under `screenshots-final/v1.4.4/`):
+- lesson: `tutorial/tutorial_spawn.png` (citadel on the horizon), `tutorial/tutorial_aerial.png`, `tutorial/tutorial_aerial_east.png`, `tutorial/tutorial_plaza.png`, `tutorial/tutorial_shrine_knoll.png`
+- islands: `islands/v5_huge_aerial.png`, `islands/v5_huge_aerial_low.png`, `islands/v5_huge_surface.png`, `islands/v5_huge_peak.png`, `islands/v4_ref_continent_aerial.png` (1.4.3-scale comparison)
+- blocks: `blocks/palette_board.png`, `blocks/palette_board_close.png`, `blocks/fun_jelly.png`, `blocks/fun_checker_stripe.png`, `blocks/fun_metal_plaster.png`, `blocks/fun_crystal_lamps.png`, `blocks/fun_stained_glass.png`, `blocks/fun_cosmic_cloud.png`
+- structures: `structures/structures_row.png`, `structures/structure_crystal_pinnacle.png`, `structures/structure_sky_temple.png`, `structures/structure_lighthouse.png`, `structures/structure_lantern_cluster.png`
+
+This goes out as v1.4.4-test, a pre-release. 1.4.3 stays Latest.

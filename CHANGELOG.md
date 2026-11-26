@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.4-test — 25 November 2026
+
+A playtest build. 1.4.3 remains the latest full release. Skies from 1.4, 1.4.1, 1.4.2 and 1.4.3 still load and keep their original terrain. These changes apply to new skies (generator v5) and the lesson island.
+
+- New skies use generator v5: standard and medium islands grow about 30% in footprint and depth, and a rare huge-continent tier appears a few times per sky (around 350–500 cells across) with mixed biomes, peaks near 300, valleys and lakes. v4 stays for 1.4.3 saves; the lesson island and title showcases stay pinned.
+- 118 new building blocks (material IDs 129–246): 16 dyes, six decorative families with a dyed variant of each (patterned tile, terrazzo, woven panel, stained glass, crystal lamp, banner), plus plasters, metals, lattices, bounce jellies, checkers, stripes, shimmer cloud and cosmic star.
+- New landscape and sky structures that use those blocks: hamlets, watchtowers, shrines, windmills, lighthouses, markets, gardens, observatories, ruin towers, sky temples, airship wrecks, chained forts, balloon platforms, crystal pinnacles and lantern clusters, plus short bridges between close shores. They appear on generator v5 only.
+- The lesson island is larger and more spread out, with a plaza, themed stations, a path and a bridge to the shrine knoll. A cheap distant floating citadel sits on the horizon from spawn as a teaser for the wider world.
+
+Windows builds still embed a Common Controls v6 manifest and the app icon in the exe.
+
+
+
 ## 1.4.3 — 25 November 2026
 
 The current release. Skies from 1.4, 1.4.1 and 1.4.2 still load and keep their original terrain. These changes apply to new skies (generator v4).
