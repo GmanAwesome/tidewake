@@ -1,26 +1,49 @@
-//! wgpu device and a full-window clear.
-//!
-//! The clear colour is a Lighttide horizon: the Python renderer clears to a mix
-//! of horizon and zenith before drawing the sky dome (`renderer.py`).
+//! wgpu device, Lighttide clear, and the fogged hex terrain pipeline.
 
 use std::sync::Arc;
 
 use winit::window::Window;
 
-/// Soft Lighttide sky, close to the Python fog clear before the sky pass.
-const SKY_CLEAR: wgpu::Color = wgpu::Color {
+use crate::mesh::Vert;
+
+/// Soft Lighttide sky. The Python renderer clears to a mix of horizon and zenith.
+pub const SKY_CLEAR: wgpu::Color = wgpu::Color {
     r: 0.62,
     g: 0.78,
     b: 0.92,
     a: 1.0,
 };
 
+pub const FOG: [f32; 3] = [0.62, 0.78, 0.92];
+
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct FrameUni {
+    pub vp: [[f32; 4]; 4],
+    /// xyz = chunk origin minus camera. w = fog start.
+    pub offset: [f32; 4],
+    /// rgb = fog colour. w = fog end.
+    pub fog: [f32; 4],
+    pub sun: [f32; 4],
+}
+
+pub struct GpuMesh {
+    pub vbuf: wgpu::Buffer,
+    pub ibuf: wgpu::Buffer,
+    pub uni: wgpu::Buffer,
+    pub bind: wgpu::BindGroup,
+    pub n_idx: u32,
+}
+
 pub struct Gpu {
     surface: wgpu::Surface<'static>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     adapter_name: String,
+    pipeline: wgpu::RenderPipeline,
+    layout: wgpu::BindGroupLayout,
+    depth: wgpu::TextureView,
 }
 
 impl Gpu {
@@ -70,17 +93,88 @@ impl Gpu {
         };
         surface.configure(&device, &config);
 
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("terrain"),
+            source: wgpu::ShaderSource::Wgsl(SHADER.into()),
+        });
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("frame"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let pipe_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("terrain"),
+            bind_group_layouts: &[&layout],
+            push_constant_ranges: &[],
+        });
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("terrain"),
+            layout: Some(&pipe_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs"),
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<Vert>() as u64,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3, 2 => Float32x3],
+                }],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                cull_mode: Some(wgpu::Face::Back),
+                front_face: wgpu::FrontFace::Ccw,
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: Default::default(),
+                bias: Default::default(),
+            }),
+            multisample: Default::default(),
+            multiview: None,
+            cache: None,
+        });
+        let depth = depth_view(&device, config.width, config.height);
+
         Ok(Self {
             surface,
             device,
             queue,
             config,
             adapter_name,
+            pipeline,
+            layout,
+            depth,
         })
     }
 
     pub fn adapter_name(&self) -> &str {
         &self.adapter_name
+    }
+
+    pub fn aspect(&self) -> f32 {
+        self.config.width as f32 / self.config.height.max(1) as f32
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -90,9 +184,43 @@ impl Gpu {
         self.config.width = width;
         self.config.height = height;
         self.surface.configure(&self.device, &self.config);
+        self.depth = depth_view(&self.device, width, height);
     }
 
-    pub fn render(&mut self) -> Result<(), String> {
+    pub fn upload(&self, verts: &[Vert], idx: &[u32]) -> GpuMesh {
+        use wgpu::util::DeviceExt;
+        let vbuf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("chunk-v"),
+            contents: bytemuck::cast_slice(verts),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let ibuf = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("chunk-i"),
+            contents: bytemuck::cast_slice(idx),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let uni = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("chunk-u"),
+            size: std::mem::size_of::<FrameUni>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("chunk-bind"),
+            layout: &self.layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uni.as_entire_binding(),
+            }],
+        });
+        GpuMesh { vbuf, ibuf, uni, bind, n_idx: idx.len() as u32 }
+    }
+
+    pub fn write_uni(&self, mesh: &GpuMesh, uni: &FrameUni) {
+        self.queue.write_buffer(&mesh.uni, 0, bytemuck::bytes_of(uni));
+    }
+
+    pub fn render<'a>(&mut self, draws: impl IntoIterator<Item = &'a GpuMesh>) -> Result<(), String> {
         let frame = match self.surface.get_current_texture() {
             Ok(frame) => frame,
             Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
@@ -100,17 +228,15 @@ impl Gpu {
                 return Ok(());
             }
             Err(wgpu::SurfaceError::Timeout) => return Ok(()),
-            Err(wgpu::SurfaceError::OutOfMemory) => {
-                return Err("gpu out of memory".into());
-            }
+            Err(wgpu::SurfaceError::OutOfMemory) => return Err("gpu out of memory".into()),
         };
         let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("clear"),
+            label: Some("frame"),
         });
         {
-            let _pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("sky-clear"),
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("sky"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -119,13 +245,86 @@ impl Gpu {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            pass.set_pipeline(&self.pipeline);
+            for mesh in draws {
+                if mesh.n_idx == 0 {
+                    continue;
+                }
+                pass.set_bind_group(0, &mesh.bind, &[]);
+                pass.set_vertex_buffer(0, mesh.vbuf.slice(..));
+                pass.set_index_buffer(mesh.ibuf.slice(..), wgpu::IndexFormat::Uint32);
+                pass.draw_indexed(0..mesh.n_idx, 0, 0..1);
+            }
         }
         self.queue.submit(std::iter::once(encoder.finish()));
         frame.present();
         Ok(())
     }
 }
+
+fn depth_view(device: &wgpu::Device, w: u32, h: u32) -> wgpu::TextureView {
+    let tex = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("depth"),
+        size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+        view_formats: &[],
+    });
+    tex.create_view(&Default::default())
+}
+
+const SHADER: &str = r#"
+struct U {
+    vp: mat4x4<f32>,
+    offset: vec4<f32>,
+    fog: vec4<f32>,
+    sun: vec4<f32>,
+}
+@group(0) @binding(0) var<uniform> u: U;
+
+struct Vin {
+    @location(0) pos: vec3<f32>,
+    @location(1) nrm: vec3<f32>,
+    @location(2) col: vec3<f32>,
+}
+struct Vout {
+    @builtin(position) clip: vec4<f32>,
+    @location(0) col: vec3<f32>,
+}
+
+@vertex
+fn vs(i: Vin) -> Vout {
+    let p = i.pos + u.offset.xyz;
+    var o: Vout;
+    o.clip = u.vp * vec4<f32>(p, 1.0);
+    let n = normalize(i.nrm);
+    let sun = normalize(u.sun.xyz);
+    let ndl = max(dot(n, sun), 0.0);
+    let wrap = ndl * 0.5 + 0.5;
+    let amb = mix(vec3<f32>(0.42, 0.48, 0.60), vec3<f32>(0.90, 0.93, 0.98), n.y * 0.5 + 0.5);
+    var lit = i.col * (amb * 0.62 + vec3<f32>(1.0, 0.96, 0.86) * (ndl * 0.55 + wrap * 0.12));
+    let d = length(p);
+    let f = smoothstep(u.offset.w, u.fog.w, d);
+    o.col = mix(lit, u.fog.xyz, f);
+    return o;
+}
+
+@fragment
+fn fs(i: Vout) -> @location(0) vec4<f32> {
+    return vec4<f32>(i.col, 1.0);
+}
+"#;

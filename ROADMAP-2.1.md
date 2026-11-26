@@ -23,12 +23,13 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [~] v6 generator only (v1–v5 are not ported)
   - [x] Seed temperament and slider settings (matches Python MT19937)
   - [x] Main island scales (huge, large, medium, small) and skerries, checked against Python columns
-  - [ ] Sky tiers (`skytiers.py`) stacked through the column
+  - [x] Sky tiers (`skytiers.py`) stacked through the column
   - [x] Tapered undersides on the main islands
-  - [ ] Waterfalls that end in the air (flags are sampled; water cells come with chunk fill)
-  - [ ] Spike cleanup (no thin non-waterfall pillars)
+  - [x] Waterfalls that end in the air (about 40 layers, not down to the cloud sea)
+  - [x] Spike cleanup (tested: no 10-layer non-waterfall pillars inside a chunk)
   - [x] 20 biomes on the column field, including Blossom Vale, Autumn Wilds, Azure Fields, Golden Steppe
-  - [ ] Small, medium and huge trees
+  - [x] Small and medium trees, including the v6 shapes (bush, blossom, autumn, cone, flat acacia)
+  - [ ] Huge trees (18–34 layers, drawn across chunks)
   - [ ] Caves, lakes, ores, spires
 - [ ] Grand structures: hot air balloons, sky city, floating fortress, world tree,
       colossus, megaspire, leviathan wreck, titan ruins, villages, airships,
@@ -36,9 +37,10 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Smaller found structures (hamlets, shrines, windmills, lighthouses, and the rest)
 - [ ] Rare wonders (sky-whale skeleton, clockwork tower, hanging keep, ring harbor,
       crystal cathedral, waterfall temple)
-- [ ] Meshing
-- [ ] LOD that draws stacked islands separately
-- [ ] Distance fog
+- [x] Meshing (hex prisms, opaque and water)
+- [x] LOD that draws each vertical run, so stacked islands stay separate
+- [x] Distance fog (Lighttide clear)
+- [x] Fly camera over a generated v6 sky (release: about 10 ms/chunk, ~40 fps on llvmpipe)
 
 ## Look
 
@@ -80,9 +82,10 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 ## Tests
 
-- [ ] Generator is deterministic per seed
-- [ ] All 5 island tiers appear
-- [ ] No thin non-waterfall pillars
+- [x] Generator is deterministic per seed (chunk bytes match a second generate)
+- [x] All 5 island tiers present (huge/large/medium/small on the main grids, tiny on sky tiers)
+- [x] No thin non-waterfall pillars in a generated chunk
+- [x] v6 columns match the Python generator on recorded seed-7 samples
 - [ ] Other core logic (hex rounding, crafting, glimmer costs, saves)
 
 ## Notes

@@ -3,6 +3,7 @@
 //! The Python package remains the spec. This crate has no window and no GPU.
 
 pub mod biomes;
+pub mod chunk;
 pub mod columns;
 pub mod config;
 pub mod hex;
@@ -10,6 +11,7 @@ pub mod materials;
 pub mod noise;
 pub mod pyrandom;
 pub mod settings;
+pub mod tiers;
 
 pub use columns::{size_class, Column, Generator, SizeClass};
 

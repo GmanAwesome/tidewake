@@ -179,6 +179,16 @@ impl Generator {
         }
     }
 
+    pub fn fbm_detail(&self, x: f64, z: f64, octaves: u32) -> f64 {
+        self.n_detail.fbm2(x, z, octaves)
+    }
+    pub fn fbm_hill(&self, x: f64, z: f64, octaves: u32) -> f64 {
+        self.n_hill.fbm2(x, z, octaves)
+    }
+    pub fn fbm_depth(&self, x: f64, z: f64, octaves: u32) -> f64 {
+        self.n_depth.fbm2(x, z, octaves)
+    }
+
     pub fn sample(&self, q: i64, r: i64) -> Column {
         let (x, z) = hex::center(q, r);
         let jitter = 0.15;

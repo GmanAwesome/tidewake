@@ -16,3 +16,6 @@ wgpu.workspace = true
 pollster.workspace = true
 env_logger.workspace = true
 log.workspace = true
+glam.workspace = true
+bytemuck = { version = "1", features = ["derive"] }
+tidewake-core = { path = "../tidewake-core" }
