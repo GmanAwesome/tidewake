@@ -65,7 +65,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Crouch and glide
 - [ ] Fly and fall (Dreamer flight, cloud-sea rescue)
 - [ ] Mine and place
-- [x] Hotbar, eating, and one craft (3 berries make a skyloaf). Full 2×2 bench and kiln still open
+- [x] Hotbar of 9, eating (food and a quarter of that as health), and the Python recipe table on the 2×2 pocket. Kiln smelting table is loaded; the kiln screen is still open
 - [x] Survival: food drains while walking, hunger hurts, eating heals, food above 16 regenerates health
 - [ ] Doors, ladders, beds, chests
 - [ ] Fishing and farming

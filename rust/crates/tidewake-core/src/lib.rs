@@ -6,6 +6,7 @@ pub mod biomes;
 pub mod chunk;
 pub mod columns;
 pub mod config;
+pub mod craft;
 pub mod glimmer;
 pub mod hex;
 pub mod lesson;

@@ -264,7 +264,8 @@ impl Game {
             self.player = player;
             if !self.player.drifting {
                 let moving = self.player.vx.abs() + self.player.vz.abs() > 0.2;
-                self.save.tick(dt, moving || self.keys.w || self.keys.a || self.keys.s || self.keys.d);
+                let moving = moving || self.keys.w || self.keys.a || self.keys.s || self.keys.d;
+                self.save.tick(dt, moving, self.keys.fast);
                 if self.save.health <= 0.0 {
                     self.player.x = self.spawn.0;
                     self.player.y = self.spawn.1;
@@ -756,7 +757,7 @@ impl ApplicationHandler for App {
                         KeyCode::Enter | KeyCode::NumpadEnter if down && game.screen == Screen::NewSky => game.dream(),
                         KeyCode::Backspace if down && game.screen == Screen::NewSky => { game.seed_text.pop(); }
                         KeyCode::KeyR if down && game.screen == Screen::Play => { game.save.eat(); }
-                        KeyCode::KeyC if down && game.screen == Screen::Play => { game.save.craft_loaf(); }
+                        KeyCode::KeyC if down && game.screen == Screen::Play => { game.save.craft_pocket(); }
                         KeyCode::KeyG if down && game.screen == Screen::Play => {
                             if let Some(id) = game.glimmer.next_gift() {
                                 game.glimmer.buy(id);
@@ -764,6 +765,13 @@ impl ApplicationHandler for App {
                         }
                         KeyCode::Digit1 if down => game.save.selected = 0,
                         KeyCode::Digit2 if down => game.save.selected = 1,
+                        KeyCode::Digit3 if down => game.save.selected = 2,
+                        KeyCode::Digit4 if down => game.save.selected = 3,
+                        KeyCode::Digit5 if down => game.save.selected = 4,
+                        KeyCode::Digit6 if down => game.save.selected = 5,
+                        KeyCode::Digit7 if down => game.save.selected = 6,
+                        KeyCode::Digit8 if down => game.save.selected = 7,
+                        KeyCode::Digit9 if down => game.save.selected = 8,
                         KeyCode::Escape if down => {
                             let _ = window.set_cursor_grab(CursorGrabMode::None);
                             window.set_cursor_visible(true);
