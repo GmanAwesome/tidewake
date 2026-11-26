@@ -322,14 +322,30 @@ def set_sky(v, sky):
     return out
 
 
+# Cached figure poses. Rebuilding prism meshes every frame for the lesson-island
+# guides was the tutorial-world frame hog (~8 NPCs × 8 prisms, several ms each).
+_FIGURE_CACHE = {}
+
+
+def _pose_key(t, period, n=20):
+    return int(round((t / period) * n)) % n
+
+
 def guide(color, t=0.0):
     """A friendly lesson-island person: feet at y=0, about a block and a half tall."""
-    c = np.array(color)
+    ckey = tuple(np.round(np.asarray(color, dtype=np.float64), 4))
+    pose = _pose_key(t, 2.0 * math.pi / 2.2, 24)
+    key = ('guide', ckey, pose)
+    v = _FIGURE_CACHE.get(key)
+    if v is not None:
+        return v
+    t = pose / 24.0 * (2.0 * math.pi / 2.2)
+    c = np.array(color, dtype=np.float64)
     cloth = c * 0.92
     skin = np.array([0.90, 0.74, 0.62])
     hair = c * 0.55 + np.array([0.15, 0.10, 0.12])
     bob = math.sin(t * 2.2) * 0.015
-    return cat(
+    v = cat(
         prisms((-0.09, 0.09), (0.02, 0.02), 0.0, 0.42, 0.07, cloth * 0.8, cloth * 0.8),
         prisms(0, 0.02, 0.40, 1.05 + bob, 0.22, cloth, cloth * 0.9),
         prisms(0, 0.00, 1.05 + bob, 1.32 + bob, 0.16, skin, skin * 0.92),
@@ -339,22 +355,36 @@ def guide(color, t=0.0):
         prisms(0, -0.16, 1.10 + bob, 1.135 + bob, 0.03, (0.55, 0.32, 0.30), (0.55, 0.32, 0.30)),
         prisms((-0.28, 0.28), (0.02, 0.02), 0.70 + bob, 1.00 + bob, 0.06, cloth, cloth * 0.9),
     )
+    _FIGURE_CACHE[key] = v
+    return v
 
 
 def wanderer(t=0.0, walking=False):
-    """Third-person figure: a plain body with no default tools or worn loot."""
-    cloth = np.array([0.46, 0.52, 0.62])
+    """Plain unclothed base figure. Clothing and gear appear only once equipped."""
+    bob_p = _pose_key(t, 2.0 * math.pi / 2.2, 20)
+    swing_p = _pose_key(t, 2.0 * math.pi / 8.0, 16) if walking else 0
+    key = ('wanderer', bool(walking), bob_p, swing_p)
+    v = _FIGURE_CACHE.get(key)
+    if v is not None:
+        return v
+    t_bob = bob_p / 20.0 * (2.0 * math.pi / 2.2)
+    t_sw = swing_p / 16.0 * (2.0 * math.pi / 8.0)
     skin = np.array([0.90, 0.74, 0.62])
     hair = np.array([0.28, 0.20, 0.18])
-    bob = math.sin(t * 2.2) * 0.015
-    swing = math.sin(t * 8.0) * 0.12 if walking else 0.0
-    return cat(
-        prisms((-0.09, 0.09), (0.02 + swing * 0.15, 0.02 - swing * 0.15), 0.0, 0.48, 0.07, cloth * 0.75, cloth * 0.75),
-        prisms(0, 0.02, 0.44, 1.10 + bob, 0.22, cloth, cloth * 0.9),
+    bob = math.sin(t_bob * 2.2) * 0.015
+    swing = math.sin(t_sw * 8.0) * 0.12 if walking else 0.0
+    # uniform body tone, no outfit colours or bands; face looks toward -z, back is +z
+    v = cat(
+        prisms((-0.09, 0.09), (0.02 + swing * 0.15, 0.02 - swing * 0.15), 0.0, 0.48, 0.07, skin, skin * 0.96),
+        prisms(0, 0.02, 0.44, 1.10 + bob, 0.22, skin, skin * 0.96),
         prisms(0, 0.00, 1.10 + bob, 1.36 + bob, 0.16, skin, skin * 0.92),
         prisms(0, 0.08, 1.26 + bob, 1.46 + bob, 0.17, hair, hair),
         prisms((-0.065, 0.065), (-0.145, -0.145), 1.235 + bob, 1.305 + bob, 0.042, (0.95, 0.93, 0.90), (0.95, 0.93, 0.90)),
         prisms((-0.065, 0.065), (-0.16, -0.16), 1.245 + bob, 1.295 + bob, 0.022, (0.10, 0.08, 0.08), (0.10, 0.08, 0.08)),
         prisms(0, -0.16, 1.155 + bob, 1.19 + bob, 0.03, (0.55, 0.32, 0.30), (0.55, 0.32, 0.30)),
-        prisms((-0.30, 0.30), (0.02 + swing, 0.02 - swing), 0.72 + bob, 1.05 + bob, 0.06, cloth, cloth * 0.9),
+        prisms((-0.30, 0.30), (0.02 + swing, 0.02 - swing), 0.72 + bob, 1.05 + bob, 0.06, skin, skin * 0.96),
+        # two simple cartoony rounded cheeks on the back of the hips, a slight bulge
+        prisms((-0.09, 0.09), (0.16, 0.16), 0.42 + bob, 0.62 + bob, 0.085, skin, skin * 0.96),
     )
+    _FIGURE_CACHE[key] = v
+    return v
