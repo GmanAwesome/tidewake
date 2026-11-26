@@ -19,7 +19,7 @@ from . import tide as TIDE
 from .world import World
 from . import items as I
 from .inventory import Inventory
-from .entities import Mob, Drop, spawn_spot, KINDS, FLYING, FLOWER_BLOCKS
+from .entities import Mob, Drop, spawn_spot, KINDS, FLYING, FLOWER_BLOCKS, solid_at
 from . import models as MD
 
 ABILITIES = [('Glide', 'Hold Space while falling to glide on the wind.'),
@@ -37,6 +37,9 @@ PASSIVE_REALMS = {
     'woolhop': (0, 1, 5, 3, 7, 8, 9, 10, 14),
     'pebblebeak': (0, 2, 6, 1, 4, 11, 12),
     'mossback': (5, 4, 3, 7, 9, 12, 15),
+    'mossturtle': (5, 4, 3, 7, 9, 12, 15),
+    'crystalbeetle': (1, 4, 8, 11, 13, 14),
+    'islekit': (0, 1, 3, 5, 8, 9, 10, 14),
 }
 
 
@@ -548,11 +551,23 @@ class Session:
         if p.y < CLOUD_SEA * LAYER - 2 and self.carry <= 0 and not p.noclip:
             self.carry = 1.6
             self.app.audio.play('whoosh', 0.8)
-            self.toast('The clouds carry you back', 'They are gentle, but it still stings a little.', 3.5)
-            if not self.dev:
-                self.hp = max(1.0, self.hp - 3)
+            n = int(self.stats.get('cloud_rescues', 0))
+            self.stats['cloud_rescues'] = n + 1
+            if n == 0:
+                self.toast('The clouds carry you back',
+                           'Watch the edge next time — a longer fall will sting.', 4.0)
+            else:
+                self.toast('The clouds carry you back', 'They are gentle, but it still stings a little.', 3.5)
+                if not self.dev:
+                    self.hp = max(1.0, self.hp - 3)
         # footsteps
         moving = math.hypot(p.vx, p.vz)
+        self.edge_warn = max(0.0, getattr(self, 'edge_warn', 0.0) - dt)
+        if p.on_ground and moving > 0.8 and not p.drifting and not p.noclip:
+            a = math.radians(p.yaw)
+            ax, az = p.x + math.sin(a) * 1.7, p.z - math.cos(a) * 1.7
+            if not any(solid_at(self.world, ax, p.y - LAYER * k - 0.01, az) for k in (1, 2, 3, 4)):
+                self.edge_warn = 1.15
         if p.on_ground and moving > 0.5:
             self.walk += moving * dt
             self.step_acc += moving * dt
@@ -1054,8 +1069,48 @@ class Session:
             return False
         npc['line'] = (npc.get('line', 0) + 1) % len(lines) if self.talk == npc['name'] else 0
         self.talk = npc['name']
+        self._frame_npc(npc)
         self.app.audio.play('chord', 0.25)
         return True
+
+    def _frame_npc(self, npc):
+        """Stand a few cells back on open ground, looking at the NPC, not inside them or a trunk."""
+        from .materials import support_top
+        p = self.player
+        tx, ty, tz = npc['x'], npc['y'] + 0.95, npc['z']
+        dx, dz = p.x - tx, p.z - tz
+        dist = math.hypot(dx, dz)
+        if dist < 0.25:
+            a0 = math.radians(p.yaw)
+            dx, dz = -math.sin(a0), math.cos(a0)
+            dist = 1.0
+        ux, uz = dx / dist, dz / dist
+        placed = False
+        for ang in (0, 50, -50, 90, -90, 130, -130, 180):
+            ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+            rx, rz = ux * ca - uz * sa, ux * sa + uz * ca
+            for d in (3.1, 2.5, 3.8, 2.1):
+                nx, nz = tx + rx * d, tz + rz * d
+                q, r = cell_at(nx, nz)
+                top = support_top(self.world, q, r, npc['y'] + LAYER * 2.4, LAYER)
+                if top is None or abs(top - npc['y']) > LAYER * 2.6:
+                    continue
+                if solid_at(self.world, nx, top + 0.9, nz) or solid_at(self.world, nx, top + 1.6, nz):
+                    continue
+                if math.hypot(nx - tx, nz - tz) < 1.55:
+                    continue
+                p.x, p.z = nx, nz
+                p.y = top + 0.001
+                p.vx = p.vy = p.vz = 0.0
+                p.drifting = False
+                p.noclip = False
+                placed = True
+                break
+            if placed:
+                break
+        ex, ey, ez = p.eye
+        p.yaw = math.degrees(math.atan2(tx - ex, -(tz - ez))) % 360
+        p.pitch = math.degrees(math.atan2(ty - ey, math.hypot(tx - ex, tz - ez)))
 
     def _npc_dist(self, npc):
         p = self.player
@@ -1279,7 +1334,7 @@ class Session:
             hostile = [m for m in self.mobs if m.hostile]
             if not getattr(self, 'tutorial', False):
                 ground = [m for m in passive if m.kind not in FLYING]
-                if len(ground) < 9:
+                if len(ground) < 12:
                     self._try_spawn(False)
                 self._try_spawn_flyers(dusk)
             if dusk > 0.55 and not peaceful and not getattr(self, 'tutorial', False) and len(hostile) < 6:
@@ -1348,9 +1403,12 @@ class Session:
 
 
     def _try_spawn_flyers(self, dusk):
-        """A couple of skywhales in the open air, and fairies near flowers."""
+        """A couple of skywhales in the open air, and fairies near flowers.
+        1.4.4 also keeps a few sky jellies and cloud rays in the open sky."""
         whales = [m for m in self.mobs if m.kind == 'skywhale']
         fairies = [m for m in self.mobs if m.kind == 'fairy']
+        jellies = [m for m in self.mobs if m.kind == 'skyjelly']
+        rays = [m for m in self.mobs if m.kind == 'cloudray']
         p = self.player
         if len(whales) < 2:
             for _ in range(4):
@@ -1362,6 +1420,28 @@ class Session:
                 base = ((top + 1) * LAYER) if top is not None else max(p.y, CLOUD_SEA * LAYER + 8)
                 y = base + random.uniform(10, 20)
                 self.mobs.append(Mob('skywhale', x, y, z))
+                break
+        if len(jellies) < 3:
+            for _ in range(4):
+                a = random.uniform(0, math.tau)
+                d = random.uniform(16, 42)
+                x, z = p.x + math.cos(a) * d, p.z + math.sin(a) * d
+                q, r = cell_at(x, z)
+                top = self.world.column_top(q, r)
+                base = ((top + 1) * LAYER) if top is not None else max(p.y, CLOUD_SEA * LAYER + 8)
+                y = base + random.uniform(3, 9)
+                self.mobs.append(Mob('skyjelly', x, y, z))
+                break
+        if len(rays) < 3:
+            for _ in range(4):
+                a = random.uniform(0, math.tau)
+                d = random.uniform(22, 55)
+                x, z = p.x + math.cos(a) * d, p.z + math.sin(a) * d
+                q, r = cell_at(x, z)
+                top = self.world.column_top(q, r)
+                base = ((top + 1) * LAYER) if top is not None else max(p.y, CLOUD_SEA * LAYER + 8)
+                y = base + random.uniform(6, 14)
+                self.mobs.append(Mob('cloudray', x, y, z))
                 break
         want_fairies = 6 if dusk > 0.3 else 3
         if len(fairies) < want_fairies:

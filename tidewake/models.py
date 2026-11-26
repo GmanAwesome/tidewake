@@ -311,6 +311,79 @@ def _creature(kind, t, walking, color_seed=0.0, hurt=0.0):
             prisms(0, 0, 0.10, 0.18, 0.04, core, core, 1.0),
             prisms((-0.16, 0.16), (0.0, 0.0), 0.10 + flutter, 0.20 + flutter, 0.05, wing, wing, 0.35),
         )
+    if kind == 'skyjelly':
+        pulse = 0.02 * math.sin(t * 2.2)
+        trail = math.sin(t * 2.4) * 0.06
+        bell = np.array([0.72, 0.88, 1.0]) * (0.9 + 0.1 * color_seed) * tint
+        glow = np.array([0.95, 0.80, 1.0]) * tint
+        tent = np.array([0.80, 0.70, 0.95]) * tint
+        return cat(
+            prisms(0, 0, 0.42 + pulse, 0.78 + pulse, 0.32, bell, bell * 0.85, 0.45),
+            prisms(0, 0, 0.34 + pulse, 0.50 + pulse, 0.22, glow, glow, 0.7),
+            prisms(0, 0, 0.70 + pulse, 0.84 + pulse, 0.18, bell * 1.05, glow, 0.55),
+            *[prisms(x, z, 0.0, 0.42 + trail * s, 0.035, tent, tent, 0.3)
+              for (x, z), s in (((-0.16, -0.08), 1), ((0.16, -0.08), -1),
+                                ((-0.08, 0.16), 1), ((0.08, 0.16), -1), ((0.0, -0.18), 0.5))],
+        )
+    if kind == 'cloudray':
+        flap = math.sin(t * 1.8) * 0.08
+        glide = math.sin(t * 0.9) * 0.04
+        skin = np.array([0.90, 0.94, 0.98]) * tint
+        shade = np.array([0.70, 0.80, 0.90]) * tint
+        belly = np.array([0.96, 0.98, 1.0]) * tint
+        eye = np.array([0.16, 0.18, 0.24])
+        # one connected body: snout, torso, tapering tail, a single wing sheet
+        return cat(
+            prisms(0, -0.72, 0.18 + glide, 0.32 + glide, 0.08, skin, shade),
+            prisms(0, -0.42, 0.14 + glide, 0.36 + glide, 0.14, skin, belly),
+            prisms(0, 0.05, 0.12 + glide, 0.36 + glide, 0.18, skin, belly),
+            prisms(0, 0.50 + flap * 0.2, 0.16 + glide, 0.30 + glide, 0.10, shade, skin),
+            prisms(0, 0.82 + flap * 0.3, 0.18 + glide, 0.26 + glide, 0.05, shade, skin),
+            prisms((-0.40, 0.40), (-0.05, -0.05), 0.16 + flap, 0.28 + flap, 0.22, shade, skin),
+            prisms((-0.78, 0.78), (0.08, 0.08), 0.14 + flap, 0.26 + flap, 0.26, shade, belly),
+            prisms((-1.12, 1.12), (0.18, 0.18), 0.16 + flap, 0.24 + flap, 0.16, skin, shade),
+            prisms((-0.06, 0.06), (-0.78, -0.78), 0.24 + glide, 0.30 + glide, 0.03, eye, eye),
+        )
+    if kind == 'mossturtle':
+        shell = np.array([0.40, 0.62, 0.38]) * tint
+        moss = np.array([0.46, 0.72, 0.40]) * tint
+        skin = np.array([0.74, 0.68, 0.50]) * tint
+        bloom = np.array([0.92, 0.55, 0.70]) * tint
+        leaf = np.array([0.40, 0.70, 0.38])
+        return cat(
+            *[prisms(x, z, 0, 0.16, 0.08, skin, skin) for x, z in
+              ((-0.32, -0.28), (0.32, -0.28), (-0.32, 0.28), (0.32, 0.28))],
+            prisms(0, 0, 0.12, 0.40, 0.58, shell, shell * 0.8),
+            prisms(0, 0, 0.40, 0.56, 0.42, moss, shell * 0.85),
+            prisms(0, -0.62 - swing * 0.4, 0.16, 0.36, 0.16, skin, skin),
+            prisms((-0.07, 0.07), (-0.76, -0.76), 0.28, 0.32, 0.025, (0.1, 0.1, 0.1), (0.1, 0.1, 0.1)),
+            prisms((-0.16, 0.14), (0.10, -0.08), 0.56, 0.78, 0.05, leaf, leaf),
+            prisms(0.08, 0.06, 0.74, 0.86, 0.05, bloom, bloom * 0.85),
+        )
+    if kind == 'crystalbeetle':
+        bob = abs(math.sin(t * 14)) * 0.02 if walking else 0.0
+        car = np.array([0.55, 0.78, 0.92]) * (0.85 + 0.15 * color_seed) * tint
+        shine = np.array([0.80, 0.92, 1.0]) * tint
+        leg = np.array([0.30, 0.34, 0.42])
+        return cat(
+            prisms((-0.16, 0.16, -0.16, 0.16), (-0.10, -0.10, 0.12, 0.12), 0, 0.10 + bob, 0.03, leg, leg),
+            prisms(0, 0.02, 0.08 + bob, 0.26 + bob, 0.18, car, car * 0.8, 0.35),
+            prisms(0, -0.16, 0.14 + bob, 0.24 + bob, 0.08, shine, car, 0.5),
+            prisms((-0.05, 0.05), (-0.28, -0.28), 0.20 + bob, 0.34 + bob, 0.015, shine, shine),
+        )
+    if kind == 'islekit':
+        dart = math.sin(t * 11) * 0.05 if walking else 0.0
+        fur = np.array([0.86, 0.78, 0.62]) * (0.92 + 0.08 * color_seed) * tint
+        ear = np.array([0.78, 0.62, 0.48]) * tint
+        nose = np.array([0.40, 0.28, 0.28])
+        return cat(
+            prisms((-0.10, 0.10), (-0.10 + dart, 0.10 - dart), 0, 0.16, 0.04, ear, ear),
+            prisms(0, 0.02, 0.14, 0.34, 0.16, fur, fur * 0.9),
+            prisms(0, -0.18, 0.22, 0.40, 0.11, fur, fur * 0.92),
+            prisms((-0.07, 0.07), (-0.16, -0.16), 0.38, 0.52, 0.04, ear, ear),
+            prisms(0, -0.28, 0.26, 0.30, 0.03, nose, nose),
+            prisms((-0.05, 0.05), (-0.26, -0.26), 0.32, 0.36, 0.02, (0.1, 0.1, 0.1), (0.1, 0.1, 0.1)),
+        )
     return prisms(0, 0, 0, 0.5, 0.3, (1, 0, 1), (1, 0, 1))
 
 
