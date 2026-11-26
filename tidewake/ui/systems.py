@@ -69,7 +69,7 @@ class TidewellScreen(Screen):
         yy = by + bh - 42 * s
         for i, (head, line) in enumerate(G.HOW):
             gui.text(f'{i + 1}. {head}', bx + 16 * s, yy, 11, ACCENT, 'left', 'center', font='bold')
-            gui.text(line, bx + 118 * s, yy, 10, INK, 'left', 'center', width=bw - 134 * s)
+            gui.text(line, bx + 128 * s, yy, 10, INK, 'left', 'center')
             yy -= 26 * s
         y = by - 30 * s
         gui.text('Lasting gifts for this sky', px + 28 * s, y, 12, INK, 'left', 'center', font='bold')

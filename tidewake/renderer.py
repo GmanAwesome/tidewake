@@ -363,7 +363,7 @@ class Renderer:
             rad = np.array([LIGHT_RAD.get(int(m), 6.0) for m in A[:, 3]])
             # score by distance relative to radius so a lantern is not dropped for a closer glowcap
             score = d / np.maximum(rad, 1.0)
-            sel = np.argsort(score)[:32]
+            sel = np.argsort(score)[:max(1, min(32, int(getattr(self, 'light_cap', 32))))]
             for i in sel:
                 mid = int(A[i, 3])
                 lp.append((A[i, 0], A[i, 1], A[i, 2], LIGHT_RAD.get(mid, 6.0)))

@@ -22,9 +22,9 @@ ATTUNEMENTS = [
 WAYSTONE_COST = 1
 NAME = 'Tidewell'
 HOW = [
-    ('Catch', 'Floating motes are Glimmer. Walk into one. Pale motes drift by day; golden ones come thick at dusk.'),
-    ('Waystones', 'Spend 1 Glimmer so a waystone remembers you. Attune two, then travel between them for free.'),
-    ('Tidewell', 'Spend 2-4 Glimmer here on a lasting gift. Gifts stay with this sky.'),
+    ('Catch', 'Floating motes are Glimmer: walk into one. More drift at dusk.'),
+    ('Waystones', '1 Glimmer attunes a waystone. Attune two; travel between is free.'),
+    ('Tidewell', 'Spend 2-4 Glimmer here on a lasting gift for this sky.'),
 ]
 
 WAYSTONE = 'waystone'

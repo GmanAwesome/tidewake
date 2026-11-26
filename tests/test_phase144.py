@@ -13,7 +13,7 @@ import numpy as np
 
 def test_new_worlds_use_generator_v5():
     d = GS.normalize({}, new=True)
-    assert d['generator_version'] == 5
+    assert d['generator_version'] == GS.CURRENT >= 5   # 1.4.4 late: v6
     # older saves keep their version
     assert GS.normalize({'generator_version': 4}, new=True)['generator_version'] == 4
     assert GS.normalize({'generator_version': 3})['generator_version'] == 3
@@ -223,7 +223,7 @@ def test_tutorial_grounds_are_spread_and_npcs_are_clear():
             for k in counts:
                 counts[k] += int((cells == MT.ID[k]).sum())
     assert counts['waystone'] >= 2 and counts['tidewell'] >= 1
-    assert counts['tinker_bench'] == 1 and counts['kiln'] == 1
+    assert counts['tinker_bench'] >= 1 and counts['kiln'] >= 1   # 1.4.4 showpieces add more
     assert counts['door'] >= 2 and counts['ladder'] >= 3
     assert counts['chest'] == 6 and counts['farmland'] >= 6
     assert counts['signpost'] >= 4

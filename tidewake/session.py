@@ -193,6 +193,8 @@ class Session:
             self.waystones = dict(d.get('waystones', {}))
             self.attune = list(d.get('attune', []))
             self.achieved = list(d.get('achieved', []))
+        # 1.4.4: the lesson island is lamp-heavy; fewer per-pixel lights keeps it smooth
+        app.renderer.light_cap = 14 if getattr(self, 'tutorial', False) else 32
         self.world = World(self.seed, storage, app.renderer, app.pool, view_distance, far_distance,
                           gen_settings=self.gen_settings)
         self.sim = Simulation(self.world, self.seed & 0xFFFF)
@@ -1345,6 +1347,8 @@ class Session:
                 if len(ground) < 12:
                     self._try_spawn(False)
                 self._try_spawn_flyers(dusk)
+            else:
+                self._tutorial_roster()
             if dusk > 0.55 and not peaceful and not getattr(self, 'tutorial', False) and len(hostile) < 6:
                 self._try_spawn(True)
         self._mob_tick = getattr(self, '_mob_tick', 0) + 1
@@ -1373,6 +1377,30 @@ class Session:
                     self.drops.append(Drop(I.EGG.id, 1, mob.x, mob.y + 0.3, mob.z))
         self.mobs = [m for m in self.mobs if not m.dead and
                      math.hypot(m.x - p.x, m.z - p.z) < (140 if m.kind == 'skywhale' else 70)]
+
+    def _tutorial_roster(self):
+        """Lesson island: a fixed, friendly cast (no hostiles), each tethered to its spot."""
+        from . import tutorial_builds as TB
+        from . import tutorial as TUT
+        p = self.player
+        have = {m.tut_id for m in self.mobs if m.tut_id is not None}
+        for i, (kind, q, r, hover, tether) in enumerate(TB.MOBS):
+            if i in have:
+                continue
+            x, z = center(q, r)
+            if math.hypot(x - p.x, z - p.z) > 60:
+                continue
+            if hover:
+                y = (TUT.SURF + 1 + hover) * LAYER
+            else:
+                spot = spawn_spot(self.world, x, z, need_open=False)
+                if not spot:
+                    continue
+                x, y, z = spot[0], spot[1], spot[2]
+            mob = Mob(kind, x, y, z)
+            mob.tether = tether
+            mob.tut_id = i
+            self.mobs.append(mob)
 
     def _try_spawn(self, hostile, kind=None, near=None):
         p = self.player

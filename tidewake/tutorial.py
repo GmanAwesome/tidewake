@@ -164,6 +164,22 @@ def _mat(name, fallback='stone'):
     return M[name] if name in M else M[fallback]
 
 
+WAYPOINTS = [
+    (0, 0), (6, 2), (16, -4), (34, -8), (48, 0), (58, 8),
+    (60, 20), (60, 32), (50, 42), (38, 52), (20, 54), (6, 54),
+    (-10, 48), (-26, 38), (-8, 20), (0, 8), (0, 0),
+    (4, -16), (6, -32), (8, -38), (8, -48), (10, -58),
+]
+
+
+def path_cells():
+    """Centre cells of the lesson path (painted one cell wide on each side)."""
+    pts = []
+    for i in range(len(WAYPOINTS) - 1):
+        pts.extend(hex_line(*WAYPOINTS[i], *WAYPOINTS[i + 1]))
+    return pts
+
+
 def generate_chunk(cq, cr):
     """Themed lesson grounds at the origin; everywhere else is empty sky."""
     cells = np.zeros((CHUNK, LAYERS, CHUNK), np.uint8)
@@ -245,15 +261,7 @@ def generate_chunk(cq, cr):
                     _put(cells, meta, cq, cr, qq, rr, y, 0)
 
     # Path from the plaza through every lesson, then over the bridge to the knoll.
-    waypoints = [
-        (0, 0), (6, 2), (16, -4), (34, -8), (48, 0), (58, 8),
-        (60, 20), (60, 32), (50, 42), (38, 52), (20, 54), (6, 54),
-        (-10, 48), (-26, 38), (-8, 20), (0, 8), (0, 0),
-        (4, -16), (6, -32), (8, -38), (8, -48), (10, -58),
-    ]
-    pts = []
-    for i in range(len(waypoints) - 1):
-        pts.extend(hex_line(*waypoints[i], *waypoints[i + 1]))
+    pts = path_cells()
     _paint_path(pts, tile, wide=True)
 
     # Signposts at the turns, pointing along the path
@@ -375,6 +383,10 @@ def generate_chunk(cq, cr):
     _put(cells, meta, cq, cr, 10, -60, SURF + 6, cosmic)
     _put(cells, meta, cq, cr, 12, -57, SURF + 4, clamp_violet)
     _put(cells, meta, cq, cr, 8, -57, SURF + 4, banner_honey)
+
+    # 1.4.4 showpieces: big builds, gardens and the block gallery (cached overlay)
+    from . import tutorial_builds as TB
+    TB.apply(cells, meta, cq, cr)
 
     # Chests at stations
     for (q, r, y) in CHESTS:

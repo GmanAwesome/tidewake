@@ -68,6 +68,8 @@ class Mob:
         self.scale = SCALE.get(kind, 1.0)
         self.home = (x, y, z)
         self._cruise_y = y
+        self.tether = None        # 1.4.4: lesson-island creatures stay near their spot
+        self.tut_id = None
 
     def update(self, dt, world, player, dusk, peaceful):
         self.t += dt
@@ -108,6 +110,9 @@ class Mob:
                     self.think = random.uniform(1.5, 5)
                     self.walking = random.random() < 0.55
                     self.yaw = (self.yaw + random.uniform(-120, 120)) % 360
+                    if self.tether and math.hypot(self.x - self.home[0], self.z - self.home[2]) > self.tether:
+                        self.yaw = math.degrees(math.atan2(self.home[0] - self.x, -(self.home[2] - self.z)))
+                        self.walking = True
                 want = self.speed if self.walking else 0.0
         a = math.radians(self.yaw)
         fx, fz = math.sin(a), -math.cos(a)
@@ -163,6 +168,11 @@ class Mob:
                 self.think = random.uniform(4, 10)
                 self.yaw = (self.yaw + random.uniform(-80, 80)) % 360
                 self._cruise_y = max(CLOUD_SEA * LAYER + 6, self._cruise_y + random.uniform(-3.0, 3.0))
+                if self.tether:
+                    hx, hy, hz = self.home
+                    self._cruise_y = min(max(self._cruise_y, hy - 4), hy + 4)
+                    if math.hypot(self.x - hx, self.z - hz) > self.tether:
+                        self.yaw = math.degrees(math.atan2(hx - self.x, -(hz - self.z)))
             want = self.speed * (1.5 if self.hurt > 0 else 1.0)
             k = min(1.0, 2.2 * dt)
             self.vx += (fx * want - self.vx) * k
