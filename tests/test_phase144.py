@@ -157,8 +157,12 @@ def test_v5_structures_place_and_v2_is_unchanged():
     names = {t['name'] for t in ST.TYPES}
     for n in ('hamlet', 'watchtower', 'shrine', 'windmill', 'lighthouse', 'market',
               'garden', 'observatory', 'ruin_tower', 'sky_temple', 'airship_wreck',
-              'chain_fort', 'balloon_platform', 'crystal_pinnacle', 'lantern_cluster'):
+              'chain_fort', 'balloon_platform', 'crystal_pinnacle', 'lantern_cluster',
+              'whale_skeleton', 'clockwork_tower', 'upside_castle', 'ring_harbor',
+              'crystal_cathedral', 'waterfall_temple'):
         assert n in names, n
+    assert all(t.get('min_version', 2) == 5 for t in ST.TYPES if t['family'] == 'wonder')
+    assert 'whale_skeleton' not in {t['name'] for t in ST.TYPES if t.get('min_version', 2) <= 2}
     v2_only = {t['name'] for t in ST.TYPES if t.get('min_version', 2) <= 2}
     assert 'hut' in v2_only and 'village' in v2_only
     assert 'hamlet' not in v2_only
@@ -242,6 +246,22 @@ def test_landmark_is_cheap_and_visible_from_spawn():
     assert light[2] < 0  # glow is ahead of spawn (negative Z)
 
 
+def test_new_mobs_and_direct_stained_glass():
+    from tidewake.entities import KINDS, FLYING, SHY
+    from tidewake import models as MD
+    from tidewake import items as I
+    for k in ('skyjelly', 'cloudray', 'mossturtle', 'crystalbeetle', 'islekit'):
+        assert k in KINDS, k
+        v = MD.creature(k, 0.4, True, 0.3, 0.0)
+        assert len(v) > 0
+    assert 'skyjelly' in FLYING and 'cloudray' in FLYING
+    assert 'islekit' in SHY and 'woolhop' not in FLYING
+    # glass + rose dye is a 2x2 backpack craft
+    recs = [r for r in I.RECIPES if r[1][0] == MT.ID['rose_stained_glass'] and I.recipe_size(r[0]) <= 2]
+    assert recs
+    assert I.match([[MT.ID['glass'], I.DYE['rose'].id], [None, None]])[0] == MT.ID['rose_stained_glass']
+
+
 if __name__ == '__main__':
     test_new_worlds_use_generator_v5()
     print('ok new worlds use v5, old versions kept')
@@ -261,3 +281,5 @@ if __name__ == '__main__':
     print('ok tutorial grounds')
     test_landmark_is_cheap_and_visible_from_spawn()
     print('ok landmark')
+    test_new_mobs_and_direct_stained_glass()
+    print('ok new mobs and rose glass 2x2')

@@ -4,7 +4,7 @@ import random
 
 import numpy as np
 
-from .config import LAYER, CHUNK
+from .config import LAYER, CHUNK, EYE
 from .hexgrid import center, cell_at, ring
 from .noise import seed_from_text
 from . import materials as MT
@@ -4006,3 +4006,1087 @@ def phase144_perf(app, log, shot, look_at, settled, arg):
     log('TUTORIAL fps still', round(fps_tut_still, 2), 'walk', round(fps_tut_walk, 2),
         'target ~46/51 from 1.4.3')
     log('phase144_perf finished')
+
+
+def _pt_state(ses, log, tag):
+    p = ses.player
+    q, r = cell_at(p.x, p.z)
+    under = ses.world.get(q, r, math.floor(p.y / LAYER) - 1) if ses.world else None
+    feet = ses.world.get(q, r, math.floor(p.y / LAYER)) if ses.world else None
+    log(tag,
+        'pos', round(p.x, 2), round(p.y, 2), round(p.z, 2),
+        'cell', q, r, 'yaw', round(p.yaw, 1), 'pitch', round(p.pitch, 1),
+        'ground', p.on_ground, 'drift', p.drifting, 'hp', getattr(ses, 'hp', None),
+        'food', getattr(ses, 'food', None), 'feet', feet, 'under', under,
+        'mobs', len(getattr(ses, 'mobs', []) or []),
+        'inv', [(I.get(s[0]).name, s[1]) for s in ses.inv.slots if s])
+
+
+def _pt_walk_toward(app, ses, tx, tz, seconds, hurry=True):
+    """Face (tx, tz) and walk. Caller must yield the returned seconds."""
+    p = ses.player
+    p.drifting = False
+    p.noclip = False
+    ses.hold = False
+    dx, dz = tx - p.x, tz - p.z
+    p.yaw = math.degrees(math.atan2(dx, -dz)) % 360
+    p.pitch = 0.0
+    app.test_input = {'fwd': 1, 'hurry': hurry}
+    return seconds
+
+
+def _pt_npc_clearance(ses, log):
+    issues = []
+    for npc in getattr(ses, 'npcs', []) or []:
+        q, r = npc['q'], npc['r']
+        y = int(round(npc['y'] / LAYER))
+        feet = ses.world.get(q, r, y)
+        body = ses.world.get(q, r, y + 1)
+        under = ses.world.get(q, r, y - 1)
+        stuck = (feet not in (0, M.get('petals', -1))) or (body not in (0, M.get('petals', -1)))
+        missing = under in (0, None)
+        log('npc', npc['name'], 'at', q, r, 'y', y, 'feet', feet, 'body', body, 'under', under,
+            'STUCK' if stuck else ('NO_FLOOR' if missing else 'ok'))
+        if stuck:
+            issues.append((npc['name'], 'stuck', feet, body))
+        if missing:
+            issues.append((npc['name'], 'no_floor', under))
+    return issues
+
+
+def _pt_scan_structures(ses, log, limit=12):
+    """Find likely generated structures in loaded chunks (chests, banners, lamps, thatch clusters)."""
+    names = [k for k in M if any(s in k for s in (
+        'banner', 'stained_glass', 'crystal_lamp', 'thatch', 'woven_panel',
+        'patterned_tile', 'terrazzo', 'ivory_plaster', 'brass', 'pewter',
+        'wrought_iron', 'rose_stripe', 'sky_stripe', 'cosmic_star'))]
+    ids = {M[k] for k in names if k in M}
+    ids.add(M['chest'])
+    hits = []
+    for (cq, cr), ch in list(ses.world.chunks.items()):
+        cells = getattr(ch, 'cells', None)
+        if cells is None:
+            continue
+        mask = np.isin(cells, list(ids))
+        if not mask.any():
+            continue
+        ys, counts = np.unique(np.where(mask)[1], return_counts=True)  # wait, shape is (lq, y, lr)
+        # actually np.where on (16, LAYERS, 16) returns lq, y, lr
+        lq, yy, lr = np.where(mask)
+        if len(lq) < 6 and M['chest'] not in cells:
+            continue
+        q = cq * CHUNK + int(np.median(lq))
+        r = cr * CHUNK + int(np.median(lr))
+        y = int(np.median(yy))
+        n = int(len(lq))
+        has_chest = bool(np.any(cells == M['chest']))
+        hits.append((n, has_chest, q, r, y, cq, cr))
+    hits.sort(reverse=True)
+    out = hits[:limit]
+    log('structure_hits', [(n, 'chest' if c else 'deco', q, r, y) for n, c, q, r, y, *_ in out])
+    return out
+
+
+def phase144_playtest(app, log, shot, look_at, settled, arg):
+    """Play 1.4.4 like a new wanderer: lesson island, then a fresh v5 sky."""
+    from . import tutorial as T
+    from . import tide as TIDE
+    from .hexgrid import center as hx
+
+    findings = []
+
+    def note(msg):
+        log('FINDING', msg)
+        findings.append(msg)
+
+    app.settings['creatures'] = True
+    app.settings['dusk_critters'] = True
+    _144_hud(app, debug=False, hide=False)
+    yield 0.8
+    yield shot('00_title')
+
+    # ------------------------------------------------------------------ lesson
+    app.create_sky('Playtest 144 Lesson', 1, 'lesson', 'wanderer', tutorial=True)
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    q, r, top = T.SPAWN
+    x, z = hx(q, r)
+    # stand as a new player: no noclip, default yaw 0 pitch 4
+    p.x, p.y, p.z = x, (top + 1) * LAYER + 0.001, z
+    p.yaw, p.pitch = 0.0, 4.0
+    p.vx = p.vy = p.vz = 0
+    p.drifting = False
+    p.noclip = False
+    ses.hold = False
+    yield settled()
+    yield 0.8
+    yield shot('01_tutorial_spawn')
+    _pt_state(ses, log, 'tutorial_spawn')
+    issues = _pt_npc_clearance(ses, log)
+    if issues:
+        note('NPC clearance issues: ' + str(issues))
+    else:
+        log('all 8 lesson NPCs have air at the body and a floor underfoot')
+
+    # walk forward (yaw 0 looks -Z, toward the shrine / citadel)
+    app.test_input = {'fwd': 1}
+    yield 3.0
+    app.test_input = {}
+    yield 0.4
+    yield shot('02_tutorial_walk_forward')
+    _pt_state(ses, log, 'after_forward_walk')
+    if not p.on_ground:
+        note('player left the ground after a 3s forward walk from spawn')
+    if math.hypot(p.x - x, p.z - z) < 2.0:
+        note('3s walk from spawn barely moved; possible snag or blocked first step')
+
+    # walk to Willow and talk
+    wx, wz = hx(6, 2)
+    yield _pt_walk_toward(app, ses, wx, wz, 4.0)
+    app.test_input = {}
+    yield 0.3
+    if math.hypot(p.x - wx, p.z - wz) > 4.5:
+        note('walk to Willow did not arrive (dist %.1f); standing nearby to talk' % math.hypot(p.x - wx, p.z - wz))
+        _stand(ses, 6, 2)
+        p.y = (T.SURF + 1) * LAYER + 0.001
+        p.drifting = False
+        p.noclip = False
+    look_at(p, wx, (T.SURF + 2) * LAYER, wz)
+    yield 0.2
+    willow = next((n for n in ses.npcs if n['name'] == 'Willow'), None)
+    talked = False
+    if willow:
+        talked = bool(ses.talk_npc(willow))
+        log('willow_talk', talked, 'line', willow.get('line'), 'text', (willow.get('lines') or [None])[willow.get('line', 0)])
+    else:
+        note('Willow NPC record missing after lesson load')
+    yield 0.6
+    yield shot('03_talk_willow')
+    if not talked:
+        note('could not start Willow dialogue')
+
+    # walk the east path toward Bram (gather station)
+    bx, bz = hx(34, -8)
+    yield _pt_walk_toward(app, ses, bx, bz, 10.0)
+    # mid-walk: if still far, keep walking a bit more
+    if math.hypot(p.x - bx, p.z - bz) > 8:
+        yield _pt_walk_toward(app, ses, bx, bz, 6.0)
+    app.test_input = {}
+    yield 0.3
+    bram_dist = math.hypot(p.x - bx, p.z - bz)
+    log('bram_walk_dist', round(bram_dist, 2), 'on_ground', p.on_ground)
+    if bram_dist > 6:
+        note('walk to Bram did not arrive (dist %.1f); standing nearby' % bram_dist)
+        _stand(ses, 34, -8)
+        p.y = (T.SURF + 1) * LAYER + 0.001
+        p.drifting = False
+        p.noclip = False
+    look_at(p, bx, (T.SURF + 2) * LAYER, bz)
+    bram = next((n for n in ses.npcs if n['name'] == 'Bram'), None)
+    if bram:
+        ses.talk_npc(bram)
+        log('bram_talk', (bram.get('lines') or [None])[bram.get('line', 0)])
+    yield 0.5
+    yield shot('04_talk_bram')
+
+    # open Bram's chest (33, -10)
+    cq, cr, cy = 33, -10, T.SURF + 1
+    if not _stand_near(ses, (cq, cr, cy), look_at, 2):
+        _stand(ses, 32, -10)
+        p.y = (T.SURF + 1) * LAYER + 0.001
+        look_at(p, *hx(cq, cr)[:1], (cy + 0.4) * LAYER, hx(cq, cr)[1])
+        # look_at already used correctly below
+    cx, cz = hx(cq, cr)
+    look_at(p, cx, (cy + 0.4) * LAYER, cz)
+    p.drifting = False
+    p.noclip = False
+    yield 0.3
+    before = ses.inv.count(M['heartwood'])
+    opened = ses.use_block(cq, cr, cy, M['chest'])
+    log('open_bram_chest', opened, 'key', f'{cq},{cr},{cy}', 'in_chests', f'{cq},{cr},{cy}' in ses.chests)
+    yield 0.5
+    yield shot('05_bram_chest')
+    if app.menu:
+        app.menu.escape(app)
+    # take the heartwood from the chest into the pack (player-like: add then empty chest slot)
+    key = f'{cq},{cr},{cy}'
+    if key in ses.chests:
+        invc = ses.chests[key]
+        took = 0
+        for i, s in enumerate(list(invc.slots)):
+            if s and s[0] == M['heartwood']:
+                n = s[1]
+                left = ses.inv.add(s[0], n)
+                if left < n:
+                    if left:
+                        s[1] = left
+                    else:
+                        invc.slots[i] = None
+                    took += n - left
+        log('took_heartwood_from_chest', took, 'inv_now', ses.inv.count(M['heartwood']))
+        if took == 0 and ses.inv.count(M['heartwood']) == before:
+            note('Bram chest had no heartwood to take, or add failed')
+    else:
+        note('Bram chest was not in session.chests after use_block')
+
+    # walk south to Lumen, then the shrine knoll
+    lx, lz = hx(6, -32)
+    yield _pt_walk_toward(app, ses, lx, lz, 12.0)
+    if math.hypot(p.x - lx, p.z - lz) > 8:
+        yield _pt_walk_toward(app, ses, lx, lz, 6.0)
+    app.test_input = {}
+    yield 0.3
+    if math.hypot(p.x - lx, p.z - lz) > 6:
+        note('walk to Lumen did not arrive (dist %.1f); standing nearby' % math.hypot(p.x - lx, p.z - lz))
+        _stand(ses, 6, -32)
+        p.y = (T.SURF + 1) * LAYER + 0.001
+        p.drifting = False
+        p.noclip = False
+    look_at(p, lx, (T.SURF + 2) * LAYER, lz)
+    lumen = next((n for n in ses.npcs if n['name'] == 'Lumen'), None)
+    if lumen:
+        ses.talk_npc(lumen)
+        log('lumen_talk', (lumen.get('lines') or [None])[lumen.get('line', 0)])
+    yield 0.5
+    yield shot('06_talk_lumen')
+
+    sx, sy, sz = T.shrine_pos()
+    yield _pt_walk_toward(app, ses, sx, sz, 10.0)
+    if math.hypot(p.x - sx, p.z - sz) > 8:
+        yield _pt_walk_toward(app, ses, sx, sz, 6.0)
+    app.test_input = {}
+    yield 0.3
+    shrine_dist = math.hypot(p.x - sx, p.z - sz)
+    log('shrine_walk_dist', round(shrine_dist, 2), 'on_ground', p.on_ground)
+    if shrine_dist > 8 or not p.on_ground:
+        note('walk to the shrine knoll did not arrive cleanly (dist %.1f, ground %s)' % (shrine_dist, p.on_ground))
+        p.x, p.z = sx, sz
+        topk = ses.world.column_top(*cell_at(sx, sz))
+        p.y = ((topk + 1) if topk is not None else T.SURF + 4) * LAYER + 0.001
+        p.drifting = False
+        p.noclip = False
+        p.vx = p.vy = p.vz = 0
+    look_at(p, sx, sy + 2.0, sz)
+    yield settled()
+    yield 0.6
+    yield shot('07_shrine_knoll')
+    _pt_state(ses, log, 'at_shrine')
+
+    # leave the lesson
+    app.quit_to_title()
+    yield 1.0
+    yield lambda: app.mode == 'title'
+    yield 0.6
+
+    # ------------------------------------------------------------------ new v5 sky
+    seed = seed_from_text(arg or 'playtest-144')
+    app.create_sky('Playtest 144 Sky', seed, arg or 'playtest-144', 'wanderer')
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.2
+    ses = app.session
+    p = ses.player
+    p.drifting = False
+    p.noclip = False
+    ses.hold = False
+    yield shot('10_v5_spawn')
+    _pt_state(ses, log, 'v5_spawn')
+    log('gen_version', getattr(ses.gen, 'version', None),
+        'seed', ses.seed if hasattr(ses, 'seed') else seed,
+        'spire', ses.nearest_spire)
+    if getattr(ses.gen, 'version', None) != 5:
+        note('new sky was not generator v5 (got %s)' % getattr(ses.gen, 'version', None))
+
+    # walk like a player, then look around
+    app.test_input = {'fwd': 1}
+    yield 4.0
+    app.test_input = {}
+    yield 0.4
+    yield shot('11_v5_walked')
+    _pt_state(ses, log, 'v5_after_walk')
+    if not p.on_ground:
+        note('player left the ground after a 4s walk from v5 spawn (may have walked off a shore)')
+    if p.y < 14:
+        note('player fell toward the cloud sea after the first v5 walk')
+
+    # gather wood
+    wood = _find(ses, (M['heartwood'], M['cedar_heartwood'], M['pale_heartwood'], M['dark_heartwood']), 36, -2, 10)
+    log('wood_target', wood)
+    gathered = 0
+    if wood and _stand_near(ses, wood, look_at, 2):
+        p.drifting = False
+        p.noclip = False
+        yield 0.3
+        before = ses.inv.count(wood and ses.world.get(*wood))
+        mat = ses.world.get(*wood)
+        app.test_input = {'gather': True, 'hold': True}
+        yield 0.8
+        yield shot('12_gather_wood')
+        for _ in range(40):
+            yield 0.15
+            if ses.inv.count(mat) > before or (ses.world.get(*wood) == 0 and ses.drops):
+                break
+        app.test_input = {}
+        # pick up drops
+        for _ in range(8):
+            if not ses.drops:
+                break
+            dr = ses.drops[0]
+            p.x, p.z = dr.x, dr.z
+            p.y = max(p.y, dr.y)
+            yield 0.35
+        gathered = ses.inv.count(mat)
+        log('gathered_wood', I.get(mat).name if I.get(mat) else mat, gathered, 'drops', len(ses.drops))
+        if gathered <= 0:
+            note('held gather on a tree for several seconds but got no heartwood')
+    else:
+        note('no nearby tree found within 36 cells of spawn, or no stand-near cell')
+    yield shot('13_after_gather')
+
+    # craft planks in the backpack (real UI)
+    if ses.inv.count(M['heartwood']) < 1:
+        ses.give(M['heartwood'], 6, quiet=True)
+        note('gave 6 Heartwood so the plank craft could be tried (gather had not produced any)')
+    app.set_screen(IU.BackpackScreen())
+    yield 0.3
+    rec = next((r for r in I.RECIPES if r[1][0] == M['planks']), None)
+    if rec and app.menu and hasattr(app.menu, 'fill'):
+        app.menu.fill(app, rec)
+        yield 0.5
+        yield shot('14_craft_planks')
+        log('crafted_planks_inv', ses.inv.count(M['planks']))
+    else:
+        note('BackpackScreen.fill could not run the planks recipe')
+    if app.menu:
+        app.menu.escape(app)
+    yield 0.3
+
+    # craft a 1.4.4 dye and a stained-glass block (ingredients granted, logged)
+    for iid, n, why in (
+        (M['bloom'], 4, 'rose dye'),
+        (M['glass'], 4, 'stained glass'),
+        (M['stone_tiles'], 8, 'patterned tile'),
+        (M['petals'], 2, 'honey dye'),
+        (M['sand'], 2, 'honey dye'),
+        (I.FLUFF.id, 4, 'jelly / stripe'),
+        (M['glowcap'], 2, 'jelly'),
+    ):
+        ses.give(iid, n, quiet=True)
+    note('granted bloom, glass, stone tiles, petals, sand, fluff and glowcap to try the new 1.4.4 recipes')
+    app.set_screen(IU.BackpackScreen())
+    yield 0.3
+    rec = next((r for r in I.RECIPES if r[1][0] == I.DYE['rose'].id), None)
+    if rec and app.menu and hasattr(app.menu, 'fill'):
+        app.menu.fill(app, rec)
+        yield 0.5
+        yield shot('15_craft_rose_dye')
+        log('rose_dye', ses.inv.count(I.DYE['rose'].id))
+        if ses.inv.count(I.DYE['rose'].id) < 1:
+            note('rose dye recipe filled but the pack still has no Rose Dye')
+    else:
+        note('could not fill the Rose Dye recipe in the backpack')
+    if app.menu:
+        app.menu.escape(app)
+    yield 0.2
+    # stained glass may need the 3x3 bench; try backpack first, then CraftScreen
+    if ses.inv.count(I.DYE['rose'].id) < 1:
+        ses.give(I.DYE['rose'].id, 2, quiet=True)
+    app.set_screen(IU.BackpackScreen())
+    yield 0.25
+    rec = next((r for r in I.RECIPES if r[1][0] == M['rose_stained_glass']), None)
+    filled = False
+    if rec and app.menu and hasattr(app.menu, 'fill'):
+        try:
+            app.menu.fill(app, rec)
+            filled = True
+        except Exception as e:
+            log('stain_fill_err', e)
+    if app.menu:
+        yield 0.4
+        yield shot('16_craft_rose_glass')
+        app.menu.escape(app)
+    log('rose_stained_glass', ses.inv.count(M['rose_stained_glass']), 'filled', filled)
+    if ses.inv.count(M['rose_stained_glass']) < 1:
+        # 2-ingredient shapeless should work in the backpack; if not, that's a finding
+        note('Rose Stained Glass craft did not add the block to the pack')
+        ses.give(M['rose_stained_glass'], 8, quiet=True)
+        ses.give(M['rose_jelly'], 4, quiet=True)
+        ses.give(M['snow_patterned_tile'], 8, quiet=True)
+        ses.give(M['rose_banner'], 2, quiet=True)
+        note('granted rose glass, jelly, patterned tile and a banner so a build could still be placed')
+    else:
+        if ses.inv.count(M['rose_jelly']) < 1:
+            # try jelly recipe too if we have the mats
+            app.set_screen(IU.BackpackScreen())
+            yield 0.2
+            rec = next((r for r in I.RECIPES if r[1][0] == M['rose_jelly']), None)
+            if rec and app.menu and hasattr(app.menu, 'fill'):
+                app.menu.fill(app, rec)
+                yield 0.3
+            if app.menu:
+                app.menu.escape(app)
+
+    # place a small new-block doodle beside the player
+    q0, r0 = cell_at(p.x, p.z)
+    top0 = ses.world.column_top(q0, r0) or math.floor(p.y / LAYER)
+    placed = []
+    palette_build = (
+        ((1, 0), M['rose_stained_glass']),
+        ((2, 0), M['rose_stained_glass']),
+        ((1, 1), M.get('rose_jelly', M['rose_stained_glass'])),
+        ((2, 1), M.get('snow_patterned_tile', M['planks'])),
+        ((3, 0), M.get('rose_banner', M['planks'])),
+    )
+    for (dq, dr), mat in palette_build:
+        a, b = q0 + dq, r0 + dr
+        t = ses.world.column_top(a, b)
+        if t is None:
+            continue
+        if ses.world.get(a, b, t + 1) in (0, M['petals'], M['sprout'], M['bloom']):
+            ok = ses.world.set(a, b, t + 1, mat, 0, now=True)
+            placed.append((a, b, t + 1, mat, ok))
+    log('placed_doodle', placed)
+    if not placed:
+        note('could not place the new-block doodle; neighbouring columns were full or unloaded')
+    # step back and look at it
+    p.x, p.z = hx(q0 - 3, r0 + 1)
+    tstand = ses.world.column_top(*cell_at(p.x, p.z))
+    if tstand is not None:
+        p.y = (tstand + 1) * LAYER + 0.001
+    p.drifting = False
+    p.noclip = False
+    tx, tz = hx(q0 + 2, r0)
+    look_at(p, tx, (top0 + 2) * LAYER, tz)
+    yield settled()
+    yield 0.7
+    yield shot('17_placed_new_blocks')
+
+    # visit a generated structure if one is in the loaded area
+    hits = _pt_scan_structures(ses, log)
+    if hits:
+        n, has_c, sq, sr, sy, scq, scr = hits[0]
+        sx, sz = hx(sq, sr)
+        # park a little way back so the whole build can be the subject
+        p.drifting = True
+        p.x, p.z = sx + 18, sz + 10
+        p.y = (sy + 8) * LAYER
+        look_at(p, sx, (sy + 2) * LAYER, sz)
+        yield _144_loaded(app, 20)
+        yield 1.0
+        yield shot('18_visit_structure')
+        # also stand on it like a player
+        p.drifting = False
+        p.noclip = False
+        top_s = ses.world.column_top(sq, sr)
+        if top_s is not None:
+            p.x, p.z = sx, sz
+            p.y = (top_s + 1) * LAYER + 0.001
+            p.pitch = -8
+            yield settled()
+            yield 0.6
+            yield shot('19_structure_ground')
+            _pt_state(ses, log, 'on_structure')
+        log('visited_structure', 'count', n, 'chest', has_c, 'at', sq, sr, sy)
+    else:
+        note('no generated structure (chest / new decorative cluster) in the loaded area around spawn')
+        yield shot('18_no_structure_nearby')
+
+    # fly / updraft / glide. Try the nearest spire first; grant abilities if we cannot reach two.
+    sp = ses.nearest_spire[0] if ses.nearest_spire else None
+    log('nearest_spire', sp, 'awakened', list(ses.awakened))
+    if sp:
+        qx, qz = hx(sp['q'], sp['r']) if 'q' in sp else (sp.get('x'), sp.get('z'))
+        if qx is not None:
+            yield _pt_walk_toward(app, ses, qx, qz, 8.0)
+            app.test_input = {}
+            log('spire_walk_dist', round(math.hypot(p.x - qx, p.z - qz), 2) if qx is not None else None)
+    if len(ses.awakened) < 2:
+        ses.awakened = list(ses.awakened) + ['playtest-a', 'playtest-b']
+        ses.apply_abilities()
+        note('granted glide + updraft (did not awaken two spires during this playtest)')
+    log('abilities', 'glide', p.can_glide, 'updraft', p.can_updraft, 'tidecall', ses.can_tidecall)
+
+    # find a nearby edge and step off, then updraft + glide
+    pq, pr = cell_at(p.x, p.z)
+    edge = None
+    for a, b in spiral(pq, pr, 24):
+        if ses.world.column_top(a, b) is None:
+            # previous ring cell with land is an edge
+            continue
+        for dq, dr in DIRS:
+            if ses.world.column_top(a + dq, b + dr) is None:
+                edge = (a, b, dq, dr)
+                break
+        if edge:
+            break
+    log('edge', edge)
+    if edge:
+        a, b, dq, dr = edge
+        _stand(ses, a, b)
+        p.drifting = False
+        p.noclip = False
+        ses.hold = False
+        p.yaw = math.degrees(math.atan2(*( (hx(a + dq, b + dr)[0] - p.x, -(hx(a + dq, b + dr)[1] - p.z)) ))) % 360
+        # simpler face
+        tx, tz = hx(a + dq * 3, b + dr * 3)
+        p.yaw = math.degrees(math.atan2(tx - p.x, -(tz - p.z))) % 360
+        p.pitch = -12
+        app.test_input = {'fwd': 1, 'jump': True, 'jump_pressed': True}
+        yield 0.35
+        app.test_input = {'fwd': 1, 'jump': True, 'jump_pressed': True}
+        yield 0.35
+        app.test_input = {'fwd': 1, 'jump': True}
+        yield 1.6
+        yield shot('20_updraft_glide')
+        log('after_flight', 'y', round(p.y, 2), 'vy', round(p.vy, 2), 'ground', p.on_ground,
+            'gliding', p.gliding, 'air_jumps', p.air_jumps, 'hp', ses.hp)
+        app.test_input = {}
+        if p.air_jumps < 1 and p.can_updraft:
+            note('updraft did not fire (air_jumps stayed 0) after two mid-air jump presses')
+        # land if still falling
+        for _ in range(20):
+            if p.on_ground or p.y < 8:
+                break
+            yield 0.2
+        if not p.on_ground:
+            # snap back to the edge so we can continue
+            _stand(ses, a, b)
+            p.drifting = False
+            p.noclip = False
+            note('had to snap back to the shore after the flight test (did not land on its own)')
+    else:
+        note('no nearby island edge to test updraft / glide from')
+
+    _pt_state(ses, log, 'after_flight')
+
+    # dusk: wait for gloomlings
+    ses.phase = 0.5
+    log('tide', TIDE.name(ses.phase), 'dusk', round(TIDE.dusk_amount(ses.phase), 3))
+    # give creatures a few spawn ticks (1s interval)
+    kinds_before = {}
+    yield 5.5
+    kinds = {}
+    for m in ses.mobs:
+        kinds[m.kind] = kinds.get(m.kind, 0) + 1
+    log('mobs_at_dusk', kinds, 'total', len(ses.mobs))
+    if not any(m.kind in ('gloomling', 'brute') for m in ses.mobs):
+        # they spawn 14-28 away; wait a little more and also try a forced nearby spawn to confirm AI
+        yield 3.0
+        kinds = {}
+        for m in ses.mobs:
+            kinds[m.kind] = kinds.get(m.kind, 0) + 1
+        log('mobs_at_dusk_2', kinds)
+        if not any(m.kind in ('gloomling', 'brute') for m in ses.mobs):
+            note('no gloomlings or brutes spawned after several seconds of dusktide near the player')
+            ok = ses._try_spawn(True)
+            log('forced_hostile_spawn', ok)
+            note('forced a hostile spawn to photograph dusk critters (natural spawn had not happened yet)')
+    # frame a nearby mob if any
+    if ses.mobs:
+        m0 = min(ses.mobs, key=lambda m: math.hypot(m.x - p.x, m.z - p.z))
+        dx, dz = p.x - m0.x, p.z - m0.z
+        dd = math.hypot(dx, dz) or 1
+        p.x = m0.x + dx / dd * 5.5
+        p.z = m0.z + dz / dd * 5.5
+        p.y = m0.y + 1.5
+        p.drifting = True
+        look_at(p, m0.x, m0.y + 0.4, m0.z)
+        yield 0.6
+        yield shot('21_dusk_creatures')
+        p.drifting = False
+        log('featured_mob', m0.kind, round(m0.x, 1), round(m0.y, 1), round(m0.z, 1), 'hostile', m0.hostile)
+    else:
+        note('no creatures at all were present at dusktide')
+        yield shot('21_dusk_empty')
+
+    # survive a few seconds of dusk on the ground
+    if not p.on_ground:
+        pq, pr = cell_at(p.x, p.z)
+        top = ses.world.column_top(pq, pr)
+        if top is None:
+            # find any land
+            for a, b in spiral(pq, pr, 20):
+                top = ses.world.column_top(a, b)
+                if top is not None:
+                    pq, pr = a, b
+                    break
+        if top is not None:
+            _stand(ses, pq, pr)
+            p.drifting = False
+            p.noclip = False
+    hp0 = ses.hp
+    yield 4.0
+    log('dusk_survive', 'hp0', hp0, 'hp', ses.hp, 'food', ses.food, 'ground', p.on_ground)
+    yield shot('22_dusk_survive')
+    if ses.hp <= 0:
+        note('player died during a short dusktide stand')
+    elif ses.hp < hp0:
+        log('took_dusk_damage', hp0 - ses.hp)
+
+    _pt_state(ses, log, 'playtest_end')
+    log('FINDINGS', len(findings))
+    for msg in findings:
+        log('FINDING', msg)
+    log('phase144_playtest finished')
+
+
+def phase144_playtest_retake(app, log, shot, look_at, settled, arg):
+    """Retake the unusable playtest shots: Willow and Bram in view, shrine from
+    farther back, new blocks actually placed on the ground, rose glass on the 2x2."""
+    from . import tutorial as T
+    from .hexgrid import center as hx
+    from .materials import support_top
+
+    _144_uncap(app, log, view=14, far=20)
+    _144_hud(app, debug=False, hide=False)
+    yield 0.4
+    app.create_sky('Playtest 144 Retake Lesson', 1, 'lesson', 'wanderer', tutorial=True)
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    p.drifting = False
+    p.noclip = False
+    ses.hold = False
+
+    # Willow: stand on her cell first (the old failure), then talk — framing should step back
+    willow = next((n for n in ses.npcs if n['name'] == 'Willow'), None)
+    _stand(ses, 6, 2)
+    p.y = (T.SURF + 1) * LAYER + 0.001
+    p.drifting = False
+    p.noclip = False
+    p.yaw, p.pitch = 180.0, 8.0
+    yield 0.2
+    if willow:
+        ses.talk_npc(willow)
+        log('willow_framed', round(p.x, 2), round(p.y, 2), round(p.z, 2),
+            'dist', round(ses._npc_dist(willow), 2), 'yaw', round(p.yaw, 1), 'pitch', round(p.pitch, 1))
+    yield 0.7
+    yield shot('03_talk_willow')
+
+    # Bram: start next to the heartwood we talked into last time, then talk
+    bram = next((n for n in ses.npcs if n['name'] == 'Bram'), None)
+    # there is a tree near Bram's station; stand on a nearby column first
+    if not _stand_near(ses, (34, -8, T.SURF + 1), look_at, 1):
+        _stand(ses, 34, -8)
+    p.drifting = False
+    p.noclip = False
+    yield 0.2
+    if bram:
+        ses.talk_npc(bram)
+        log('bram_framed', round(p.x, 2), round(p.z, 2), 'dist', round(ses._npc_dist(bram), 2),
+            'target', getattr(ses, 'target_name', None))
+    yield 0.8
+    yield shot('04_talk_bram')
+
+    # shrine knoll from farther back, looking at the shrine, not a wall
+    sx, sy, sz = T.shrine_pos()
+    # stand north of the knoll, a bit up, looking south at the shrine
+    p.drifting = True
+    p.noclip = True
+    p.x, p.y, p.z = sx + 4.0, sy + 6.5, sz + 16.0
+    p.vx = p.vy = p.vz = 0
+    look_at(p, sx, sy + 1.6, sz)
+    ses.talk = None
+    _144_hud(app, debug=False, hide=False)
+    yield settled()
+    yield 0.9
+    yield shot('07_shrine_knoll')
+    log('shrine_cam', round(p.x, 1), round(p.y, 1), round(p.z, 1), 'yaw', round(p.yaw, 1), 'pitch', round(p.pitch, 1))
+
+    app.quit_to_title()
+    yield 1.0
+    yield lambda: app.mode == 'title'
+    yield 0.4
+
+    # a v5 pad for placing new blocks and crafting rose glass
+    from . import gensettings as GS
+    app.create_sky('Playtest 144 Retake Build', seed_from_text('playtest-144-retake'),
+                   'playtest-144-retake', 'wanderer', gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    # flatten a small ground pad around the player, no trees
+    q0, r0 = cell_at(p.x, p.z)
+    top = ses.world.column_top(q0, r0) or 80
+    # find a true ground top (skip canopy): walk down from column_top until a full block that isn't wood/canopy
+    woods = {M['heartwood'], M['pale_heartwood'], M['dark_heartwood'], M['cedar_heartwood'],
+             M['canopy'], M.get('pale_canopy', -1), M.get('cedar_canopy', -1)}
+    ypad = top
+    for y in range(top, max(2, top - 20), -1):
+        m = ses.world.get(q0, r0, y)
+        if m and m not in woods and MT.KIND[m] == 'full':
+            ypad = y
+            break
+    for dq in range(-6, 7):
+        for dr in range(-6, 7):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(ypad - 2, ypad):
+                if ses.world.get(q, r, yy) == 0:
+                    ses.world.set(q, r, yy, M['loam'], now=True)
+            ses.world.set(q, r, ypad, M['snow_patterned_tile'] if dq == 0 and dr == 0 else M['ivory_plaster'], now=True)
+            for yy in range(ypad + 1, ypad + 16):
+                ses.world.set(q, r, yy, 0, now=True)
+    # place a doodle of new dyed / decorative blocks on the pad
+    doodle = [
+        ((-2, -1), M['rose_stained_glass']),
+        ((-1, -1), M['rose_stained_glass']),
+        ((0, -1), M['sky_stained_glass'] if 'sky_stained_glass' in M else M['rose_stained_glass']),
+        ((-2, 0), M['rose_jelly']),
+        ((-1, 0), M['honey_jelly'] if 'honey_jelly' in M else M['rose_jelly']),
+        ((0, 0), M['ink_checker'] if 'ink_checker' in M else M['snow_patterned_tile']),
+        ((1, 0), M['rose_checker'] if 'rose_checker' in M else M['snow_patterned_tile']),
+        ((-2, 1), M['rose_banner']),
+        ((-1, 1), M['blush_plaster'] if 'blush_plaster' in M else M['ivory_plaster']),
+        ((0, 1), M['brass'] if 'brass' in M else M['pewter']),
+        ((1, 1), M['rose_crystal_lamp'] if 'rose_crystal_lamp' in M else M['lumen_lamp']),
+        ((-1, 2), M['shimmer_cloud']),
+        ((0, 2), M['cosmic_star']),
+    ]
+    placed = []
+    for (dq, dr), mat in doodle:
+        ok = ses.world.set(q0 + dq, r0 + dr, ypad + 1, mat, 0, now=True)
+        placed.append((dq, dr, mat, ok))
+    log('placed_doodle', placed)
+    # stand back and look at the whole doodle
+    p.drifting = True
+    p.noclip = True
+    cx, cz = hx(q0, r0)
+    p.x, p.y, p.z = cx + 2.0, (ypad + 4) * LAYER, cz + 9.5
+    look_at(p, cx, (ypad + 2.0) * LAYER, cz)
+    ses.talk = None
+    _144_hud(app, debug=False, hide=False)
+    yield settled()
+    yield 1.0
+    yield shot('17_placed_new_blocks')
+
+    # craft rose glass on the 2x2 from glass + rose dye
+    ses.inv.slots[:] = [None] * len(ses.inv.slots)
+    ses.give(M['glass'], 4, quiet=True)
+    ses.give(I.DYE['rose'].id, 4, quiet=True)
+    app.set_screen(IU.BackpackScreen())
+    yield 0.3
+    rec = None
+    for r in I.RECIPES:
+        if r[1][0] == M['rose_stained_glass'] and I.recipe_size(r[0]) <= 2:
+            need = I.recipe_needs(r[0])
+            if M['glass'] in need and I.DYE['rose'].id in need:
+                rec = r
+                break
+    if rec is None:
+        rec = next((r for r in I.RECIPES
+                    if r[1][0] == M['rose_stained_glass'] and I.recipe_size(r[0]) <= 2), None)
+    if rec and app.menu and hasattr(app.menu, 'fill'):
+        app.menu.fill(app, rec)
+        log('rose_fill', 'grid', list(app.menu.grid), 'result', getattr(app.menu, 'result', lambda: None)())
+    yield 0.5
+    yield shot('16_craft_rose_glass')
+    if app.menu:
+        app.menu.escape(app)
+    log('phase144_playtest_retake finished')
+
+
+def phase144_wonders(app, log, shot, look_at, settled, arg):
+    """Farther-back portraits of the new 1.4.4 wonders."""
+    from . import structures as ST
+    from . import gensettings as GS
+    _144_uncap(app, log, view=14, far=22)
+    yield 0.3
+    app.create_sky('Wonders 144', 21, 'wonders-144', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.5
+    ses = app.session
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    names = ['whale_skeleton', 'clockwork_tower', 'upside_castle',
+             'ring_harbor', 'crystal_cathedral', 'waterfall_temple']
+    q0, r0, y0 = 4, 4, 150
+    spacing = 40
+    mid_q = q0 + (len(names) // 2) * spacing
+    ox, oz = center(mid_q, r0)
+    _144_park(ses, ox, (y0 + 24) * LAYER, oz, 0.0, -22.0)
+    yield _144_loaded(app)
+    yield 0.8
+    for dq in range(-10, len(names) * spacing + 10):
+        for dr in range(-12, 16):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(y0 - 4, y0):
+                ses.world.set(q, r, yy, M['stone'])
+            ses.world.set(q, r, y0, M.get('ivory_plaster', M['pale_planks']))
+            for yy in range(y0 + 1, y0 + 28):
+                ses.world.set(q, r, yy, 0)
+    yield settled()
+    for i, name in enumerate(names):
+        q, r = q0 + 10 + i * spacing, r0
+        try:
+            ST.stamp_world(ses.world, q, r, name, cond=ST.INTACT, seed=90 + i, realm=7)
+            log('stamped', name, 'at', q, r)
+        except Exception as e:
+            log('stamp failed', name, e)
+    yield settled()
+    yield 1.2
+    _144_hud(app, debug=False, hide=True)
+    # cam/look offsets in cells; cam_dy is the desired EYE height (we subtract EYE)
+    frames = {
+        'whale_skeleton':    dict(dx=2.0,  dy=6.0,  dz=16.0, ldx=0.0, ldy=5.0,  ldz=0.0),
+        'clockwork_tower':   dict(dx=8.0,  dy=16.0, dz=22.0, ldx=0.0, ldy=9.0,  ldz=0.0),
+        'upside_castle':     dict(dx=14.0, dy=9.0,  dz=18.0, ldx=0.0, ldy=11.0, ldz=0.0),
+        'ring_harbor':       dict(dx=8.0,  dy=11.0, dz=18.0, ldx=0.0, ldy=2.0,  ldz=0.0),
+        'crystal_cathedral': dict(dx=11.0, dy=15.0, dz=24.0, ldx=2.0, ldy=10.0, ldz=0.0),
+        # close, in front of the +q cascade, mid-fall, temple in frame
+        'waterfall_temple':  dict(dx=14.0, dy=9.0,  dz=22.0, ldx=1.0, ldy=11.0, ldz=0.0),
+    }
+    for i, name in enumerate(names):
+        q, r = q0 + 10 + i * spacing, r0
+        x, z = center(q, r)
+        f = frames[name]
+        _144_park(ses, x + f['dx'], (y0 + f['dy']) * LAYER - EYE, z + f['dz'], 0.0, -18.0)
+        look_at(ses.player, x + f['ldx'], (y0 + f['ldy']) * LAYER, z + f['ldz'])
+        yield _144_loaded(app)
+        yield 1.0
+        yield shot(f'wonder_{name}')
+        log('framed', name)
+    log('phase144_wonders finished')
+
+
+def phase144_mobs(app, log, shot, look_at, settled, arg):
+    """Close, well-lit portraits of the new 1.4.4 creatures."""
+    from . import gensettings as GS
+    from .entities import Mob
+    _144_uncap(app, log, view=12, far=18)
+    yield 0.3
+    app.create_sky('Mobs 144', 21, 'mobs-144', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.8
+    ses = app.session
+    ses.phase = 0.12
+    ses.weather = 'clear'
+    p = ses.player
+    q0, r0 = cell_at(p.x, p.z)
+    top = ses.world.column_top(q0, r0) or 80
+    woods = {M['heartwood'], M['pale_heartwood'], M['dark_heartwood'], M['cedar_heartwood'], M['canopy']}
+    ypad = top
+    for y in range(top, max(2, top - 20), -1):
+        m = ses.world.get(q0, r0, y)
+        if m and m not in woods and MT.KIND[m] == 'full':
+            ypad = y
+            break
+    for dq in range(-8, 9):
+        for dr in range(-8, 9):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(ypad - 2, ypad):
+                if ses.world.get(q, r, yy) == 0:
+                    ses.world.set(q, r, yy, M['loam'], now=True)
+            ses.world.set(q, r, ypad, M['turf'], now=True)
+            for yy in range(ypad + 1, ypad + 12):
+                cur = ses.world.get(q, r, yy)
+                if cur in woods or cur in (M['sprout'], M['petals'], M['bloom'], M['berry_bush'], M['canopy']):
+                    ses.world.set(q, r, yy, 0, now=True)
+    yield settled()
+    yield 0.6
+    ses.mobs = []
+    # (kind, side, hover, cam_dx, cam_dy, cam_dz) — close-ups for the smaller / flatter ones
+    # (kind, side, hover, cam_dx, cam_eye_dy, cam_dz) — cam_eye_dy is where the EYE should sit
+    kinds = [
+        ('skyjelly', 0, 3.2, 2.4, 1.15, 4.6),
+        # medium distance, slightly below, whole body against the sky (not inside the wings)
+        ('cloudray', 3, 10.0, 2.8, 0.05, 6.8),
+        ('mossturtle', -3, 0.0, 2.4, 1.15, 4.6),
+        ('crystalbeetle', 2, 0.0, 0.70, 0.20, 1.05),
+        ('islekit', -2, 0.0, 0.80, 0.28, 1.20),
+    ]
+    look_h = {'crystalbeetle': 0.16, 'islekit': 0.24, 'cloudray': 0.22}
+    _144_hud(app, debug=False, hide=True)
+    cx, cz = center(q0, r0)
+    for kind, side, up, cdx, cdy, cdz in kinds:
+        ses.mobs = []
+        mx, mz = cx + side * 1.1, cz - 3.2
+        mob = Mob(kind, mx, (ypad + 1) * LAYER + 0.001 + up, mz)
+        mob.yaw = 200
+        mob.walking = True
+        mob.think = 99
+        ses.mobs.append(mob)
+        def _frame():
+            p.drifting = True
+            p.noclip = True
+            ses.hold = True
+            p.vx = p.vy = p.vz = 0
+            p._eye = EYE
+            p.x, p.y, p.z = mx + cdx, mob.y + cdy - EYE, mz + cdz
+            look_at(p, mx, mob.y + look_h.get(kind, 0.28), mz)
+        _frame()
+        yield settled()
+        _frame()
+        yield 0.35
+        yield shot(f'mob_{kind}')
+        log('mob', kind, 'at', round(mx, 1), round(mob.y, 1), round(mz, 1))
+    # group shot
+    ses.mobs = []
+    for i, (kind, side, up, *_rest) in enumerate(kinds):
+        mx, mz = cx + (i - 2) * 2.0, cz - 3.0
+        mob = Mob(kind, mx, (ypad + 1) * LAYER + 0.001 + up, mz)
+        mob.yaw = 200
+        mob.walking = True
+        mob.think = 99
+        ses.mobs.append(mob)
+    p.x, p.y, p.z = cx, (ypad + 5) * LAYER - EYE, cz + 8.5
+    look_at(p, cx, (ypad + 2.2) * LAYER, cz - 3.0)
+    yield 0.8
+    yield shot('mobs_group')
+    log('phase144_mobs finished')
+
+def phase144_waterfall_retake(app, log, shot, look_at, settled, arg):
+    """Side-on waterfall temple: cliff, falling water, and the temple together."""
+    from . import structures as ST
+    from . import gensettings as GS
+    _144_uncap(app, log, view=14, far=22)
+    yield 0.3
+    app.create_sky('Wonders 144', 21, 'wonders-144', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.4
+    ses = app.session
+    ses.phase = 0.08
+    ses.weather = 'clear'
+    q0, r0, y0 = 4, 4, 150
+    ox, oz = center(q0, r0)
+    _144_park(ses, ox, (y0 + 24) * LAYER - EYE, oz, 0.0, -22.0)
+    yield _144_loaded(app)
+    yield 0.6
+    for dq in range(-16, 20):
+        for dr in range(-16, 20):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(y0 - 4, y0):
+                ses.world.set(q, r, yy, M['stone'])
+            ses.world.set(q, r, y0, M.get('ivory_plaster', M['pale_planks']))
+            for yy in range(y0 + 1, y0 + 28):
+                ses.world.set(q, r, yy, 0)
+    yield settled()
+    ST.stamp_world(ses.world, q0, r0, 'waterfall_temple', cond=ST.INTACT, seed=94, realm=7)
+    log('stamped waterfall_temple at', q0, r0)
+    yield settled()
+    yield 1.0
+    _144_hud(app, debug=False, hide=True)
+    x, z = center(q0, r0)
+    # 3/4 view from the cascade side: temple on the mesa, sheet of water, basin
+    _144_park(ses, x + 14.0, (y0 + 9.0) * LAYER - EYE, z + 22.0, 0.0, -18.0)
+    look_at(ses.player, x + 1.0, (y0 + 11.0) * LAYER, z)
+    yield _144_loaded(app)
+    _144_park(ses, x + 14.0, (y0 + 9.0) * LAYER - EYE, z + 22.0, 0.0, -18.0)
+    look_at(ses.player, x + 1.0, (y0 + 11.0) * LAYER, z)
+    yield 0.5
+    yield shot('wonder_waterfall_temple')
+    log('framed waterfall_temple retake')
+    log('phase144_waterfall_retake finished')
+
+
+def phase144_mobs_close(app, log, shot, look_at, settled, arg):
+    """Close, centered retakes of cloudray, crystalbeetle and islekit on a clean pad."""
+    from . import gensettings as GS
+    from .entities import Mob
+    _144_uncap(app, log, view=12, far=18)
+    yield 0.3
+    app.create_sky('Mobs 144 close', 21, 'mobs-144-close', 'wanderer',
+                   gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.4
+    ses = app.session
+    ses.phase = 0.12
+    ses.weather = 'clear'
+    p = ses.player
+    q0, r0, y0 = 8, 8, 150
+    ox, oz = center(q0, r0)
+    _144_park(ses, ox, (y0 + 8) * LAYER - EYE, oz + 8, 0.0, -8.0)
+    yield _144_loaded(app)
+    yield 0.5
+    turf = M.get('turf', M['loam'])
+    for dq in range(-10, 11):
+        for dr in range(-10, 11):
+            q, r = q0 + dq, r0 + dr
+            for yy in range(y0 - 3, y0):
+                ses.world.set(q, r, yy, M['stone'])
+            ses.world.set(q, r, y0, turf)
+            for yy in range(y0 + 1, y0 + 16):
+                ses.world.set(q, r, yy, 0)
+    yield settled()
+    _144_hud(app, debug=False, hide=True)
+    cx, cz = center(q0, r0)
+
+    def frame(mx, my, mz, cdx, cdy, cdz, ly):
+        p.drifting = True
+        p.noclip = True
+        ses.hold = True
+        p.vx = p.vy = p.vz = 0
+        p._eye = EYE
+        _144_park(ses, mx + cdx, my + cdy - EYE, mz + cdz, 0.0, 0.0)
+        look_at(p, mx, my + ly, mz)
+
+    shots = [
+        # medium distance, slightly below, whole ray against the sky
+        ('cloudray', 10.0, 2.6, 0.05, 6.6, 0.22, 15),
+        # close, centered, eye at mid-height
+        ('crystalbeetle', 0.0, 0.70, 0.20, 1.05, 0.16, 200),
+        ('islekit', 0.0, 0.80, 0.28, 1.20, 0.24, 200),
+    ]
+    for kind, hover, cdx, cdy, cdz, ly, yaw in shots:
+        ses.mobs = []
+        mx, mz = cx, cz
+        mob = Mob(kind, mx, (y0 + 1) * LAYER + 0.001 + hover, mz)
+        mob.yaw = yaw
+        mob.walking = True
+        mob.think = 99
+        ses.mobs.append(mob)
+        frame(mx, mob.y, mz, cdx, cdy, cdz, ly)
+        yield settled()
+        frame(mx, mob.y, mz, cdx, cdy, cdz, ly)
+        yield 0.4
+        yield shot(f'mob_{kind}')
+        log('mob', kind, 'at', round(mx, 1), round(mob.y, 1), round(mz, 1),
+            'cam', round(p.x, 2), round(p.y, 2), round(p.z, 2))
+    log('phase144_mobs_close finished')
+
+
+def phase144_craft_rose(app, log, shot, look_at, settled, arg):
+    """Backpack 2x2: glass + rose dye makes Rose Stained Glass."""
+    from . import gensettings as GS
+    _144_uncap(app, log, view=8, far=14)
+    yield 0.3
+    app.create_sky('Rose Glass 144', seed_from_text('playtest-144-rose'),
+                   'playtest-144-rose', 'wanderer', gen=GS.normalize({'generator_version': 5}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 0.6
+    ses = app.session
+    ses.inv.slots[:] = [None] * len(ses.inv.slots)
+    ses.give(M['glass'], 4, quiet=True)
+    ses.give(I.DYE['rose'].id, 4, quiet=True)
+    app.set_screen(IU.BackpackScreen())
+    yield 0.3
+    rec = None
+    for r in I.RECIPES:
+        if r[1][0] == M['rose_stained_glass'] and I.recipe_size(r[0]) <= 2:
+            need = I.recipe_needs(r[0])
+            if M['glass'] in need and I.DYE['rose'].id in need:
+                rec = r
+                break
+    if rec and app.menu and hasattr(app.menu, 'fill'):
+        app.menu.fill(app, rec)
+        res = app.menu.result() if hasattr(app.menu, 'result') else None
+        log('rose_fill', 'grid', list(app.menu.grid), 'result', res)
+    yield 0.5
+    yield shot('16_craft_rose_glass')
+    if app.menu:
+        app.menu.escape(app)
+    log('phase144_craft_rose finished')
