@@ -55,7 +55,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Drops, hardness and decorative part shapes for those blocks
 - [x] Procedural texture atlas from `tidewake/texpack.py` (our own tiles, not third-party pixels)
 - [x] Lighting follows the tide: warm Lighttide sun, violet Dusktide
-- [x] Sky gradient and a sun disc that shifts with the tide
+- [x] Sky gradient, a sun disc, and a cloud sea at the cloud layer
 - [x] Player model kept exactly: nude wanderer, rounded glutes, smooth front,
       no genitals and no frontal bulge. F5 cycles first person / behind / in front
 
@@ -69,7 +69,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [x] Survival: food drains while walking, hunger hurts, eating heals, food above 16 regenerates health
 - [ ] Doors, ladders, beds, chests
 - [ ] Fishing and farming
-- [ ] Creatures (passive and Dusktide hostiles)
+- [x] Creatures wander (woolhops, pebblebeaks, mossbacks, islekits, fairies, sky jellies). Gloomlings fade when the tide is light
 - [ ] Glimmer motes, waystones, Tidewell gifts
 - [ ] Spires (Glide, Updraft, Tidecall) and the Path
 - [ ] Tides (Lighttide / Dusktide)

@@ -16,6 +16,7 @@ use tidewake_core::columns::Generator;
 use tidewake_core::config::{CHUNK, FOV_DEG, LAYER, VERSION};
 use tidewake_core::hex::{center, cell_at, chunk_of};
 use tidewake_core::lesson;
+use tidewake_core::mobs::Mob;
 use tidewake_core::player::{Cells, Player};
 use tidewake_core::save::{self, SkySave};
 use tidewake_core::settings::Settings;
@@ -97,6 +98,10 @@ struct Game {
     spawn: (f64, f64, f64),
     listed: Vec<String>,
     music: Option<music::Music>,
+    mobs: Vec<Mob>,
+    mobs_ready: bool,
+    cloud_gpu: Option<GpuMesh>,
+    mob_gpu: Option<GpuMesh>,
 }
 
 struct App {
@@ -153,6 +158,10 @@ impl Game {
             spawn: (0.0, 40.0, 0.0),
             listed: Vec::new(),
             music: None,
+            mobs: Vec::new(),
+            mobs_ready: false,
+            cloud_gpu: None,
+            mob_gpu: None,
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -262,6 +271,22 @@ impl Game {
                 }
             }
             self.sync_cam();
+            let dusk = ((self.time / 720.0) * std::f32::consts::TAU).sin().mul_add(0.5, 0.5);
+            for mob in &mut self.mobs {
+                let py = self.player.y;
+                mob.update(dt, self.player.x, self.player.z, dusk);
+                mob.y = py;
+            }
+        }
+        if self.screen == Screen::Play && !self.mobs_ready {
+            self.mobs_ready = true;
+            let (x, y, z) = (self.player.x, self.player.y, self.player.z);
+            for (i, kind) in ["woolhop", "pebblebeak", "mossback", "islekit", "woolhop", "fairy"].into_iter().enumerate() {
+                let ang = i as f64 * 1.05;
+                self.mobs.push(Mob::new(kind, x + ang.cos() * 8.0, y, z + ang.sin() * 8.0, i as f32));
+            }
+            self.mobs.push(Mob::new("gloomling", x + 14.0, y, z, 0.0));
+            self.mobs.push(Mob::new("skyjelly", x, y + 6.0, z + 10.0, 1.0));
         }
 
         let (cq, cr) = chunk_of_cam(self.cam.x, self.cam.z);
@@ -576,7 +601,7 @@ impl Game {
             gpu.write_uni(mesh, &uni);
             out.push(mesh);
         }
-        if let Some(mesh) = self.figure_gpu.as_ref() {
+        for mesh in [self.cloud_gpu.as_ref(), self.mob_gpu.as_ref(), self.figure_gpu.as_ref()].into_iter().flatten() {
             let (_, horizon, sun) = gpu::tide_colors(self.time);
             let uni = FrameUni {
                 vp: vp.to_cols_array_2d(),
@@ -756,6 +781,32 @@ impl ApplicationHandler for App {
                     self.game.as_mut().unwrap().figure_gpu = Some(uploaded);
                 } else if let Some(game) = self.game.as_mut() {
                     game.figure_gpu = None;
+                }
+                let (cloud_cpu, mob_cpu) = {
+                    let game = self.game.as_ref().unwrap();
+                    if game.screen == Screen::Play || game.screen == Screen::Loading {
+                        let (cx, cy, cz, _, _) = game.view_cam();
+                        let cloud = mesh::cloud_sea(game.time, [cx, cy, cz]);
+                        let mut mobs = crate::mesh::CpuMesh { verts: Vec::new(), idx: Vec::new() };
+                        for mob in game.mobs.iter().filter(|m| m.alive) {
+                            let walking = mob.vx.abs() + mob.vz.abs() > 0.1;
+                            let body = figure::creature(mob.kind, mob.t, walking);
+                            let placed = figure::place(&body, mob.yaw, [mob.x, mob.y, mob.z], [cx, cy, cz]);
+                            let base = mobs.verts.len() as u32;
+                            mobs.verts.extend(placed.verts);
+                            mobs.idx.extend(placed.idx.into_iter().map(|i| i + base));
+                        }
+                        (Some(cloud), Some(mobs))
+                    } else {
+                        (None, None)
+                    }
+                };
+                if let Some(cpu) = cloud_cpu {
+                    self.game.as_mut().unwrap().cloud_gpu = Some(self.gpu.as_ref().unwrap().upload(&cpu.verts, &cpu.idx));
+                }
+                if let Some(cpu) = mob_cpu {
+                    let gpu_mesh = if cpu.idx.is_empty() { None } else { Some(self.gpu.as_ref().unwrap().upload(&cpu.verts, &cpu.idx)) };
+                    self.game.as_mut().unwrap().mob_gpu = gpu_mesh;
                 }
                 let ui = self.game.as_mut().unwrap().ui(size.width as f32, size.height as f32);
                 let playing = self.game.as_ref().unwrap().screen == Screen::Play

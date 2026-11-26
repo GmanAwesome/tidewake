@@ -9,6 +9,7 @@ pub mod config;
 pub mod hex;
 pub mod lesson;
 pub mod materials;
+pub mod mobs;
 pub mod player;
 pub mod noise;
 pub mod pyrandom;

@@ -29,6 +29,34 @@ pub struct CpuMesh {
     pub idx: Vec<u32>,
 }
 
+/// A rolling sheet at the cloud-sea layer, camera-relative so it can use a zero offset.
+pub fn cloud_sea(time: f32, cam: [f64; 3]) -> CpuMesh {
+    let n = 40i32;
+    let step = 10.0f32;
+    let base = (12.0 * 0.85) as f32;
+    let mut verts = Vec::new();
+    let mut idx = Vec::new();
+    let col = [0.93, 0.95, 0.98];
+    let h = |x: f32, z: f32| base + (x * 0.05 + time * 0.15).sin() * 1.4 + (z * 0.04 - time * 0.1).cos() * 1.1;
+    for iz in -n..n {
+        for ix in -n..n {
+            let x0 = ix as f32 * step;
+            let z0 = iz as f32 * step;
+            let x1 = x0 + step;
+            let z1 = z0 + step;
+            let p = |x: f32, z: f32| -> [f32; 3] {
+                [x - cam[0] as f32, h(x, z) - cam[1] as f32, z - cam[2] as f32]
+            };
+            let b = verts.len() as u32;
+            for pos in [p(x0, z0), p(x1, z0), p(x1, z1), p(x0, z1)] {
+                verts.push(Vert::plain(pos, [0.0, 1.0, 0.0], col));
+            }
+            idx.extend([b, b + 1, b + 2, b, b + 2, b + 3]);
+        }
+    }
+    CpuMesh { verts, idx }
+}
+
 pub fn build(chunk: &Chunk, neighbors: NeighborFn<'_>, lod: bool) -> CpuMesh {
     let mut verts = Vec::new();
     let mut idx = Vec::new();

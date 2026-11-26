@@ -10,6 +10,46 @@ use tidewake_core::hex;
 const SKIN: [f32; 3] = [0.90, 0.74, 0.62];
 const HAIR: [f32; 3] = [0.28, 0.20, 0.18];
 
+pub fn creature(kind: &str, time: f32, walking: bool) -> CpuMesh {
+    let swing = if walking { (time * 9.0).sin() * 0.09 } else { 0.0 };
+    let mut mesh = CpuMesh { verts: Vec::new(), idx: Vec::new() };
+    match kind {
+        "pebblebeak" => {
+            let c = [0.98, 0.86, 0.70];
+            let leg = [0.95, 0.62, 0.30];
+            let bob = if walking { (time * 9.0).sin().abs() * 0.03 } else { 0.0 };
+            prisms(&mut mesh, &[-0.08, 0.08], &[0.0, 0.0], 0.0, 0.22 + bob, 0.035, leg, leg);
+            prisms(&mut mesh, &[0.0], &[0.04], 0.2 + bob, 0.52 + bob, 0.24, c, scale(c, 0.92));
+            prisms(&mut mesh, &[0.0], &[-0.18], 0.50 + bob, 0.76 + bob, 0.13, c, scale(c, 0.95));
+            prisms(&mut mesh, &[0.0], &[-0.33], 0.58 + bob, 0.64 + bob, 0.05, leg, leg);
+        }
+        "gloomling" | "brute" => {
+            let c = [0.30, 0.22, 0.46];
+            let eye = [1.0, 0.86, 0.50];
+            prisms(&mut mesh, &[0.0], &[0.0], 0.0, 0.55, 0.40, c, scale(c, 0.8));
+            prisms(&mut mesh, &[-0.14, 0.14], &[-0.37, -0.37], 0.32, 0.44, 0.07, eye, eye);
+            prisms(&mut mesh, &[-0.24, 0.24], &[0.0, 0.0], 0.68, 0.84, 0.06, scale(c, 1.2), c);
+        }
+        "mossback" | "mossturtle" => {
+            let shell = [0.46, 0.68, 0.42];
+            let skin = [0.72, 0.66, 0.50];
+            prisms(&mut mesh, &[0.0], &[0.0], 0.14, 0.56, 0.45, shell, scale(shell, 0.85));
+            prisms(&mut mesh, &[0.0], &[-0.5], 0.18, 0.38, 0.16, skin, skin);
+        }
+        _ => {
+            // woolhop, and the default round body for the smaller sky creatures
+            let fluff = [0.99, 0.95, 0.90];
+            let face = [0.40, 0.32, 0.36];
+            prisms(&mut mesh, &[-0.22, 0.22, -0.22, 0.22], &[-0.25, -0.25, 0.25, 0.25], 0.0, 0.36, 0.08, face, face);
+            let _ = swing;
+            prisms(&mut mesh, &[0.0], &[0.02], 0.32, 0.96, 0.42, fluff, scale(fluff, 0.92));
+            prisms(&mut mesh, &[0.0], &[-0.52], 0.58, 0.98, 0.22, face, face);
+            prisms(&mut mesh, &[-0.1, 0.1], &[-0.71, -0.71], 0.80, 0.86, 0.035, [0.1, 0.1, 0.1], [0.1, 0.1, 0.1]);
+        }
+    }
+    mesh
+}
+
 pub fn wanderer(time: f32, walking: bool) -> CpuMesh {
     let bob = (time * 2.2).sin() * 0.015;
     let swing = if walking { (time * 8.0).sin() * 0.12 } else { 0.0 };
