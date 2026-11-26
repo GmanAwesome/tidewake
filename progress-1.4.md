@@ -448,3 +448,10 @@ The version line is 1.4.3, without -test. The changelog and the README download 
 ## November 25, 2026, 8:36 PM EST — 1.4.3 is out as Latest
 
 https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.3 (target `main` / `1384c45`). `Tidewake-1.4.3-Windows.zip` is 76,461,616 bytes (manifest 1294 bytes, comctl32 v6, RT_ICON 6 + RT_GROUP_ICON 1, layout `Tidewake/Tidewake.exe`). v1.4.3-test remains a pre-release.
+
+## November 25, 2026, 8:59 PM EST — 1.4.4 starts
+
+New skies will use generator v5: standard and medium islands grow about 30% in footprint (and depth), and a rare huge-continent tier appears a few times per sky (around 350–500 cells across) with mixed biomes, peaks near 300, valleys and lakes. v4 stays for 1.4.3 saves; the lesson island and title showcases stay pinned. No-overlap and no-straight-cut guarantees stay, and spawn must stay safe.
+
+Then a large building-block set (wider palettes, dyeable decorative families, a few bold unique blocks) and new landscape and sky structures that use them. This goes out as a 1.4.4-test pre-release; 1.4.3 stays Latest until the user says publish.
+
