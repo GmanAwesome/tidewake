@@ -18,7 +18,7 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 ## World
 
-- [ ] Axial hex grid (pointy-top `q, r`, 500 layers, 16×16 chunks)
+- [x] Axial hex grid maths (pointy-top `q, r`, floor chunking, 500 layers, 16×16)
 - [ ] Column storage, edits, chunk streaming, unload margin
 - [ ] v6 generator only (v1–v5 are not ported)
   - [ ] Seed temperament and slider settings
@@ -42,7 +42,8 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 
 ## Look
 
-- [ ] Every material and block from 1.4.6 (kinds, colours, emission, solidity, drops)
+- [x] Every material and block from 1.4.6 (ids, kinds, colours, emission, solidity)
+- [ ] Drops, hardness and decorative part shapes for those blocks
 - [ ] Procedural textures from the repo's own generator (no third-party pixels)
 - [ ] Lighting (sun, ambient, point lights, tide colours)
 - [ ] Sky dome, cloud sea, dusk/light cycle

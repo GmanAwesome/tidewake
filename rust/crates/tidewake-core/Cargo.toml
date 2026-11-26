@@ -1,0 +1,11 @@
+[package]
+name = "tidewake-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Tidewake 2.1 world, generator and simulation"
+
+[dependencies]
+
+[dev-dependencies]
