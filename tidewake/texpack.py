@@ -372,6 +372,75 @@ def tile(mat, side):
         furrow = np.abs((Y * 8 if side else Y * 6) - row - 0.5) < 0.18
         tone = 1 + 0.08 * np.sin(row * 1.7 + X * 4)
         return np.where(furrow, 0.72, tone) * n(5, 2, 0.07) * speck(rng, 0.06, 0.9, 1.08)
+    if style == 'patterned':
+        # hex-friendly geometric tile: a centred rosette and a frame
+        r = np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
+        ring = (np.abs(r - 0.28) < 0.05) | (np.abs(r - 0.12) < 0.035)
+        frame = (X < 0.08) | (X > 0.92) | (Y < 0.08) | (Y > 0.92)
+        star = (np.abs(X - 0.5) < 0.04) | (np.abs(Y - 0.5) < 0.04)
+        return np.where(frame | ring | star, 0.72, 1.08) * n(4, 2, 0.04) * bevel(0.05)
+    if style == 'terrazzo':
+        d1, _, _ = voronoi(rng, 14)
+        chips = np.clip(1.0 - d1 * 3.2, 0, 1)
+        grout = chips < 0.15
+        return np.where(grout, 0.78, 0.92 + 0.16 * chips) * n(5, 2, 0.05) * speck(rng, 0.04, 0.85, 1.15)
+    if style == 'woven':
+        warp = np.abs(((X * 8) % 1) - 0.5)
+        weft = np.abs(((Y * 8) % 1) - 0.5)
+        over = ((np.floor(X * 8) + np.floor(Y * 8)) % 2) == 0
+        strand = np.where(over, warp, weft)
+        return np.where(strand < 0.18, 0.7, 1.08) * n(3, 2, 0.04)
+    if style == 'stain':
+        lead = (X < 0.08) | (X > 0.92) | (Y < 0.08) | (Y > 0.92) | (np.abs(X - 0.5) < 0.035) | (np.abs(Y - 0.5) < 0.035)
+        pane = 1.08 + 0.08 * np.sin((X + Y) * np.pi * 6)
+        return np.where(lead, 0.45, pane) * bevel(0.06) * n(3, 2, 0.02)
+    if style == 'crystal_lamp':
+        r = np.sqrt((X - 0.5) ** 2 + ((Y - 0.52) * 0.85) ** 2)
+        core = r < 0.22
+        facet = facets(rng, 5)
+        if not side:
+            glow = np.where(core, 0.9, 0.25)
+            return facet * np.where(core, 1.25, 0.85) * n(3, 2, 0.03), glow
+        frame = (X < 0.12) | (X > 0.88) | (Y < 0.10) | (Y > 0.90)
+        glow = np.where(frame, 0.05, 0.8)
+        return np.where(frame, 0.55, 1.2 * facet) * n(3, 2, 0.03), glow
+    if style == 'banner':
+        fold = 1 + 0.08 * np.sin((X * 3 + Y * 0.5) * np.pi * 2)
+        hem = Y < 0.08
+        return np.where(hem, 0.7, fold) * n(3, 2, 0.04)
+    if style == 'plaster':
+        return n(3, 2, 0.03) * speck(rng, 0.015, 0.88, 1.06) * (bevel(0.04) if side else 1.0)
+    if style == 'metal':
+        highlight = 1 + 0.10 * np.sin((X * 2 + Y * 5) * np.pi * 2)
+        rivet = ((((X * 6) % 1) - 0.5) ** 2 + (((Y * 6) % 1) - 0.5) ** 2) < 0.012
+        return np.where(rivet, 1.35, highlight) * n(4, 2, 0.03) * bevel(0.05)
+    if style == 'lattice':
+        bar = (np.abs((X * 5) % 1 - 0.5) < 0.10) | (np.abs((Y * 5) % 1 - 0.5) < 0.10)
+        return np.where(bar, 1.05, 0.42) * n(3, 2, 0.03)
+    if style == 'jelly':
+        bubble = speck(rng, 0.04, 1.15, 1.4, 2)
+        shine = 1 + 0.12 * np.sin((X * 2 + Y * 3) * np.pi * 2)
+        g = np.clip(0.4 + 0.6 * (1.0 - np.abs(Y - 0.45)), 0, 1)
+        return shine * bubble * n(3, 2, 0.04), g
+    if style == 'checker':
+        cell = ((np.floor(X * 4) + np.floor(Y * 4)) % 2) == 0
+        return np.where(cell, 1.15, 0.55) * n(3, 2, 0.03)
+    if style == 'stripe':
+        band = (np.floor((X * 0.4 + Y) * 8) % 2) == 0
+        return np.where(band, 1.12, 0.62) * n(3, 2, 0.03)
+    if style == 'shimmer':
+        d1, _, _ = voronoi(rng, 8)
+        puff = 0.88 + 0.16 * np.clip(1 - d1 * 3.5, 0, 1)
+        twinkle = speck(rng, 0.02, 1.2, 1.5)
+        return puff * twinkle * n(3, 2, 0.05), 0.25 + 0.35 * np.clip(1 - d1 * 3.0, 0, 1)
+    if style == 'cosmic':
+        r = np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
+        star = (np.abs(X - 0.5) < 0.04 + 0.20 * (Y > 0.5)) | (np.abs(Y - 0.5) < 0.04)
+        star = star & (r < 0.36)
+        dots = speck(rng, 0.05, 1.4, 1.8)
+        field = 0.55 + 0.2 * n(6, 2, 0.2)
+        glow = np.where(star, 1.0, 0.15 + 0.5 * speck(rng, 0.03, 0.6, 1.0))
+        return np.where(star, 1.45, field) * dots * n(3, 2, 0.04), glow
     return n(6, 2, 0.06)
 
 

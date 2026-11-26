@@ -10,6 +10,7 @@ from . import materials as MT
 
 SOLID = MT.SOLID
 _CLOUD = MT.ID['cloudstuff']
+_BOUNCE = getattr(MT, 'BOUNCE', {_CLOUD})
 _VINE = MT.ID['vine']
 _WATER = MT.ID['water']
 
@@ -235,7 +236,7 @@ class Player:
                     landing = self.vy
                     self.on_ground = True
                     self.vy = 0
-                    if self.ground_material(world) == _CLOUD and landing < -2.5:
+                    if self.ground_material(world) in _BOUNCE and landing < -2.5:
                         self.vy = min(18.0, max(10.0, -landing * 0.9))
                         self.on_ground = False
                         self.bounced = True
@@ -247,7 +248,7 @@ class Player:
             # standing exactly on a top surface?
             if self.collides(world, self.x, self.y - 0.01, self.z):
                 self.on_ground = True
-        if self.on_ground and self.ground_material(world) not in (0, _CLOUD):
+        if self.on_ground and self.ground_material(world) not in _BOUNCE and self.ground_material(world) != 0:
             self.last_safe = (self.x, self.y, self.z)
 
     @property

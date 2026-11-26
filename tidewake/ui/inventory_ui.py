@@ -516,7 +516,7 @@ class AdminScreen(Screen):
         gui.text('Every item  ·  click for a stack (right-click: one)', ix0 + 4 * s, cy0 - 6 * s, 10, INK, font='bold')
         size = 38 * s
         cols = max(1, int(iw // (size + 4 * s)))
-        ids = sorted(I.ITEMS)
+        ids = sorted(I.ITEMS, key=I.sort_key)
         top = cy0 - 26 * s
         rows_vis = int((top - py - 34 * s) // (size + 4 * s))
         total_rows = (len(ids) + cols - 1) // cols

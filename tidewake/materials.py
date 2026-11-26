@@ -149,6 +149,10 @@ _M = [
     ('Signpost',      'deco', (0.72, 0.54, 0.34),  (0.62, 0.44, 0.28),   0.0, False, (0, 0, 0, 1), 'wood'),
 ]
 
+from . import palette as PAL
+_M.extend(PAL.materials())
+if len(_M) > 256:
+    raise RuntimeError(f'too many materials ({len(_M)}); cell ids are uint8')
 
 
 NAMES = [m[0] for m in _M]
@@ -220,6 +224,12 @@ LIGHTS = {
     ID['waystone']: ((0.75, 0.65, 1.0), 10.0),
     ID['glimmer_font']: ((1.0, 0.84, 0.45), 12.0),
 }
+_EX = PAL.extras()
+for _name, _light in _EX['lights'].items():
+    LIGHTS[ID[_name.lower().replace(' ', '_')]] = _light
+for _name, _parts in _EX['parts'].items():
+    PARTS[ID[_name.lower().replace(' ', '_')]] = _parts
+BOUNCE = {ID['cloudstuff']} | {ID[n.lower().replace(' ', '_')] for n in _EX['bounce']}
 ORES = [ID['emberite_ore'], ID['verdigris_ore'], ID['silverine_ore'], ID['aetherite_ore']]
 WOODS = {ID['heartwood'], ID['cedar_heartwood'], ID['pale_heartwood'], ID['dark_heartwood']}
 
@@ -261,6 +271,12 @@ def is_blocking(world, q, r, y):
 def _tex_style(name, kind):
     """Procedural atlas style for a material, inferred from its name."""
     n = name.lower()
+    if 'stained glass' in n:
+        return 'stain'
+    if 'lattice' in n:
+        return 'lattice'
+    if 'crystal lamp' in n:
+        return 'crystal_lamp'
     if kind == 'glass' or n.endswith(' glass') or n == 'glass':
         return 'glass'
     if 'lamp' in n:
@@ -311,6 +327,34 @@ def _tex_style(name, kind):
         return 'font'
     if 'farmland' in n:
         return 'farm'
+    if 'patterned tile' in n:
+        return 'patterned'
+    if n.endswith('terrazzo') or n == 'terrazzo':
+        return 'terrazzo'
+    if 'woven panel' in n:
+        return 'woven'
+    if 'stained glass' in n:
+        return 'stain'
+    if 'crystal lamp' in n:
+        return 'crystal_lamp'
+    if n.endswith('banner') or ' banner' in n:
+        return 'banner'
+    if 'plaster' in n:
+        return 'plaster'
+    if n in ('pewter', 'brass', 'copper', 'wrought iron'):
+        return 'metal'
+    if 'lattice' in n:
+        return 'lattice'
+    if 'jelly' in n:
+        return 'jelly'
+    if 'checker' in n:
+        return 'checker'
+    if 'stripe' in n:
+        return 'stripe'
+    if 'shimmer cloud' in n:
+        return 'shimmer'
+    if 'cosmic star' in n:
+        return 'cosmic'
     if kind == 'slab':
         return _tex_style(name[:-5] if name.lower().endswith(' slab') else name, 'full')
     return ''

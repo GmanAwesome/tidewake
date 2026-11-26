@@ -37,6 +37,9 @@ for _i in range(1, MT.N):
     if 'slab' in _key and _key in HARD:
         s, tool, tier = HARD[_key]
         HARD[_key] = (s * 0.6, tool, tier)
+from . import palette as PAL
+for _name, _spec in PAL.extras()['hard'].items():
+    HARD[_name.lower().replace(' ', '_')] = _spec
 UNBREAKABLE = {M['dormant_spire'], M['awake_spire'], M['water']}
 
 TIERS = ['Wooden', 'Stone', 'Verdigris', 'Silverine', 'Aetherite']
@@ -82,6 +85,10 @@ BLOCK_DESC = {
     'heather': 'lavender downs packing; a soft purple block',
     'waystone': 'right-click: attune with Glimmer, then travel between shrines',
     'glimmer_font': 'right-click: spend Glimmer on lasting attunements',
+    'rose_jelly': 'springy: bounce on it', 'tide_jelly': 'springy: bounce on it',
+    'honey_jelly': 'springy: bounce on it', 'violet_jelly': 'springy: bounce on it',
+    'shimmer_cloud': 'a soft, glimmering cloud you can build with',
+    'cosmic_star': 'a deep-sky block that twinkles with its own light',
 }
 for i in range(1, MT.N):
     key = MT.NAMES[i].lower().replace(' ', '_')
@@ -155,6 +162,13 @@ WHEAT = _new('Skywheat', 'item', color=(0.88, 0.76, 0.42), model='stick', desc='
 LOAF = _new('Skywheat Loaf', 'food', food=6, color=(0.86, 0.68, 0.42), model='pie')
 SWEETROOT = _new('Sweetroot', 'food', food=3, color=(0.78, 0.56, 0.36), model='lump')
 COOKED_ROOT = _new('Roast Sweetroot', 'food', food=7, color=(0.72, 0.48, 0.28), model='lump')
+
+# ---- 1.4.4 dyes (items only; they do not occupy cell ids)
+from . import palette as PAL
+DYE = {}
+for _key, _name, _col in PAL.DYES:
+    DYE[_key] = _new(_name, 'item', color=_col, model='lump',
+                     desc='craft with a decorative block to dye it')
 
 
 def get(iid):
@@ -364,6 +378,104 @@ recipe([[None, STONES, STONES], [None, STICK.id, None], [None, STICK.id, None]],
 recipe([[WHEAT.id, WHEAT.id, WHEAT.id]], LOAF.id)
 recipe([[BERRIES.id]], BERRY_SEEDS.id, 2, shapeless=True)
 recipe([[WHEAT.id]], GRAIN_SEEDS.id, 2, shapeless=True)
+
+# ---- 1.4.4 dyes, decorative families, unique blocks
+_dye_ingr = {
+    'snow': [M['snow']],
+    'pearl': [M['chalk']],
+    'ash': [M['cobble']],
+    'ink': [M['cinder']],
+    'rose': [M['bloom']],
+    'ember': [EMBERITE.id],
+    'honey': [M['petals'], M['sand']],
+    'leaf': [M['vine']],
+    'moss': [M['mossrock']],
+    'tide': [M['glowcap']],
+    'sky': [M['ice']],
+    'indigo': [M['lumen_shard']],
+    'violet': [M['lumen_shard'], M['bloom']],
+    'orchid': [M['heather']],
+    'blush': [M['bloom'], M['sand']],
+    'cocoa': [M['dark_heartwood']],
+}
+for _k, _ing in _dye_ingr.items():
+    recipe([_ing], DYE[_k].id, 2, shapeless=True)
+
+# base (snow) decorative blocks
+recipe([[M['stone_tiles'], M['stone_tiles']], [M['stone_tiles'], M['stone_tiles']]],
+       M['snow_patterned_tile'], 4)
+recipe([[M['mosaic'], M['cobble']]], M['snow_terrazzo'], 2, shapeless=True)
+recipe([[M['linen'], M['planks']]], M['snow_woven_panel'], 2, shapeless=True)
+recipe([[M['glass'], DYE['snow'].id]], M['snow_stained_glass'], 1, shapeless=True)
+recipe([[M['lumen_lamp'], M['crystal']]], M['snow_crystal_lamp'], 1, shapeless=True)
+recipe([[M['linen'], DYE['snow'].id], [STICK.id, None]], M['snow_banner'], 1)
+
+# dye any block of a family (including recolouring)
+for _fam, _stem in (('patterned_tile', 'Patterned Tile'),
+                    ('terrazzo', 'Terrazzo'),
+                    ('woven_panel', 'Woven Panel'),
+                    ('stained_glass', 'Stained Glass'),
+                    ('crystal_lamp', 'Crystal Lamp'),
+                    ('banner', 'Banner')):
+    grp = _fam + 's'
+    GROUPS[grp] = {M[PAL.id_key(PAL.dyed_name(_stem, k))] for k, _, _ in PAL.DYES}
+    for _k, _dn, _ in PAL.DYES:
+        recipe([[grp, DYE[_k].id]], M[PAL.id_key(PAL.dyed_name(_stem, _k))], 1, shapeless=True)
+
+# plaster, metal, lattice, extra bricks, fun unique
+recipe([[M['clay'], M['chalk']]], M['ivory_plaster'], 4, shapeless=True)
+recipe([[M['ivory_plaster'], DYE['blush'].id]], M['blush_plaster'], 1, shapeless=True)
+recipe([[M['ivory_plaster'], DYE['moss'].id]], M['sage_plaster'], 1, shapeless=True)
+recipe([[M['ivory_plaster'], DYE['indigo'].id]], M['dusk_plaster'], 1, shapeless=True)
+recipe([[SILVERINE.id, M['cobble']]], M['pewter'], 2, shapeless=True)
+recipe([[VERDIGRIS.id, EMBERITE.id]], M['brass'], 2, shapeless=True)
+recipe([[EMBERITE.id, M['clay']]], M['copper'], 2, shapeless=True)
+recipe([[M['basalt'], M['cinder']]], M['wrought_iron'], 2, shapeless=True)
+recipe([[M['bricks'], DYE['honey'].id]], M['ochre_bricks'], 4, shapeless=True)
+recipe([[M['bricks'], DYE['ink'].id]], M['ink_bricks'], 4, shapeless=True)
+recipe([[M['planks'], None, M['planks']], [None, STICK.id, None], [M['planks'], None, M['planks']]],
+       M['wood_lattice'], 4)
+recipe([[M['pale_planks'], None, M['pale_planks']], [None, STICK.id, None], [M['pale_planks'], None, M['pale_planks']]],
+       M['pale_lattice'], 4)
+recipe([[FLUFF.id, M['glowcap'], DYE['rose'].id]], M['rose_jelly'], 2, shapeless=True)
+recipe([[FLUFF.id, M['glowcap'], DYE['tide'].id]], M['tide_jelly'], 2, shapeless=True)
+recipe([[FLUFF.id, M['glowcap'], DYE['honey'].id]], M['honey_jelly'], 2, shapeless=True)
+recipe([[FLUFF.id, M['glowcap'], DYE['violet'].id]], M['violet_jelly'], 2, shapeless=True)
+recipe([[M['ink_patterned_tile'], M['snow_patterned_tile']]], M['ink_checker'], 2, shapeless=True)
+recipe([[M['rose_patterned_tile'], M['snow_patterned_tile']]], M['rose_checker'], 2, shapeless=True)
+recipe([[M['glass'], DYE['rose'].id, FLUFF.id]], M['rose_stripe'], 2, shapeless=True)
+recipe([[M['glass'], DYE['sky'].id, FLUFF.id]], M['sky_stripe'], 2, shapeless=True)
+recipe([[M['cloudstuff'], M['lumen_shard']]], M['shimmer_cloud'], 2, shapeless=True)
+recipe([[M['starstone'], AETHERITE.id]], M['cosmic_star'], 1, shapeless=True)
+
+
+def sort_key(iid):
+    """Group items in the admin panel: tools, food, dyes, ingredients, then blocks by family."""
+    it = ITEMS.get(iid)
+    if it is None:
+        return (9, '', iid)
+    name = it.name.lower()
+    if it.kind in ('tool', 'rod', 'hoe', 'pail'):
+        group = 0
+    elif it.kind in ('food', 'seed'):
+        group = 1
+    elif name.endswith('dye'):
+        group = 2
+    elif it.kind != 'block':
+        group = 3
+    elif any(s in name for s in ('jelly', 'checker', 'stripe', 'shimmer cloud', 'cosmic star')):
+        group = 7
+    elif any(s in name for s in ('patterned tile', 'terrazzo', 'woven panel', 'stained glass',
+                                 'crystal lamp', 'banner')):
+        group = 6
+    elif it.block is not None and it.block < 129:
+        group = 4
+    else:
+        group = 5
+    # "Rose Patterned Tile" sorts with other patterned tiles, then by colour
+    parts = name.split()
+    stem = ' '.join(parts[-2:]) if len(parts) >= 2 else name
+    return (group, stem, name, iid)
 
 
 def _match_cell(want, have):
