@@ -18,7 +18,9 @@ use tidewake_core::hex::{center, cell_at, chunk_of};
 use tidewake_core::lesson;
 use tidewake_core::mobs::Mob;
 use tidewake_core::player::{Cells, Player};
+use tidewake_core::glimmer::Glimmer;
 use tidewake_core::save::{self, SkySave};
+use tidewake_core::tide;
 use tidewake_core::settings::Settings;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -102,6 +104,8 @@ struct Game {
     mobs_ready: bool,
     cloud_gpu: Option<GpuMesh>,
     mob_gpu: Option<GpuMesh>,
+    glimmer: Glimmer,
+    motes: Vec<(f64, f64, f64)>,
 }
 
 struct App {
@@ -162,6 +166,8 @@ impl Game {
             mobs_ready: false,
             cloud_gpu: None,
             mob_gpu: None,
+            glimmer: Glimmer::default(),
+            motes: Vec::new(),
         };
         match std::env::var("TIDEWAKE_PLAY").ok().as_deref() {
             Some("tutorial") => game.begin(true, 1),
@@ -287,6 +293,24 @@ impl Game {
             }
             self.mobs.push(Mob::new("gloomling", x + 14.0, y, z, 0.0));
             self.mobs.push(Mob::new("skyjelly", x, y + 6.0, z + 10.0, 1.0));
+            self.motes.clear();
+            for i in 0..10 {
+                let ang = i as f64 * 0.9;
+                let dist = 4.0 + (i % 4) as f64 * 2.0;
+                self.motes.push((x + ang.cos() * dist, y + 1.2, z + ang.sin() * dist));
+            }
+        }
+        if self.screen == Screen::Play {
+            let (px, py, pz) = (self.player.x, self.player.y + 1.0, self.player.z);
+            self.motes.retain(|(x, y, z)| {
+                let d = ((x - px).powi(2) + (y - py).powi(2) + (z - pz).powi(2)).sqrt();
+                if d < 1.4 {
+                    self.glimmer.catch_mote();
+                    false
+                } else {
+                    true
+                }
+            });
         }
 
         let (cq, cr) = chunk_of_cam(self.cam.x, self.cam.z);
@@ -472,6 +496,17 @@ impl Game {
                         self.save.selected_label(),
                         if self.player.drifting { "   flying" } else { "" }
                     );
+                    let tide_name = tide::atmosphere(self.time).name;
+                    let gift = self.glimmer.next_gift().unwrap_or("all gifts");
+                    ui.text(
+                        1,
+                        &format!("Glimmer {}   {}   G buys {gift}   motes {}", self.glimmer.motes, tide_name, self.motes.len()),
+                        16.0,
+                        70.0,
+                        14.0,
+                        muted,
+                        false,
+                    );
                     ui.text(1, &line, 16.0, 28.0, 16.0, [1.0, 1.0, 1.0, 0.9], false);
                     ui.text(1, "R eat   C craft loaf   1-9 hotbar   Esc save and leave", 16.0, 50.0, 14.0, muted, false);
                 }
@@ -591,7 +626,9 @@ impl Game {
             let q0 = *cq as i64 * CHUNK as i64;
             let r0 = *cr as i64 * CHUNK as i64;
             let (ox, oz) = center(q0, r0);
-            let (_, horizon, sun) = gpu::tide_colors(self.time);
+            let atmo = tide::atmosphere(self.time);
+            let horizon = atmo.horizon;
+            let sun = atmo.sun;
             let uni = FrameUni {
                 vp: vp.to_cols_array_2d(),
                 offset: [(ox - cx) as f32, (0.0 - cy) as f32, (oz - cz) as f32, 28.0],
@@ -602,7 +639,9 @@ impl Game {
             out.push(mesh);
         }
         for mesh in [self.cloud_gpu.as_ref(), self.mob_gpu.as_ref(), self.figure_gpu.as_ref()].into_iter().flatten() {
-            let (_, horizon, sun) = gpu::tide_colors(self.time);
+            let atmo = tide::atmosphere(self.time);
+            let horizon = atmo.horizon;
+            let sun = atmo.sun;
             let uni = FrameUni {
                 vp: vp.to_cols_array_2d(),
                 offset: [0.0, 0.0, 0.0, 28.0],
@@ -718,6 +757,11 @@ impl ApplicationHandler for App {
                         KeyCode::Backspace if down && game.screen == Screen::NewSky => { game.seed_text.pop(); }
                         KeyCode::KeyR if down && game.screen == Screen::Play => { game.save.eat(); }
                         KeyCode::KeyC if down && game.screen == Screen::Play => { game.save.craft_loaf(); }
+                        KeyCode::KeyG if down && game.screen == Screen::Play => {
+                            if let Some(id) = game.glimmer.next_gift() {
+                                game.glimmer.buy(id);
+                            }
+                        }
                         KeyCode::Digit1 if down => game.save.selected = 0,
                         KeyCode::Digit2 if down => game.save.selected = 1,
                         KeyCode::Escape if down => {
@@ -819,7 +863,8 @@ impl ApplicationHandler for App {
                 let n = draws.len();
                 let tris: u32 = draws.iter().map(|m| m.n_idx / 3).sum();
                 let ui_quads = ui.len() / 6;
-                let (zenith, horizon, sun) = gpu::tide_colors(self.game.as_ref().unwrap().time);
+                let atmo = tide::atmosphere(self.game.as_ref().unwrap().time);
+                let (zenith, horizon, sun) = (atmo.zenith, atmo.horizon, atmo.sun);
                 let play_time = self.game.as_ref().unwrap().time;
                 self.gpu.as_ref().unwrap().write_sky(zenith, horizon, sun, play_time);
                 let clear = if playing {

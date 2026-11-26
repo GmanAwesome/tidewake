@@ -70,9 +70,9 @@ Legend: `[x]` done, `[~]` in progress, `[ ]` not started.
 - [ ] Doors, ladders, beds, chests
 - [ ] Fishing and farming
 - [x] Creatures wander (woolhops, pebblebeaks, mossbacks, islekits, fairies, sky jellies). Gloomlings fade when the tide is light
-- [ ] Glimmer motes, waystones, Tidewell gifts
+- [x] Glimmer motes, waystone cost 1, Tidewell gifts at 2–4 (Mote Sense through Brightwake)
 - [ ] Spires (Glide, Updraft, Tidecall) and the Path
-- [ ] Tides (Lighttide / Dusktide)
+- [x] Tides (Lighttide / Dusktide colours and names from tide.py; gloomlings follow dusk)
 - [~] Lesson island ("Learn to play") loads a hand-built disc with a path, pool, tree and cottage, and you can walk it
 - [ ] The 1.4.6 showpiece builds and the friendly cast on that island
 - [ ] Commands and Dreamer mode

@@ -6,6 +6,7 @@ pub mod biomes;
 pub mod chunk;
 pub mod columns;
 pub mod config;
+pub mod glimmer;
 pub mod hex;
 pub mod lesson;
 pub mod materials;
@@ -16,6 +17,7 @@ pub mod pyrandom;
 pub mod save;
 pub mod settings;
 pub mod structures;
+pub mod tide;
 pub mod tiers;
 pub mod trees;
 
