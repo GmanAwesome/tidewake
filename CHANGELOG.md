@@ -1,17 +1,19 @@
 # Changelog
 
-## 1.4.3-test — 25 November 2026
+## 1.4.3 — 25 November 2026
 
-A playtest build. 1.4.2 remains the latest full release.
+The current release. Skies from 1.4, 1.4.1 and 1.4.2 still load and keep their original terrain. These changes apply to new skies (generator v4).
 
 - The lesson island is no longer uniquely slow. Eight tutorial people were being remeshed from scratch every frame; their poses are cached now.
 - New skies use generator v4: each island is a discrete, spaced object with its own centre, radius and a rounded underside, so volumes do not intersect and coasts no longer follow a grid-aligned cut plane. The sky mixes large irregular continents (hundreds of cells across, with walkable relief and trees) with medium and small islands. Older skies stay on v1–v3; the lesson island and title showcases stay on the land they were built for. Surfaces stay walkable, and peaks still reach about 300.
 - The wanderer starts as a plain, unclothed base figure. The hips are part of the body: several stepped cheek boxes sit partly into the lower torso, with a centre cleft, a rounded lift, and a taper into the thighs. Clothing and gear appear only once crafted or found and equipped.
 
+Windows builds still embed a Common Controls v6 manifest and the app icon in the exe.
+
 
 ## 1.4.2 — 25 November 2026
 
-The current release. Skies from 1.4 and 1.4.1 still load and keep their original terrain. These changes apply to new skies (generator v3).
+Skies from 1.4 and 1.4.1 still load and keep their original terrain. These changes apply to new skies (generator v3).
 
 ### Worlds
 
