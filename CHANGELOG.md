@@ -8,6 +8,9 @@ A playtest build. 1.4.3 remains the latest full release. Skies from 1.4, 1.4.1, 
 - 118 new building blocks (material IDs 129–246): 16 dyes, six decorative families with a dyed variant of each (patterned tile, terrazzo, woven panel, stained glass, crystal lamp, banner), plus plasters, metals, lattices, bounce jellies, checkers, stripes, shimmer cloud and cosmic star.
 - New landscape and sky structures that use those blocks: hamlets, watchtowers, shrines, windmills, lighthouses, markets, gardens, observatories, ruin towers, sky temples, airship wrecks, chained forts, balloon platforms, crystal pinnacles and lantern clusters, plus short bridges between close shores. They appear on generator v5 only.
 - The lesson island is larger and more spread out, with a plaza, themed stations, a path and a bridge to the shrine knoll. A cheap distant floating citadel sits on the horizon from spawn as a teaser for the wider world.
+- Playtest fixes (see PLAYTEST-1.4.4.md): talk bubbles grow to fit their text, starting a conversation steps you back so the NPC stays in view, the first cloud rescue in a sky no longer stings, a short shore hint appears before you step off, and glass plus any dye now makes that color of stained glass on the 2×2 backpack grid.
+- Rare wonders on generator v5: a sky-whale skeleton, a clockwork tower, an upside-down hanging keep, a ring-shaped harbor, a crystal cathedral, and a waterfall temple. A few also appear as title-screen builds (Clockwork Spire, Crystal Nave, Whalebone Isle, Hanging Keep, Ring Harbor), still pinned to generator v3 terrain.
+- New sky-island creatures: sky jellies, cloud rays, moss turtles, crystal beetles and skittish islekits, with simple AI and modest spawn caps.
 
 Windows builds still embed a Common Controls v6 manifest and the app icon in the exe.
 

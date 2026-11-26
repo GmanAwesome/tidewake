@@ -475,3 +475,9 @@ The first 1.4.4-test perf pass was 37.2 / 42.1, mostly because the spawn camera 
 ## November 25, 2026, 10:02 PM EST — 1.4.4-test pre-release is up
 
 https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.4-test is a pre-release (target `main` / `2905216`). 1.4.3 remains Latest. Assets: `Tidewake-1.4.4-test-Windows.zip` (76,513,289 bytes; manifest 1294 bytes, comctl32 v6, RT_ICON 6 + RT_GROUP_ICON 1, layout `Tidewake/Tidewake.exe`) and `Tidewake-1.4.4-test-screenshots.zip` (40,267,709 bytes, 53 files, including the retaken structure close-ups and the post-fountain-move tutorial spawn).
+
+## November 25, 2026, 11:06 PM EST — 1.4.4-test follow-on is ready
+
+Playtest of the first v1.4.4-test is in `PLAYTEST-1.4.4.md` (seed `playtest-144`). Quick findings that were fixed: talk bubbles grow to the text (Willow no longer clips to "Spacepre"), starting a conversation steps you back onto open ground so the NPC stays in view, glass + any dye crafts that stained glass on the 2×2 pack, the 3×3 bench hint only shows when the grid is empty, the first cloud rescue no longer stings, and a "The shore drops away" hint appears at the edge. Later falls still sting — that stays on the what's-next list. 1.4.3 stays Latest.
+
+The follow-on also adds rare v5 wonders (a whale skeleton, a clockwork tower, an upside-down hanging keep, a ring harbor, a crystal cathedral, a waterfall temple) and five new creatures (sky jellies, cloud rays, moss turtles, crystal beetles, islekits). Title showcases Clockwork Spire, Crystal Nave, Whalebone Isle, Hanging Keep and Ring Harbor are pinned to generator v3. Shots are in `screenshots-final/v1.4.4/playtest/`, `wonders/`, and `mobs/`. This will replace the assets on the v1.4.4-test pre-release; 1.4.3 stays Latest.
