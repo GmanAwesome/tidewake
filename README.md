@@ -1,111 +1,119 @@
 <div align="center">
 
-<img src="docs/v1.4.3/hero.jpg" alt="Tidewake 1.4.3 title screen: the Lighthouse Cottage on a chalk and lavender cape above the cloud sea" width="100%">
+<img src="docs/screenshots/hero_cedar_highlands.jpg" alt="A huge floating island seen from above: lavender, amber, cedar and snow forests around a winding lake, with smaller islands drifting nearby" width="100%">
 
 # Tidewake
 
-A cozy sky of floating hexagon islands, gentle tides and sleeping spires.
+**An endless sky of floating hexagon islands to explore, mine, craft and build on.**
 
-[Download](../../releases/latest) · [Features](#features) · [Controls](#controls) · [Changelog](CHANGELOG.md)
+Every sky is grown from a seed: huge islands in twenty landscapes, trees from bushes to giants, and grand structures to stumble on. You'll find hot air balloons drifting between islands, sky cities, floating fortresses, world trees and titan ruins. Everything is made of hexagonal prisms, not cubes.
 
-Mine, craft and build on an endless archipelago made of hexagonal prisms, not cubes.
+### [⬇ Download Tidewake 1.4.4 for Windows](https://github.com/GmanAwesome/tidewake/releases/latest)
+
+[Gallery](#gallery) · [Features](#features) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md)
 
 </div>
 
 ---
 
-## Download (Windows)
+## Download and play (Windows)
 
-Get the game from **Releases**, not the green **Code → Download ZIP** button. That button gives you the source, which will not run without Python.
+1. Open the **[latest release](https://github.com/GmanAwesome/tidewake/releases/latest)**. Under **Assets**, download **`Tidewake-1.4.4-Windows.zip`**. Don't use the green **Code → Download ZIP** button; that's the source code.
+2. **Unzip it**: right-click the zip, choose **Extract All…**, and open the `Tidewake` folder.
+3. **Double-click `Tidewake.exe`.**
 
-1. Open the **[latest release](../../releases/latest)**.
-2. Under Assets, download **`Tidewake-1.4.4-Windows.zip`**.
-3. Right-click the zip, choose **Extract All…**, and open the `Tidewake` folder.
-4. Double-click **`Tidewake.exe`**.
+If Windows shows **"Windows protected your PC"**, the game isn't code-signed. Click **More info**, then **Run anyway**.
 
-First launch composes the soundtrack in the background (about a minute). You can play right away; each song starts as soon as it is ready, and later launches load the music instantly.
+On first launch the soundtrack is composed in the background, which takes about a minute. You can play right away; each song starts as soon as it's ready. Skies, settings and snapshots are saved next to the exe.
 
-If Windows shows **“Windows protected your PC”**, the game is not code-signed. Click **More info**, then **Run anyway**.
+---
 
-Your skies, settings and snapshots are saved next to the exe (`skies/`, `settings.json`, `snapshots/`). Skies from 1.3 still load and keep their original terrain.
+## Gallery
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/cedar_highlands_forest.jpg" alt="Cedar forest running down to a lake, with lavender, amber and snowy woods behind"><br><sub>Cedar Highlands on seed <code>-1565669544</code>, near x -1603, z -2679</sub></td>
+    <td width="50%"><img src="docs/screenshots/island_vista.jpg" alt="A wide island of amber and green forests above the cloud sea"><br><sub>A big island near spawn</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/balloon_banded.jpg" alt="A huge banded hot air balloon with a deck gondola above the clouds"><br><sub>A hot air balloon. Every one is seeded differently.</sub></td>
+    <td width="50%"><img src="docs/screenshots/balloon_patchwork.jpg" alt="A huge patchwork hot air balloon with a wicker basket"><br><sub>A patchwork balloon with a wicker basket</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/floating_fortress.jpg" alt="A dark floating fortress with towers on its own island"><br><sub>A floating fortress</sub></td>
+    <td width="50%"><img src="docs/screenshots/sky_city.jpg" alt="A sky city of round platforms joined by bridges around a central spire"><br><sub>A sky city</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/megaspire.jpg" alt="A tall buttressed red megaspire rising from a colourful island"><br><sub>A megaspire</sub></td>
+    <td width="50%"><img src="docs/screenshots/titan_ruins.jpg" alt="Tall broken columns and an arch on a forested island"><br><sub>Titan ruins</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/world_tree.jpg" alt="A giant world tree above an autumn forest"><br><sub>A world tree</sub></td>
+    <td width="50%"><img src="docs/screenshots/blossom_vale.jpg" alt="A floating Blossom Vale island with pink trees of several sizes"><br><sub>Blossom Vale: small, medium and huge trees</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/azure_fields.jpg" alt="Frosted blue cone trees and ice pools in Azure Fields"><br><sub>Azure Fields</sub></td>
+    <td width="50%"><img src="docs/screenshots/lesson_island.jpg" alt="The lesson island from above, packed with colourful buildings and gardens"><br><sub>The lesson island</sub></td>
+  </tr>
+</table>
 
 ---
 
 ## Features
 
-### A world of hexagons
+### Sky islands without end
+- Every sky is generated from a seed (any number or words) and goes on forever above a sea of clouds.
+- Islands range from tiny floating rocks to continents hundreds of cells across. Shelves of land stack through a 500-layer sky, so you'll see islands above and below you.
+- The whole world is built from hexagonal prism cells, so cliffs, terraces, arches and overhangs come out softer and stranger than cubes.
+- There are caves, lakes and waterfalls. When you dream a new sky, sliders tune island size and thickness, mountains, caves, water, trees and more.
 
-Everything is built from hexagonal prism cells stacked in up to 500 layers. Cliffs, terraces, arches and overhangs come out softer and stranger than cubes. Every sky is generated from a seed — any number or words — and goes on forever above a sea of clouds.
+### Twenty landscapes
+- Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass, Lumen Grove, Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires, Chalk Barrens, Starfall Veil, Cloudstep Isles and Verdigris Canyons.
+- **New in 1.4.4:**
+  - **Blossom Vale** with pink canopies
+  - **Autumn Wilds** in orange
+  - **Azure Fields** with frosted blue trees and ice pools
+  - **Golden Steppe** with flat-topped golden acacias
 
-There are twenty landscapes: Meadow Isles, Amberwood, Rose Mesas, Frostglass, Basalt Steps, Mossfen, Duneglass, Lumen Grove, Saltwind Flats, Cedar Highlands, Lavender Downs, Cinder Spires, Chalk Barrens, Starfall Veil, Cloudstep Isles, Verdigris Canyons, and, from 1.4.4, Blossom Vale, Autumn Wilds, Azure Fields and Golden Steppe. When you dream a new sky you can tune its shape with sliders for island size and thickness, mountains, caves, water, trees, Glimmer and more. Those sliders are saved with the sky.
+### Trees in every size
+- **Small** bush-trees, **medium** trees in each landscape's own shape, and rare **huge** trees 18–34 layers tall.
+- The huge ones include oaks, cedars, vine-hung willows, acacias and glowing toadstools.
+- Canopies are tall enough to walk under.
 
-Trees grow tall enough that you can walk under most canopies. Caves run under the islands without turning the land into cheese, even when those sliders are turned all the way up.
+### Grand structures
+Rare, seeded structures that you find out in the world, no two alike:
+- **Hot air balloons**: huge envelopes in round, teardrop, tall, pumpkin and onion shapes, patterned with stripes, bands, harlequin, spirals, chevrons, patchwork or rainbows. They hang over baskets, decks, boats or cabins, with ropes, a glowing burner and cargo chests.
+- **Sky cities** of linked platforms around a spire, and **floating fortresses** with towers and a keep.
+- **World trees** with huts in their branches and rope bridges.
+- **Megaspires** in buttress, pagoda, crystal and helix styles, plus **colossi** and **titan ruins**.
+- **Villages**, **flying airships**, **watchtowers**, and leviathan and airship **wrecks**.
+- Smaller finds too: hamlets, shrines, windmills, lighthouses, markets, observatories, sky temples and buried chambers.
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/v1.4.3/islands.jpg" alt="A wide lavender forest on a generated continent, with taller and smaller islands floating around it"><br><sub>A generated sky on the 1.4.3 generator</sub></td>
-    <td width="50%"><img src="docs/v1.4/canopy.jpg" alt="Looking up through a walkable tree canopy"><br><sub>Under a canopy in a generated world</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/v1.4.4/islands.jpg" alt="Seed -1565669544 from above: a huge island of lavender, amber, cedar and snow forests around a winding lake"><br><sub>Seed -1565669544 near x -1603, z -2679</sub></td>
-    <td width="50%"><img src="docs/v1.4.4/balloon.jpg" alt="A huge banded hot air balloon with a wooden deck gondola drifting above the cloud sea"><br><sub>A seeded hot air balloon (generator v6)</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/v1.4.4/blossom.jpg" alt="A small floating island in Blossom Vale with pink-leaved trees of several sizes and one huge tree"><br><sub>Blossom Vale trees in three sizes (generator v6)</sub></td>
-    <td width="50%"></td>
-  </tr>
-</table>
+### Glimmer and the Tidewell
+Floating **Glimmer** motes drift in the air, and they're most plentiful at dusk.
+1. **Catch** a mote by walking into it.
+2. **Spend 1** to attune a **waystone**. Once two are attuned, travel between them is free.
+3. **Spend 2–4** at a **Tidewell** on a lasting gift for that sky, such as Mote Sense, Keen Reach, Lightfoot, Deep Breath or Brightwake.
 
-### Settlements, ruins and a lesson island
+Ancient **spires** sleep on every sky. Wake one to learn Glide, Updraft or Tidecall. The **Path** quietly points at what to try next.
 
-New skies can grow a hut, a small village, a temple, a ring of standing stones, a buried chamber or a sky boat moored at an island edge, weathered as intact, abandoned, ruined or overgrown. Buried chambers are lit, so the room at the bottom of the shaft is a place you can see.
+### The lesson island
+**Learn to play** opens a hand-built island that teaches moving, gathering, crafting, doors, fishing, farming and Glimmer. It's packed with showpieces that together use every block in the game:
+- a rainbow plaza with a cosmic clocktower, a 16-colour bazaar and a stepped Hall of Stones
+- a stained-glass conservatory, a giant turtle monument, and a bounce park with a sky funfair
+- an observatory, a treehouse grove, a windmill, a hedge maze and a floating sky castle
 
-Skies from 1.4.4 on also hide rare grand structures, each one seeded so no two look alike: huge striped or patchwork hot air balloons drifting between islands, sky cities, floating fortresses, world trees with huts in their branches, robed colossi, megaspires, wrecked leviathans and airships, titan ruins, villages, flying airships and lone watchtowers. Those skies also add four landscapes (Blossom Vale, Autumn Wilds, Azure Fields and Golden Steppe) with pink, orange, frosted-blue, violet and golden foliage. Trees come in small, medium and huge sizes; huge oaks, cedars, willows, acacias and glowing toadstools stand 18 to 34 layers tall.
+It also has a friendly cast of creatures and no hostiles.
 
-**Learn to play** opens a hand-built lesson island that walks you through moving, gathering, crafting, doors, fishing, farming and Glimmer. It is crowded with showpieces built from every block in the game, plus gardens and friendly creatures.
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/v1.4/village.jpg" alt="A small settlement on a meadow island"><br><sub>A settlement on a new sky</sub></td>
-    <td width="50%"><img src="docs/v1.4/lesson.jpg" alt="Bright lesson-island huts with thatch roofs"><br><sub>The lesson island</sub></td>
-  </tr>
-</table>
-
-### Mining, crafting and survival
-
-Hold left click to break blocks. Tools speed you up, from wooden through stone, Verdigris, Silverine and Aetherite. Craft in a 2×2 grid in your backpack (**E**) or at a **Tinker Bench**, and smelt ores in the **kiln**. In Wanderer mode you have hearts and food — berries, roast hopmeat, pies and stews. A bedroll sets your spawn and, at dusk, fades the world into a dawn instead of snapping the light. Fall off an island and the cloud sea carries you back to solid ground.
-
-Fishing and farming are part of the usual loop: a craftable rod, bites that change with the landscape and the tide, a hoe, tilled beds, and skywheat, sweetroot and berry crops.
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/v1.4/fishing.jpg" alt="Fishing from a pool on the lesson island"><br><sub>Fishing</sub></td>
-    <td width="50%"><img src="docs/v1.4/farm.jpg" alt="Tilled beds and crops on the lesson island"><br><sub>A small farm</sub></td>
-  </tr>
-</table>
-
-### Glimmer, the Path and creatures
-
-Floating **Glimmer** motes drift in the air: walk into one to catch it. They are pale and few by day, golden and plentiful at dusk, and waking a spire leaves some too. Spend 1 Glimmer so a **waystone** remembers you; attune two and you can travel between them for free. A **Tidewell** (the Glimmer Font before 1.4.4) turns 2–4 Glimmer into a lasting gift for that sky, such as Mote Sense, Keen Reach or Lightfoot. The **Path** keeps track of what you have done and quietly points at what to try next.
-
-Woolhops, pebblebeaks and mossbacks wander the meadows. At Dusktide, gloomlings and brutes creep out. **Skywhales** drift slowly between islands, and **fairies** glow near flowers as evening comes on — both peaceful, and kept off the lesson island. F5 cycles first person, third person and looking-at-you; the figure you see wears only what you are actually holding or have found.
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/v1.4/skywhales.jpg" alt="A skywhale drifting above the islands"><br><sub>A skywhale</sub></td>
-    <td width="50%"><img src="docs/v1.4/third_person.jpg" alt="Third-person looking-at-you view of the wanderer"><br><sub>Looking at you</sub></td>
-  </tr>
-</table>
-
-### Tides, music and the title screen
-
-Instead of day and night, the sky turns between warm **Lighttide** and violet **Dusktide** (about twelve minutes a cycle). Ancient **spires** sleep on every sky. Wake one to learn a gift: Glide, Updraft and Tidecall.
-
-The soundtrack is original and written in code — music box, kalimba, marimba, steel drum, felt piano and flute over a gentle groove. Lighttide, Brightreef, Highmere, Emberglow, Dusktide, Firstlight (the lesson island), Undertide (underwater), Rainwake (rain) and a cave layer take their turns and crossfade. A public-domain hint of Korobeiniki runs through the family; nothing is copied from other games. Every sound effect is generated in code too.
-
-The title screen has an animated logo and a rotating backdrop: the Lighthouse Cottage and a handful of strong seeds on the current generator.
-
-Every block has its own hand-tuned, code-generated texture. Near land is full detail; far islands use a light LOD mesh. Two sliders in Settings set detail distance and far distance.
+### Survival basics
+- **Mining:** hold left click to mine. Tools go from wood through stone, Verdigris, Silverine and Aetherite.
+- **Crafting:** craft on a 2×2 grid in your backpack or at a **Tinker Bench**, and smelt ore in a **kiln**.
+- **Health and rest:** in Wanderer mode you have hearts and food. A bedroll sets your spawn and lets you rest into dawn. Falling off an island lands you in the cloud sea, which carries you back.
+- **Fishing and farming:** fishing changes with the landscape and the tide, and you can farm skywheat, sweetroot and berries.
+- **Building:** more than 250 blocks, including 16 dyes, stained glass, crystal lamps, banners, terrazzo, metals and bounce jellies.
+- **Creatures:** woolhops, pebblebeaks, moss turtles, sky jellies, cloud rays, islekits, skywhales and fairies. At Dusktide, gloomlings and brutes creep out.
+- **The sky's cycle:** instead of day and night, the sky turns between warm **Lighttide** and violet **Dusktide**.
+- **Music:** an original soundtrack, written entirely in code, crossfades between landscapes, caves, rain and underwater.
 
 ---
 
@@ -115,9 +123,8 @@ Every block has its own hand-tuned, code-generated texture. Near land is full de
 |---|---|
 | **W A S D** + mouse | Walk and look |
 | **Space** | Jump · hold to glide · climb vines or ladders |
-| **Shift** | Crouch (slower, lower camera, will not walk off edges). While flying, also move down. |
+| **Shift** | Crouch (won't walk off edges) · move down while flying |
 | **Ctrl** | Hurry |
-| **C** | Fly down (while flying) |
 | **Left click** (hold) | Mine · hit creatures |
 | **Right click** | Place · use · eat · cast or reel · open a door |
 | **1–9** / mouse wheel | Pick a hotbar slot |
@@ -126,39 +133,38 @@ Every block has its own hand-tuned, code-generated texture. Near land is full de
 | **J** or **Tab** | Journal (recipes, spires, controls) |
 | **P** | The Path |
 | **T** | Tidecall (once learned) |
-| **F5** | Cycle first person / third person / looking at you |
+| **F5** | First person / third person / looking at you |
 | **Enter** or **/** | Type a command (`/help`) |
 | **F1 · F2 · F3** | Hide HUD · snapshot · details |
 | **F11** | Fullscreen |
-| **Esc** | Rest (pause, settings, save and leave) |
+| **Esc** | Rest menu (pause, settings, save and leave) |
 
 <details>
-<summary><strong>Dev mode, Dreamer mode and commands</strong></summary>
+<summary><strong>Dreamer mode, dev mode and commands</strong></summary>
 
 <br>
 
-Press **F4**, or start a sky in **Dreamer** mode, to turn on dev mode. You break blocks instantly, take no damage, and creatures ignore you. In Dreamer mode (and while dev mode is on), **middle-click** removes an item from your inventory.
+Start a sky in **Dreamer** mode, or press **F4**, to break blocks instantly, take no damage and be ignored by creatures.
 
 | Key | Action |
 |---|---|
 | **F4** | Dev mode on / off |
-| **F5** | Cycle first person / third person / looking at you |
-| **F7** | Admin panel (every item, quick buttons, command list; needs dev mode) |
+| **F7** | Admin panel (every item, quick buttons; needs dev mode) |
 | **F** | Fly on / off |
-| **N** | Noclip (fly through blocks) |
+| **N** | Noclip |
 | **[** / **]** | Fly slower / faster |
+| **C** | Fly down |
 | **Middle click** | Remove an item (Dreamer or dev) |
-| **Enter** or **/** | Type a command |
 
-**Commands:** `/tp x z` · `/tp x y z` · `/tp spire` · `/tp spawn` · `/time` or `/tide <light|dusk|0-1>` · `/give <item> [n]` · `/spawn <creature> [n]` · `/killmobs` · `/weather <clear|rain>` · `/pos1` `/pos2` then `/fill <block>` · `/clear` · `/replace <a> <b>` · `/undo` · `/speed <n>` · `/heal` · `/feed` · `/fly` · `/noclip` · `/mobs on|off` · `/locate spire` · `/seed` · `/spawnpoint` · `/clearinv` · `/help`
+**Commands:** `/tp x z` · `/tp x y z` · `/tp spire` · `/tp spawn` · `/tide <light|dusk|0-1>` · `/give <item> [n]` · `/spawn <creature> [n]` · `/killmobs` · `/weather <clear|rain>` · `/pos1` `/pos2` then `/fill <block>` · `/replace <a> <b>` · `/undo` · `/speed <n>` · `/heal` · `/feed` · `/fly` · `/noclip` · `/mobs on|off` · `/locate spire` · `/seed` · `/spawnpoint` · `/clearinv` · `/help`
 
 </details>
 
 ---
 
-## Run from source
+## Build from source
 
-For developers. Requires **Python 3.12** (3.10+ should work) and a GPU with OpenGL 3.3.
+You need **Python 3.12** (3.10+ should work) and a GPU with OpenGL 3.3.
 
 ```bash
 git clone https://github.com/GmanAwesome/tidewake.git
@@ -173,6 +179,8 @@ On Windows you can also double-click `run.bat` once the requirements are install
 
 **Options:** `--size 1600x900` · `--workers N` (background world builders) · `--data PATH` (where skies, settings and the music cache are kept)
 
+**Tests:** run any file in `tests/` with `PYTHONPATH=. python tests/<name>.py`.
+
 <details>
 <summary><strong>Building the Windows exe</strong></summary>
 
@@ -181,36 +189,39 @@ pip install pyinstaller
 pyinstaller Tidewake.spec
 ```
 
-The game ends up in `dist/Tidewake/`. The spec bundles the fonts, the showcase builds and the Numba-compiled noise module. Shipping builds also embed a Common Controls v6 manifest and the app icon in the exe.
+The game ends up in `dist/Tidewake/`. Release builds also embed a Common Controls v6 manifest and the app icon in the exe.
 
 </details>
 
-**Under the hood:** [pyglet](https://pyglet.org) (window and input), [ModernGL](https://github.com/moderngl/moderngl) (OpenGL 3.3), [NumPy](https://numpy.org), [Numba](https://numba.pydata.org) (optional, compiled terrain noise) and [pygame-ce](https://pyga.me) (SDL mixer audio). The world is pointy-top hex cells in axial coordinates, in 16×16-column chunks 128 layers tall, generated and meshed in worker processes.
+**Under the hood:**
+- [pyglet](https://pyglet.org) for the window and input, and [ModernGL](https://github.com/moderngl/moderngl) for OpenGL 3.3 rendering
+- [NumPy](https://numpy.org), plus [Numba](https://numba.pydata.org) (optional) for compiled terrain noise
+- [pygame-ce](https://pyga.me) for SDL mixer audio
+
+The world is pointy-top hex cells in axial coordinates, in 16×16-column chunks 500 layers tall. Chunks are generated and meshed in worker processes.
 
 ---
 
 ## Changelog
 
-**1.4.4** is the current release. New skies use generator v6. Islands are about 50% larger, shelves spread through a 500-layer column, and a few more tiny islets float at many heights. Seeded grand structures appear: hot air balloons, sky cities, floating fortresses, world trees, colossi, megaspires, wrecks, titan ruins, villages, airships and watchtowers. There are four new landscapes, coloured foliage, and trees in small, medium and huge sizes. The Glimmer Font is now the Tidewell, and the Glimmer loop is spelled out. The lesson island is packed with showpieces that use every placeable block. Skies from 1.4 through 1.4.4-test keep their original terrain.
+**1.4.4** is the current release. Its highlights:
+- islands about 50% larger, in a 500-layer sky
+- grand seeded structures
+- four new landscapes with coloured foliage
+- trees in three sizes
+- the Tidewell and a clearer Glimmer loop
+- a lesson island rebuilt with showpieces
 
-**1.4.3** used generator v4: each island is a discrete, spaced object with its own centre and a rounded underside, so volumes do not intersect and coasts no longer follow a grid-aligned cut. The sky mixes large irregular continents (hundreds of cells across, with walkable relief and trees) with medium and small islands. The lesson island is no longer uniquely slow, and the wanderer starts as a plain, unclothed base figure. Skies from 1.4, 1.4.1 and 1.4.2 keep their original terrain.
-
-**1.4.2** used generator v3: neighbouring islands at different heights are separated by sky instead of a tall vertical wall, some surfaces reach layer 300, and large islands have real hills, ridges and mountains. The eight hand-built title scenes sit on that generator, with a larger Sky-boat Dock and a longer Twin Isles Bridge.
-
-**1.4.1** polished 1.4: more island height, rounded undersides, sealed cave mouths, richer ground cover, steadier creatures and lamps, mid-hex double doors, hex-centred textures, a larger lesson island, a title screen without the grey boxes, and the first set of hand-built title showcases.
-
-**1.4** added the new landscapes and world sliders, structures, a lesson island, Glimmer, fishing, farming, the Path, skywhales and fairies, more soundtrack, taller trees, a third-person camera, a dawn after you rest, and a cohesion pass.
-
-The full notes, including earlier versions, are in **[CHANGELOG.md](CHANGELOG.md)**. All builds are on the **[Releases](../../releases)** page.
+The full history is in **[CHANGELOG.md](CHANGELOG.md)**, and every build is on the **[Releases](https://github.com/GmanAwesome/tidewake/releases)** page.
 
 ---
 
-## Credits and licence
+## Credits and notes
 
 - Made by **[Gentry Irvin](https://github.com/GmanAwesome)**.
-- Every shape, texture, sound and song is generated in code. There are no sampled instruments or ripped image packs.
-- The music is original. A public-domain hint of the folk tune Korobeiniki runs through the soundtrack family; nothing is copied from other games.
-- Fonts: **Comfortaa** and **Nunito** (SIL Open Font License, see `assets/fonts/OFL.txt`), used for the Tidewake display and body faces.
+- Every shape, texture, sound and song is generated in code. There are no sampled instruments and no ripped image packs.
+- The music is original. A hint of the folk tune **Korobeiniki**, which is in the **public domain**, runs through the soundtrack, and nothing is copied from other games.
+- Fonts: **Comfortaa** and **Nunito** (SIL Open Font License, see `assets/fonts/OFL.txt`).
 - Built with pyglet, ModernGL, NumPy, Numba and pygame-ce.
 
 <div align="center">
