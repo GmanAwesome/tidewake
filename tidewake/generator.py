@@ -122,7 +122,7 @@ class Generator:
         if self.version == 1:
             return self._columns_v1(Q, R)
         if self.version >= 6:
-            return self._columns_v5(Q, R, k=1.5, depth_k=1.80, alt=(392.0, 430.0), top_max=TOP_MAX_V6)
+            return self._columns_v5(Q, R, k=1.5, depth_k=1.80, alt=(404.0, 446.0), top_max=TOP_MAX_V6)
         if self.version >= 5:
             return self._columns_v5(Q, R)
         if self.version >= 4:
@@ -932,7 +932,7 @@ class Generator:
         sk_alt = np.floor(46 + 40 * self.n_islet_alt.fbm2(X / 300.0, Z / 300.0, 2) + ei * 25)
         if k != 1.0:
             spread = 0.5 + 0.5 * self.n_islet_alt.fbm2(X / 140.0 + 19.0, Z / 140.0 - 53.0, 2)
-            sk_alt = np.floor(sk_alt + np.clip(spread, 0.0, 1.0) * 330.0)
+            sk_alt = np.floor(sk_alt + np.clip(spread, 0.0, 1.0) * 400.0)
         top = np.where(sk, sk_alt, top)
         sk_dome = np.sqrt(np.clip(ei / 0.35, 0, 1))
         sk_depth = 2.0 + sk_dome * 18.0
@@ -959,7 +959,7 @@ class Generator:
             np.isin(realm, (MEADOW, AMBER, FEN, BASALT, LUMEN, CEDAR, VERDIGRIS, CLOUDSTEP, LAVENDER))
         return {'e': e, 'land': land, 'top': top, 'bottom': bottom, 'realm': realm, 'pool': pool, 'fall': fall,
                 'skerry': sk, 'inner': inner, 'rand': col_rand, 'peak': land & (top > (com + 24)), 'com': com,
-                'band': best_id}
+                'band': best_id, 'island_r': np.where(inside, best_r, 0.0)}
 
     def spire(self, rq, rr):
         """The ancient spire of region (rq, rr), or None. Cached."""
@@ -1010,6 +1010,26 @@ class Generator:
         sl = (slice(P, P + CHUNK), slice(P, P + CHUNK))
         top, bot, realm = col['top'][sl], col['bottom'][sl], col['realm'][sl]
         land = col['land'][sl]
+        if self.version >= 6:
+            # a lone rim column (0-1 land neighbours) would hang as a thin spike under the
+            # island; keep it a shallow nub instead
+            Lf = col['land']
+            Tf = col['top']
+            Bf = col['bottom'].copy()
+            D6 = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, -1), (-1, 1))
+            nbc = np.zeros(Lf.shape, np.int64)
+            for dq, dr in D6:
+                nbc += np.roll(np.roll(Lf, -dq, 0), -dr, 1)
+            Bf = np.where(Lf & (nbc <= 1), np.maximum(Bf, Tf - 2), Bf)
+            # no needles: a column may hang at most 4 layers below its deepest land neighbour,
+            # so undersides still taper to a point but never end in a one-cell straight spike
+            for _ in range(3):
+                Bm = np.where(Lf, Bf, 10 ** 6)
+                nbmin = np.full(Lf.shape, 10 ** 6, np.int64)
+                for dq, dr in D6:
+                    nbmin = np.minimum(nbmin, np.roll(np.roll(Bm, -dq, 0), -dr, 1))
+                Bf = np.where(Lf, np.minimum(Tf - 1, np.maximum(Bf, nbmin - 4)), Bf)
+            bot = np.where(land, Bf[sl], bot)
         ys = np.arange(LAYERS, dtype=np.int64)[None, :, None]
         T = top[:, None, :]
         B = bot[:, None, :]
@@ -1297,6 +1317,9 @@ class Generator:
         for s in spires:
             self._stamp_spire(cells, meta, s, q0, r0)
         if self.version >= 6:
+            from . import skytiers as STI
+            if not __import__("os").environ.get("TW_NO_TIERS"):
+                STI.stamp(self, cq, cr, cells, meta)
             from . import grand as GR
             GR.giant_trees(self, cq, cr, cells)
         if self.version >= 2:

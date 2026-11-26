@@ -1,8 +1,22 @@
 # Changelog
 
+## 1.4.5 — 26 November 2026
+
+The current release.
+
+- **Fixed: the Windows build's Learn to play hung forever on "Dreaming The Lesson… 0%".** The lesson island builder read `tutorial.py` from disk at run time. The packaged game ships compiled code only, so every lesson chunk failed in the background and the loader retried forever. The list it needed is now a constant, and a test checks it against the source.
+- If a sky's chunks keep failing to build, the loading screen now shows the error, writes the details to `tidewake-error.log` next to the exe, and lets Esc go back to the title.
+- **The whole sky is populated.** New skies stack extra layers of large, medium, small and tiny islands over the usual continents and islands. Every island gets an independent random height, from just above the cloud sea up to about 480, so at any altitude there are islands of all sizes above, below and level with you, fading into the fog.
+  - Stacked islands are checked against the terrain and against each other before they are placed. They keep clear air between them and never intersect or get cut in half.
+  - Their undersides taper to long points like the main islands.
+- **Spike cleanup.** Thin one-cell rock spikes no longer hang under island rims. Lone rim columns are kept shallow, and a column may hang at most 4 layers below its deepest neighbour, so the tapered tails stay but needles don't. Waterfalls are unchanged. `tools/pillar_scan.py` checks generated chunks for leftover spikes.
+- Far-away terrain (LOD) draws each stacked island on its own, instead of one solid pillar from the lowest island in a column to the highest.
+
+Windows builds still embed a Common Controls v6 manifest and the app icon in the exe.
+
 ## 1.4.5-test — 26 November 2026
 
-A pre-release fix build. 1.4.4 stays Latest.
+A pre-release fix build, superseded by 1.4.5.
 
 - Fixed: in the Windows build, **Learn to play** hung forever on "Dreaming The Lesson… 0%". The lesson island builder read `tutorial.py` from disk to see which blocks the stations already use. The packaged game only ships compiled code, so every lesson chunk failed in the background and the loader retried forever. The list is now a constant, checked against the source by a test.
 - If a sky's chunks keep failing to build, the loading screen now says so. It shows the error, writes the details to `tidewake-error.log` next to the exe, and Esc goes back to the title, instead of spinning at 0%.
@@ -10,7 +24,7 @@ A pre-release fix build. 1.4.4 stays Latest.
 
 ## 1.4.4 — 26 November 2026
 
-The current release. Skies from 1.4 through 1.4.3, and from the 1.4.4-test pre-release, still load and keep their original terrain. New skies use generator v6.
+A previous release. Skies from 1.4 through 1.4.3, and from the 1.4.4-test pre-release, still load and keep their original terrain. New skies use generator v6.
 
 ### Worlds (generator v6)
 

@@ -146,6 +146,36 @@ def test_new_biomes_and_trees_v6_only():
     assert found
 
 
+
+def test_v6_stacked_size_classes():
+    """All five size classes exist in v6, stacked islands never overlap, and heights are uniform-random."""
+    from tidewake import skytiers as STI
+    g = Generator(7, GS.normalize({'generator_version': 6}))
+    acc = []
+    for ti, t in enumerate(STI.TIERS):
+        n = int(900 / t[1]) + 1
+        for ci in range(-n, n):
+            for cj in range(-n, n):
+                a = STI.accepted(g, ti, ci, cj)
+                if a:
+                    acc.append((ti,) + a)
+    kinds = {STI.size_class(a[3]) for a in acc}
+    assert {'large', 'medium', 'small', 'tiny'} <= kinds, kinds
+    alts = np.array([a[4] for a in acc])
+    assert alts.min() < 120 and alts.max() > 400, (alts.min(), alts.max())
+    for i, a in enumerate(acc):
+        for b in acc[i + 1:]:
+            if np.hypot(a[1] - b[1], a[2] - b[2]) <= a[3] + b[3] + 3.0:
+                lo_a, hi_a = a[4] - a[5], a[4] + 8
+                lo_b, hi_b = b[4] - b[5], b[4] + 8
+                assert hi_a + STI.CLEAR <= lo_b or hi_b + STI.CLEAR <= lo_a, (a, b)
+    # the main terrain still has continents
+    qs = np.arange(-1500, 1500, 8)
+    Q, R = np.meshgrid(qs, qs, indexing='ij')
+    c = g.columns(Q.ravel(), R.ravel())
+    assert (c['island_r'] >= 250).any()
+
+
 if __name__ == '__main__':
     test_columns_are_500_and_old_ceiling_fixed(); print('ok 500 layers, fixed old ceiling, v6 current')
     test_v5_output_unchanged(); print('ok v5 unchanged (incl. showcase seed -1565669544)')
@@ -153,3 +183,4 @@ if __name__ == '__main__':
     test_grand_structures_only_in_v6_and_deterministic(); print('ok grand structures')
     test_trimmed_mesher_matches_full(); print('ok trimmed mesher')
     test_new_biomes_and_trees_v6_only(); print('ok new v6 biomes and tree sizes')
+    test_v6_stacked_size_classes(); print('ok stacked size classes, no overlaps, continents kept')

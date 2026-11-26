@@ -8,7 +8,7 @@
 
 Every sky is grown from a seed: huge islands in twenty landscapes, trees from bushes to giants, and grand structures to stumble on. You'll find hot air balloons drifting between islands, sky cities, floating fortresses, world trees and titan ruins. Everything is made of hexagonal prisms, not cubes.
 
-### [⬇ Download Tidewake 1.4.4 for Windows](https://github.com/GmanAwesome/tidewake/releases/latest)
+### [⬇ Download Tidewake 1.4.5 for Windows](https://github.com/GmanAwesome/tidewake/releases/latest)
 
 [Gallery](#gallery) · [Features](#features) · [Controls](#controls) · [Build from source](#build-from-source) · [Changelog](CHANGELOG.md)
 
@@ -18,7 +18,7 @@ Every sky is grown from a seed: huge islands in twenty landscapes, trees from bu
 
 ## Download and play (Windows)
 
-1. Open the **[latest release](https://github.com/GmanAwesome/tidewake/releases/latest)**. Under **Assets**, download **`Tidewake-1.4.4-Windows.zip`**. Don't use the green **Code → Download ZIP** button; that's the source code.
+1. Open the **[latest release](https://github.com/GmanAwesome/tidewake/releases/latest)**. Under **Assets**, download **`Tidewake-1.4.5-Windows.zip`**. Don't use the green **Code → Download ZIP** button; that's the source code.
 2. **Unzip it**: right-click the zip, choose **Extract All…**, and open the `Tidewake` folder.
 3. **Double-click `Tidewake.exe`.**
 
@@ -63,7 +63,7 @@ On first launch the soundtrack is composed in the background, which takes about 
 
 ### Sky islands without end
 - Every sky is generated from a seed (any number or words) and goes on forever above a sea of clouds.
-- Islands range from tiny floating rocks to continents hundreds of cells across. Shelves of land stack through a 500-layer sky, so you'll see islands above and below you.
+- Islands range from tiny floating rocks to continents hundreds of cells across. Islands of every size are stacked at random heights through a 500-layer sky, so wherever you fly you'll see islands above, below and around you, fading into the fog.
 - The whole world is built from hexagonal prism cells, so cliffs, terraces, arches and overhangs come out softer and stranger than cubes.
 - There are caves, lakes and waterfalls. When you dream a new sky, sliders tune island size and thickness, mountains, caves, water, trees and more.
 
@@ -204,7 +204,9 @@ The world is pointy-top hex cells in axial coordinates, in 16×16-column chunks 
 
 ## Changelog
 
-**1.4.4** is the current release. Its highlights:
+**1.4.5** is the current release. It fixes the lesson island hanging on its loading screen in the Windows build, fills the whole sky with stacked islands of every size up to about 480, and removes thin rock spikes under islands.
+
+**1.4.4** highlights:
 - islands about 50% larger, in a 500-layer sky
 - grand seeded structures
 - four new landscapes with coloured foliage

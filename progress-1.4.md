@@ -522,3 +522,8 @@ https://github.com/GmanAwesome/tidewake/releases/tag/v1.4.4 (target `main` / `0f
 - The smoke run's skies, settings and music cache were removed before zipping.
 
 The showcase is in `/workspace/winbuild/tidewake-showcase/` (17 shots + README) and in `tidewake-showcase.zip`.
+
+## 2026-11-26 02:45 EST — 1.4.5 release
+- Full-height stacked sky tiers (skytiers.py), uniform random height per island for every size tier; needle smoothing; run-aware LOD mesh.
+- Tests all pass. Wine smoke test: tutorial loads in 5.1 s, New Sky loads and moves.
+- Density check /tmp/lk5 (vd=8, far=16, software GL on the box): ~9-10 fps, gen ~310-345 ms/chunk.

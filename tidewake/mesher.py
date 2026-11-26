@@ -590,21 +590,70 @@ def _fittings(mat, Pm, cx, cz, ly, pq, pr, SKY):
     return out
 
 
+def _split_top_run(mask):
+    """mask (N, L, N) -> (the highest contiguous run per column, everything below it)."""
+    L = mask.shape[1]
+    has = mask.any(1)
+    top = np.where(has, L - 1 - np.argmax(mask[:, ::-1, :], axis=1), -1)
+    ys = np.arange(L)[None, :, None]
+    gap = (~mask) & (ys < top[:, None, :])
+    # highest air layer under the top: the run starts just above it
+    g_has = gap.any(1)
+    g_top = np.where(g_has, L - 1 - np.argmax(gap[:, ::-1, :], axis=1), -1)
+    run = mask & (ys > g_top[:, None, :])
+    return run, mask & ~run
+
+
 def lod_mesh(cells, realm, dx=0.0, dz=0.0, step=2):
-    """Cheap far-away mesh for one chunk: per column one cap + one body prism (+ a canopy slab).
+    """Cheap far-away mesh for one chunk: per island run one cap + one body prism (+ canopy slabs).
+    Columns can hold several stacked islands (v6 sky tiers), so each contiguous run gets its
+    own prisms instead of one pillar from the lowest cell to the highest.
     No caves, plants or lights. -> VERT array, positions offset by (dx, dz)."""
     c = cells
     can = np.isin(c, MT.LEAVES)
     wood = np.isin(c, list(MT.WOODS))
     terr = (OPAQUE[c] | MT.IS_WATER[c]) & ~can & ~wood
-    has = terr.any(1)
-    if not has.any() and not can.any():
+    if not terr.any() and not can.any():
         return np.zeros(0, VERT)
-    Lm = LAYERS - 1
-    # half resolution: every other column, drawn as hexes twice the size (an exact scaled tiling)
     s_ = step
-    c, can, terr, has = c[::s_, :, ::s_], can[::s_, :, ::s_], terr[::s_, :, ::s_], has[::s_, ::s_]
+    c, can, terr = c[::s_, :, ::s_], can[::s_, :, ::s_], terr[::s_, :, ::s_]
     realm = realm[::s_, ::s_]
+    out = []
+    rest = terr
+    for _ in range(4):
+        if not rest.any():
+            break
+        run, rest = _split_top_run(rest)
+        out += _lod_terrain(c, run, realm, dx, dz, s_)
+    rest = can
+    for _ in range(4):
+        if not rest.any():
+            break
+        run, rest = _split_top_run(rest)
+        out += _lod_canopy(run, realm, dx, dz, s_)
+    out = [o for o in out if len(o)]
+    return np.concatenate(out) if out else np.zeros(0, VERT)
+
+
+def _lod_canopy(can, realm, dx, dz, s_):
+    Lm = LAYERS - 1
+    hc = can.any(1)
+    if not hc.any():
+        return []
+    Q2, R2 = np.nonzero(hc)
+    ct = Lm - np.argmax(can[:, ::-1, :], axis=1)[Q2, R2]
+    cb = np.argmax(can, axis=1)[Q2, R2]
+    col = MT.REALM_CANOPY[realm[Q2, R2]].astype(np.float64)
+    m = len(Q2)
+    return list(_prisms(HEX * SQ3 * s_ * (Q2 + R2 * 0.5) + dx, HEX * 1.5 * s_ * R2.astype(np.float64) + dz, cb * LAYER, (ct + 1) * LAYER,
+                        np.full(m, float(s_)), col, col * 0.9, col * 0.8, np.full(m, pack(0.0, 0.9))))
+
+
+def _lod_terrain(c, terr, realm, dx, dz, s_):
+    has = terr.any(1)
+    if not has.any():
+        return []
+    Lm = LAYERS - 1
     N = CHUNK // s_
     top = np.where(has, Lm - np.argmax(terr[:, ::-1, :], axis=1), -1)
     bot = np.where(has, np.argmax(terr, axis=1), 0)
@@ -647,14 +696,4 @@ def lod_mesh(cells, realm, dx=0.0, dz=0.0, step=2):
         f = body
         out += _prisms(cx[f], cz[f], b_[f] * LAYER, y_cap0[f], np.full(f.sum(), float(s_)), sc_body[f], sc_body[f], sc_body[f] * 0.8,
                        E[f], np.zeros(f.sum(), bool), np.ones(f.sum(), bool), body_side[f])
-    hc = can.any(1)
-    if hc.any():
-        Q2, R2 = np.nonzero(hc)
-        ct = Lm - np.argmax(can[:, ::-1, :], axis=1)[Q2, R2]
-        cb = np.argmax(can, axis=1)[Q2, R2]
-        col = MT.REALM_CANOPY[realm[Q2, R2]].astype(np.float64)
-        m = len(Q2)
-        out += _prisms(HEX * SQ3 * s_ * (Q2 + R2 * 0.5) + dx, HEX * 1.5 * s_ * R2.astype(np.float64) + dz, cb * LAYER, (ct + 1) * LAYER,
-                       np.full(m, float(s_)), col, col * 0.9, col * 0.8, np.full(m, pack(0.0, 0.9)))
-    out = [o for o in out if len(o)]
-    return np.concatenate(out) if out else np.zeros(0, VERT)
+    return out

@@ -5464,3 +5464,54 @@ def phase144_showcase5(app, log, shot, look_at, settled, arg):
         yield 0.3
         yield shot(name)
     log('phase144_showcase5 finished')
+
+
+def phase145_lookup(app, log, shot, look_at, settled, arg):
+    """v6 stacked sky tiers: look up from mid-height and from the spawn surface."""
+    from . import gensettings as GS
+    args = dict(kv.split('=') for kv in (arg or '').split(',') if '=' in kv)
+    seed = int(args.get('seed', 7))
+    _144_uncap(app, log, view=int(args.get('vd', 10)), far=int(args.get('far', 20)))
+    yield 0.3
+    app.create_sky(f'Lookup {seed}', seed, str(seed), 'wanderer', gen=GS.normalize({'generator_version': 6}))
+    yield lambda: app.mode == 'game'
+    yield settled()
+    yield 1.0
+    ses = app.session
+    p = ses.player
+    _144_hud(app, debug=False, hide=True)
+    ses.hold = True
+    sx, sy, sz = p.x, p.y, p.z
+    poses = (('lookup_low', (sx + 30.0, 90 * LAYER, sz + 30.0), 30.0),
+             ('lookup_mid', (sx + 30.0, 250 * LAYER, sz + 30.0), 30.0),
+             ('level_mid', (sx + 30.0, 250 * LAYER, sz + 30.0), 4.0),
+             ('lookup_high', (sx + 30.0, 420 * LAYER, sz + 30.0), 25.0),
+             ('down_high', (sx + 30.0, 440 * LAYER, sz + 30.0), -30.0),
+             ('down_mid', (sx + 30.0, 250 * LAYER, sz + 30.0), -28.0),
+             ('level_high', (sx + 30.0, 440 * LAYER, sz + 30.0), 2.0))
+    for name, (cx, cy, cz), pitch in poses:
+        _144_park(ses, cx, cy - EYE, cz, 0.0, pitch)
+        ses.phase = float(args.get('phase', 0.03))
+        yield _144_loaded(app, min_chunks=120)
+        yield 2.0
+        p.pitch = pitch
+        yield 0.3
+        yield shot(name)
+    if args.get('perf', '1') == '1':
+        import time as _t
+        for label, (cx, cy, cz), pitch in (('ground', (sx, sy + 0.5, sz), 0.0), ('mid_air', (sx + 30.0, 250 * LAYER, sz + 30.0), 4.0)):
+            _144_park(ses, cx, cy - EYE, cz, 0.0, pitch)
+            yield _144_loaded(app, min_chunks=120)
+            yield 1.0
+            st = {'t0': _t.perf_counter(), 'n': 0}
+
+            def done(st=st):
+                st['n'] += 1
+                return _t.perf_counter() - st['t0'] >= 5.0
+            yield done
+            el = _t.perf_counter() - st['t0']
+            w = ses.world
+            gen_t = list(w.timings.get('gen', []))
+            log('PERF', label, 'fps=%.1f' % ((st['n'] - 1) / el), 'chunks', len(w.chunks),
+                'gen_ms_mean=%.0f' % (1000 * np.mean(gen_t) if gen_t else -1))
+    log('phase145_lookup finished')
